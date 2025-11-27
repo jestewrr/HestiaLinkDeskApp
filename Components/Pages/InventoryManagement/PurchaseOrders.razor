@@ -1,4 +1,174 @@
-@page "/inventory/purchase-orders"
+﻿@page "/inventory/purchase-orders"
+@using HestiaLink.Components.Layout
+@layout MainLayout
 
-<h1>Purchase Orders</h1>
-<p>This is the Purchase Orders page.</p>
+<div class="user-mgmt-root">
+    <header class="booking-history-header" style="margin-bottom: 20px;">
+        <h1>Purchase Orders</h1>
+        <div style="font-weight: 600; color: #004f59;">Restocking & Logistics</div>
+    </header>
+
+    <div class="user-toolbar">
+        <div class="toolbar-left">
+            <div class="toolbar-search">
+                <input type="text" placeholder="Search PO #..." @bind="SearchText" />
+                <span class="search-icon">🔍</span>
+            </div>
+            <select class="filter-select">
+                <option>All Status</option>
+                <option>Pending</option>
+                <option>In Stock</option>
+            </select>
+        </div>
+        <button class="btn-primary" style="max-width: 220px;" @onclick="OpenCreateModal">+ New Purchase Order</button>
+    </div>
+
+    <div class="panel-card">
+        <div class="panel-body user-list-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Purchase ID</th>
+                        <th>Date</th>
+                        <th>Supplier</th>
+                        <th>Expected Delivery</th>
+                        <th>Total Amount</th>
+                        <th>Status</th>
+                        <th>Created By</th>
+                        <th style="text-align:center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var po in FilteredPOs)
+                    {
+                        <tr>
+                            <td style="font-family:monospace; font-weight:700;">@po.Id</td>
+                            <td>@po.Date.ToString("MM/dd/yyyy")</td>
+                            <td style="font-weight:600;">@po.Supplier</td>
+                            <td>@po.ExpectedDelivery.ToString("MM/dd/yyyy")</td>
+                            <td style="font-weight:700;">₱@po.TotalAmount.ToString("N2")</td>
+                            <td>
+                                @if (po.Status == "In Stock")
+                                {
+                                    <span class="status-badge status-confirmed">In Stock</span>
+                                }
+                                else if (po.Status == "Pending")
+                                {
+
+                                    <span class="status-badge status-checked-in">Pending</span>
+                                }
+                                else
+                                {
+
+                                    <span class="status-badge status-cancelled">Cancelled</span>
+                                }
+                            </td>
+                            <td>@po.CreatedBy</td>
+                            <td style="text-align:center;">
+                                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(po)">Edit</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Order" : "New Purchase Order")</h2>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">Purchase ID</label>
+                    <input type="text" class="form-input" @bind="CurrentPO.Id" disabled />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Supplier</label>
+                    <select class="form-select" @bind="CurrentPO.Supplier">
+                        <option>Textile Supply Co</option>
+                        <option>F&B Wholesale</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Created By</label>
+                    <input type="text" class="form-input" @bind="CurrentPO.CreatedBy" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date</label>
+                    <input type="date" class="form-input" @bind="CurrentPO.Date" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Exp. Delivery</label>
+                    <input type="date" class="form-input" @bind="CurrentPO.ExpectedDelivery" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Total Amount (₱)</label>
+                    <input type="number" class="form-input" @bind="CurrentPO.TotalAmount" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" @bind="CurrentPO.Status">
+                        <option>Pending</option>
+                        <option>In Stock</option>
+                        <option>Cancelled</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
+                <button class="btn-primary" @onclick="SavePO">@(IsEditMode ? "Save Changes" : "Create Order")</button>
+                @if (IsEditMode)
+                {
+                    <button class="btn-secondary" style="background:#b91c1c;" @onclick="DeletePO">Delete</button>
+                }
+                <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string SearchText { get; set; } = "";
+    private bool ShowModal = false;
+    private bool IsEditMode = false;
+    private PurchaseOrder CurrentPO = new();
+
+    private List<PurchaseOrder> POs = new()
+    {
+        new() { Id = "192617", Date = new DateOnly(2025, 10, 7), Supplier = "Textile Supply Co", ExpectedDelivery = new DateOnly(2025, 10, 10), TotalAmount = 308.28m, Status = "In Stock", CreatedBy = "Marie" },
+    };
+
+    private List<PurchaseOrder> FilteredPOs => POs
+        .Where(p => string.IsNullOrEmpty(SearchText) || p.Id.Contains(SearchText) || p.Supplier.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private void OpenCreateModal() { CurrentPO = new PurchaseOrder { Id = new Random().Next(100000, 999999).ToString(), Date = DateOnly.FromDateTime(DateTime.Now) }; IsEditMode = false; ShowModal = true; }
+
+    private void OpenEditModal(PurchaseOrder po)
+    {
+        CurrentPO = new PurchaseOrder { Id = po.Id, Date = po.Date, Supplier = po.Supplier, ExpectedDelivery = po.ExpectedDelivery, TotalAmount = po.TotalAmount, Status = po.Status, CreatedBy = po.CreatedBy };
+        IsEditMode = true;
+        ShowModal = true;
+    }
+
+    private void CloseModal() => ShowModal = false;
+    private void SavePO() { if (!IsEditMode) POs.Add(CurrentPO); CloseModal(); }
+    private void DeletePO() { CloseModal(); }
+
+    public class PurchaseOrder
+    {
+        public string Id { get; set; } = "";
+        public DateOnly Date { get; set; }
+        public string Supplier { get; set; } = "";
+        public DateOnly ExpectedDelivery { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = "Pending";
+        public string CreatedBy { get; set; } = "";
+    }
+}

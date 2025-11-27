@@ -1,4 +1,232 @@
-@page "/inventory/stock-management"
+﻿@page "/inventory/stock-management"
+@using HestiaLink.Components.Layout
+@layout MainLayout
 
-<h1>Stock Management</h1>
-<p>This is the Stock Management page.</p>
+<div class="user-mgmt-root">
+
+    <header class="booking-history-header" style="margin-bottom: 20px;">
+        <h1>Stock Management</h1>
+        <div style="font-weight: 600; color: #004f59;">Inventory Control</div>
+    </header>
+
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+        <div class="stat-card">
+            <div class="stat-title">Total Items</div>
+            <div class="stat-value">@InventoryItems.Count</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Low Stock Alerts</div>
+            <div class="stat-value" style="color: #b91c1c;">@InventoryItems.Count(i => i.Quantity < 20)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Categories</div>
+            <div class="stat-value">@InventoryItems.Select(i => i.Category).Distinct().Count()</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Total Value</div>
+            <div class="stat-value">₱@InventoryItems.Sum(i => i.Quantity * i.UnitPrice).ToString("N0")</div>
+        </div>
+    </div>
+
+    <div class="user-toolbar">
+        <div class="toolbar-left">
+            <div class="toolbar-search">
+                <input type="text" placeholder="Search items or suppliers..." @bind="SearchText" />
+                <span class="search-icon">🔍</span>
+            </div>
+            <select class="filter-select" @bind="SelectedCategory">
+                <option value="">All Categories</option>
+                <option value="Linens">Linens</option>
+                <option value="Toiletries">Toiletries</option>
+                <option value="Food & Beverage">Food & Beverage</option>
+            </select>
+        </div>
+        <button class="btn-primary" style="max-width: 180px;" @onclick="OpenCreateModal">+ New Item</button>
+    </div>
+
+    <div class="panel-card">
+        <div class="panel-body user-list-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Category</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Supplier</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th style="text-align:center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in FilteredItems)
+                    {
+                        <tr>
+                            <td style="font-weight: 700; color: #102f33;">@item.Name</td>
+                            <td>@item.Category</td>
+                            <td style="font-weight: 600;">@item.Quantity</td>
+                            <td>₱@item.UnitPrice.ToString("N2")</td>
+                            <td>@item.Supplier</td>
+                            <td>@item.Location</td>
+                            <td>
+                                @if (item.Quantity < 20)
+                                {
+                                    <span class="status-badge status-cancelled">Low Stock</span>
+                                }
+                                else
+                                {
+                                    <span class="status-badge status-confirmed">In Stock</span>
+                                }
+                            </td>
+                            <td style="text-align:center;">
+                                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(item)">Edit</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Item" : "Add New Item")</h2>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">Item Name</label>
+                    <input type="text" class="form-input" @bind="CurrentItem.Name" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" @bind="CurrentItem.Category">
+                        <option>Linens</option>
+                        <option>Toiletries</option>
+                        <option>Food & Beverage</option>
+                        <option>Cleaning Supplies</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Supplier</label>
+                    <input type="text" class="form-input" @bind="CurrentItem.Supplier" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-input" @bind="CurrentItem.Quantity" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Unit Price (₱)</label>
+                    <input type="number" class="form-input" @bind="CurrentItem.UnitPrice" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Storage Location</label>
+                    <select class="form-select" @bind="CurrentItem.Location">
+                        <option>Storage A</option>
+                        <option>Storage B</option>
+                        <option>Pantry</option>
+                        <option>Cold Storage</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
+                <button class="btn-primary" @onclick="SaveItem">@(IsEditMode ? "Update Item" : "Add Item")</button>
+                @if (IsEditMode)
+                {
+                    <button class="btn-secondary" style="background:#b91c1c;" @onclick="DeleteItem">Delete</button>
+                }
+                <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Local style for stat cards to match inventory theme */
+    .stat-card {
+        background-color: #e0f2f1; /* Light Teal Background */
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100px;
+    }
+
+    .stat-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #004f59;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #102f33;
+        align-self: flex-end;
+    }
+</style>
+
+@code {
+    private string SearchText { get; set; } = "";
+    private string SelectedCategory { get; set; } = "";
+    private bool ShowModal = false;
+    private bool IsEditMode = false;
+    private InventoryItem CurrentItem = new();
+
+    private List<InventoryItem> InventoryItems = new()
+    {
+        new() { Id = 1, Name = "Bed Linens (Queen)", Category = "Linens", Quantity = 150, UnitPrice = 500.00m, Supplier = "Textile Supply Co", Location = "Storage A" },
+        new() { Id = 2, Name = "Shampoo Bottles", Category = "Toiletries", Quantity = 15, UnitPrice = 50.00m, Supplier = "Textile Supply Co", Location = "Storage B" },
+        new() { Id = 3, Name = "Mini Bar Snacks", Category = "Food & Beverage", Quantity = 120, UnitPrice = 85.00m, Supplier = "F&B Wholesale", Location = "Pantry" },
+    };
+
+    private List<InventoryItem> FilteredItems => InventoryItems
+        .Where(i => (string.IsNullOrEmpty(SearchText) || i.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) || i.Supplier.Contains(SearchText, StringComparison.OrdinalIgnoreCase)) &&
+                    (string.IsNullOrEmpty(SelectedCategory) || i.Category == SelectedCategory))
+        .ToList();
+
+    private void OpenCreateModal() { CurrentItem = new InventoryItem(); IsEditMode = false; ShowModal = true; }
+
+    private void OpenEditModal(InventoryItem item)
+    {
+        CurrentItem = new InventoryItem { Id = item.Id, Name = item.Name, Category = item.Category, Quantity = item.Quantity, UnitPrice = item.UnitPrice, Supplier = item.Supplier, Location = item.Location };
+        IsEditMode = true;
+        ShowModal = true;
+    }
+
+    private void CloseModal() => ShowModal = false;
+
+    private void SaveItem()
+    {
+        if (!IsEditMode) InventoryItems.Add(CurrentItem);
+        else { /* Update logic normally goes here, referencing ID */ }
+        CloseModal();
+    }
+
+    private void DeleteItem()
+    {
+        // Delete logic
+        CloseModal();
+    }
+
+    public class InventoryItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Category { get; set; } = "";
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public string Supplier { get; set; } = "";
+        public string Location { get; set; } = "";
+    }
+}

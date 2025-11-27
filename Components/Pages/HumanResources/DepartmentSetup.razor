@@ -1,4 +1,179 @@
-@page "/hr/department-setup"
+﻿@page "/hr/department-setup"
+@using HestiaLink.Components.Layout
+@layout MainLayout
 
-<h1>Department Setup</h1>
-<p>This is the Department Setup page.</p>
+<div class="user-mgmt-root">
+
+    <header class="booking-history-header" style="margin-bottom: 0;">
+        <h1>Department Setup</h1>
+        <div style="font-weight: 600; color: #004f59;">HR Administration</div>
+    </header>
+
+    <div class="user-toolbar">
+        <div class="toolbar-left">
+            <div class="toolbar-search">
+                <input type="text" placeholder="Search departments..." @bind="SearchText" />
+                <span class="search-icon">🔍</span>
+            </div>
+            <select class="filter-select" style="padding: 10px 16px; min-width: 150px;">
+                <option>Sort by Name</option>
+                <option>Sort by Emp Count</option>
+            </select>
+        </div>
+        <button class="btn-primary" style="max-width: 220px;" @onclick="OpenCreateModal">+ Add New Department</button>
+    </div>
+
+    <div class="panel-card">
+        <div class="panel-body user-list-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Department Name</th>
+                        <th>Primary Position</th>
+                        <th style="text-align:center;">Employees</th>
+                        <th>Base Salary Range</th>
+                        <th>Job Description</th>
+                        <th style="text-align:center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dept in FilteredDepartments)
+                    {
+                        <tr>
+                            <td>
+                                <div style="font-weight: 700; color: #102f33;">@dept.Name</div>
+                            </td>
+                            <td>@dept.PrimaryPosition</td>
+                            <td style="text-align:center;">
+                                <span class="badge-active" style="font-size:0.9rem;">@dept.EmployeeCount</span>
+                            </td>
+                            <td>@dept.SalaryRange</td>
+                            <td style="color:#64748b; font-size:0.85rem; max-width: 300px;">@dept.Description</td>
+                            <td style="text-align:center;">
+                                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(dept)">Edit</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Department" : "Create New Department")</h2>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <div class="form-group-container">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label class="form-label">Department Name</label>
+                        <input type="text" class="form-input" @bind="CurrentDept.Name" placeholder="e.g. Front Office" />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label class="form-label">Primary Position</label>
+                        <input type="text" class="form-input" @bind="CurrentDept.PrimaryPosition" placeholder="e.g. Receptionist" />
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-input" rows="5" @bind="CurrentDept.Description" placeholder="Describe the department's responsibilities..."></textarea>
+                    </div>
+                </div>
+
+                <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                    <h3 style="margin-top:0; color:#64748b; font-size:0.9rem; text-transform:uppercase;">Department Preview</h3>
+
+                    <div style="margin-top: 20px;">
+                        <div style="font-size: 0.8rem; color:#64748b;">Department Name</div>
+                        <div style="font-size: 1.2rem; font-weight: 800; color: #004f59;">@(string.IsNullOrEmpty(CurrentDept.Name) ? "---" : CurrentDept.Name)</div>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <div style="font-size: 0.8rem; color:#64748b;">Description</div>
+                        <div style="font-size: 0.95rem; color: #334155; line-height: 1.5;">
+                            @(string.IsNullOrEmpty(CurrentDept.Description) ? "No description entered." : CurrentDept.Description)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
+                <button class="btn-primary" @onclick="SaveDepartment">@(IsEditMode ? "Update" : "Add New Department")</button>
+                @if (IsEditMode)
+                {
+                    <button class="btn-secondary" style="background:#b91c1c;" @onclick="DeleteDepartment">Delete</button>
+                }
+                <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string SearchText { get; set; } = "";
+    private bool ShowModal = false;
+    private bool IsEditMode = false;
+    private Department CurrentDept = new();
+
+    private List<Department> Departments = new()
+    {
+        new() { Id = 1, Name = "Front Office", PrimaryPosition = "Telephone Operator", EmployeeCount = 2, SalaryRange = "₱18k - ₱25k", Description = "Answers inquires and connects calls, manages guest check-ins." },
+        new() { Id = 2, Name = "Housekeeping", PrimaryPosition = "Room Attendant", EmployeeCount = 5, SalaryRange = "₱15k - ₱20k", Description = "Ensures cleanliness of guest rooms and public areas." },
+        new() { Id = 3, Name = "Food & Beverage", PrimaryPosition = "Waiter/Waitress", EmployeeCount = 8, SalaryRange = "₱16k - ₱22k", Description = "Manages restaurant and room service operations." },
+    };
+
+    private List<Department> FilteredDepartments => Departments
+        .Where(d => string.IsNullOrEmpty(SearchText) || d.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private void OpenCreateModal()
+    {
+        CurrentDept = new Department();
+        IsEditMode = false;
+        ShowModal = true;
+    }
+
+    private void OpenEditModal(Department dept)
+    {
+        CurrentDept = new Department
+        {
+            Id = dept.Id,
+            Name = dept.Name,
+            PrimaryPosition = dept.PrimaryPosition,
+            EmployeeCount = dept.EmployeeCount,
+            SalaryRange = dept.SalaryRange,
+            Description = dept.Description
+        };
+        IsEditMode = true;
+        ShowModal = true;
+    }
+
+    private void CloseModal() => ShowModal = false;
+
+    private void SaveDepartment()
+    {
+        if (!IsEditMode) Departments.Add(CurrentDept);
+        // In a real app, you'd update the existing item here
+        CloseModal();
+    }
+
+    private void DeleteDepartment()
+    {
+        // Delete logic
+        CloseModal();
+    }
+
+    public class Department
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string PrimaryPosition { get; set; } = "";
+        public int EmployeeCount { get; set; }
+        public string SalaryRange { get; set; } = "";
+        public string Description { get; set; } = "";
+    }
+}

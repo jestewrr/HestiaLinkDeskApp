@@ -1,4 +1,141 @@
-@page "/hr/position-setup"
+﻿@page "/hr/position-setup"
+@using HestiaLink.Components.Layout
+@layout MainLayout
 
-<h1>Position Setup</h1>
-<p>This is the Position Setup page.</p>
+<div class="user-mgmt-root">
+
+    <header class="booking-history-header" style="margin-bottom: 0;">
+        <h1>Position Setup</h1>
+        <div style="font-weight: 600; color: #004f59;">Job Roles & Levels</div>
+    </header>
+
+    <div class="user-toolbar">
+        <div class="toolbar-left">
+            <div class="toolbar-search">
+                <input type="text" placeholder="Search positions..." @bind="SearchText" />
+                <span class="search-icon">🔍</span>
+            </div>
+            <select class="filter-select">
+                <option>All Departments</option>
+                <option>Front Office</option>
+                <option>Housekeeping</option>
+            </select>
+        </div>
+        <button class="btn-primary" @onclick="OpenModal">+ Create New Position</button>
+    </div>
+
+    <div class="panel-card">
+        <div class="panel-body user-list-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Position Title</th>
+                        <th>Department</th>
+                        <th>Level</th>
+                        <th>Min Salary</th>
+                        <th>Max Salary</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pos in FilteredPositions)
+                    {
+                        <tr>
+                            <td style="font-weight: 700;">@pos.Title</td>
+                            <td>@pos.Department</td>
+                            <td>@pos.Level</td>
+                            <td>@pos.MinSalary.ToString("N2")</td>
+                            <td>@pos.MaxSalary.ToString("N2")</td>
+                            <td><span class="badge-active">Active</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">Create New Position</h2>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <select class="form-select" @bind="CurrentPos.Department">
+                        <option>Front Office</option>
+                        <option>Housekeeping</option>
+                        <option>F&B</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Position Title</label>
+                    <input type="text" class="form-input" @bind="CurrentPos.Title" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Position Level</label>
+                    <input type="text" class="form-input" @bind="CurrentPos.Level" placeholder="e.g. Entry Level, Senior, Manager" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Min Salary (₱)</label>
+                    <input type="number" class="form-input" @bind="CurrentPos.MinSalary" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Max Salary (₱)</label>
+                    <input type="number" class="form-input" @bind="CurrentPos.MaxSalary" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Job Description</label>
+                    <textarea class="form-input" rows="4" placeholder="Enter roles and responsibilities..."></textarea>
+                </div>
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
+                <button class="btn-primary" @onclick="SavePosition">Create Position</button>
+                <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string SearchText = "";
+    private bool ShowModal = false;
+    private Position CurrentPos = new();
+
+    private List<Position> Positions = new()
+    {
+        new() { Title = "Telephone Operator", Department = "Front Office", Level = "Entry Level", MinSalary = 15000, MaxSalary = 18000 },
+        new() { Title = "Front Desk Manager", Department = "Front Office", Level = "Manager", MinSalary = 30000, MaxSalary = 45000 },
+        new() { Title = "Room Attendant", Department = "Housekeeping", Level = "Entry Level", MinSalary = 14000, MaxSalary = 16000 },
+    };
+
+    private List<Position> FilteredPositions => Positions
+        .Where(p => string.IsNullOrEmpty(SearchText) || p.Title.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private void OpenModal() { CurrentPos = new Position(); ShowModal = true; }
+    private void CloseModal() => ShowModal = false;
+
+    private void SavePosition()
+    {
+        Positions.Add(CurrentPos);
+        CloseModal();
+    }
+
+    public class Position
+    {
+        public string Title { get; set; } = "";
+        public string Department { get; set; } = "";
+        public string Level { get; set; } = "";
+        public decimal MinSalary { get; set; }
+        public decimal MaxSalary { get; set; }
+    }
+}

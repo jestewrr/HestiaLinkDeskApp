@@ -1,4 +1,167 @@
-@page "/hr/employee-management"
+﻿@page "/hr/employee-management"
+@using HestiaLink.Components.Layout
+@layout MainLayout
 
-<h1>Employee Management</h1>
-<p>This is the Employee Management page.</p>
+<div class="user-mgmt-root">
+
+    <header class="booking-history-header" style="margin-bottom: 0;">
+        <h1>Employee Management</h1>
+        <div style="font-weight: 600; color: #004f59;">Staff Directory</div>
+    </header>
+
+    <div class="user-toolbar">
+        <div class="toolbar-left">
+            <div class="toolbar-search">
+                <input type="text" placeholder="Search by name or ID..." @bind="SearchText" />
+                <span class="search-icon">🔍</span>
+            </div>
+            <select class="filter-select">
+                <option>Active Employees</option>
+                <option>On Leave</option>
+                <option>Terminated</option>
+            </select>
+        </div>
+        <button class="btn-primary" @onclick="OpenModal">+ Create New Employee</button>
+    </div>
+
+    <div class="panel-card">
+        <div class="panel-body user-list-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Full Name</th>
+                        <th>Department</th>
+                        <th>Position</th>
+                        <th>Contact</th>
+                        <th>Hourly Rate</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var emp in FilteredEmployees)
+                    {
+                        <tr>
+                            <td style="font-family:monospace; font-weight:700;">@emp.Id</td>
+                            <td style="font-weight:600;">@emp.FirstName @emp.LastName</td>
+                            <td>@emp.Department</td>
+                            <td>@emp.Position</td>
+                            <td>@emp.Email</td>
+                            <td style="color:#004f59; font-weight:700;">₱@emp.HourlyRate.ToString("N2")</td>
+                            <td><span class="badge-active">Active</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">Create New Employee</h2>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">Employee ID *</label>
+                    <input type="text" class="form-input" @bind="CurrentEmp.Id" placeholder="e.g. 2025-001" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">First Name *</label>
+                    <input type="text" class="form-input" @bind="CurrentEmp.FirstName" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Last Name *</label>
+                    <input type="text" class="form-input" @bind="CurrentEmp.LastName" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Middle Name</label>
+                    <input type="text" class="form-input" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Position</label>
+                    <select class="form-select" @bind="CurrentEmp.Position">
+                        <option>Telephone Operator</option>
+                        <option>Room Attendant</option>
+                        <option>Front Desk Manager</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <select class="form-select" @bind="CurrentEmp.Department">
+                        <option>Front Office</option>
+                        <option>Housekeeping</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" @bind="CurrentEmp.Email" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <input type="text" class="form-input" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Hourly Rate (₱)</label>
+                    <input type="number" class="form-input" @bind="CurrentEmp.HourlyRate" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" class="form-input" />
+                </div>
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
+                <button class="btn-primary" @onclick="SaveEmployee">Create Employee</button>
+                <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string SearchText = "";
+    private bool ShowModal = false;
+    private Employee CurrentEmp = new();
+
+    private List<Employee> Employees = new()
+    {
+        new() { Id = "191231", FirstName = "John", LastName = "Doe", Department = "Front Office", Position = "Telephone Operator", Email = "john@hestia.com", HourlyRate = 50.00m },
+        new() { Id = "191234", FirstName = "Jane", LastName = "Smith", Department = "Housekeeping", Position = "Room Attendant", Email = "jane@hestia.com", HourlyRate = 45.00m },
+    };
+
+    private List<Employee> FilteredEmployees => Employees
+        .Where(e => string.IsNullOrEmpty(SearchText) ||
+                    e.FirstName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    e.LastName.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private void OpenModal() { CurrentEmp = new Employee(); ShowModal = true; }
+    private void CloseModal() => ShowModal = false;
+
+    private void SaveEmployee()
+    {
+        Employees.Add(CurrentEmp);
+        CloseModal();
+    }
+
+    public class Employee
+    {
+        public string Id { get; set; } = "";
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Department { get; set; } = "";
+        public string Position { get; set; } = "";
+        public string Email { get; set; } = "";
+        public decimal HourlyRate { get; set; }
+    }
+}

@@ -1,4 +1,146 @@
-@page "/inventory/suppliers"
+﻿@page "/inventory/suppliers"
+@using HestiaLink.Components.Layout
+@layout MainLayout
 
-<h1>Suppliers</h1>
-<p>This is the Suppliers page.</p>
+<div class="user-mgmt-root">
+    <header class="booking-history-header" style="margin-bottom: 20px;">
+        <h1>Suppliers</h1>
+        <div style="font-weight: 600; color: #004f59;">Vendor Directory</div>
+    </header>
+
+    <div class="user-toolbar">
+        <div class="toolbar-left">
+            <div class="toolbar-search">
+                <input type="text" placeholder="Search suppliers..." @bind="SearchText" />
+                <span class="search-icon">🔍</span>
+            </div>
+            <select class="filter-select">
+                <option>Sort by Name</option>
+                <option>Sort by Spend</option>
+            </select>
+        </div>
+        <button class="btn-primary" style="max-width: 180px;" @onclick="OpenCreateModal">+ New Supplier</button>
+    </div>
+
+    <div class="panel-card">
+        <div class="panel-body user-list-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Supplier ID</th>
+                        <th>Supplier Name</th>
+                        <th>Category</th>
+                        <th>Total Items</th>
+                        <th>Total Spend (YTD)</th>
+                        <th>Location</th>
+                        <th style="text-align:center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var supplier in FilteredSuppliers)
+                    {
+                        <tr>
+                            <td style="font-family:monospace; font-weight:700;">@supplier.Id</td>
+                            <td style="font-weight: 700; color: #102f33;">@supplier.Name</td>
+                            <td><span class="badge-inactive">@supplier.Category</span></td>
+                            <td style="font-weight:600;">@supplier.TotalItems</td>
+                            <td style="color:#004f59; font-weight:700;">₱@supplier.TotalSpend.ToString("N2")</td>
+                            <td>@supplier.Location</td>
+                            <td style="text-align:center;">
+                                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(supplier)">Edit</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Supplier" : "New Supplier")</h2>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">Supplier Name</label>
+                    <input type="text" class="form-input" @bind="CurrentSupplier.Name" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" @bind="CurrentSupplier.Category">
+                        <option>Linens</option>
+                        <option>Toiletries</option>
+                        <option>F&B</option>
+                        <option>Maintenance</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Location (City)</label>
+                    <input type="text" class="form-input" @bind="CurrentSupplier.Location" />
+                </div>
+                <div class="form-group full-width">
+                    <label class="form-label">Contact Details</label>
+                    <input type="text" class="form-input" placeholder="Email or Phone Number" />
+                </div>
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
+                <button class="btn-primary" @onclick="SaveSupplier">@(IsEditMode ? "Update" : "Add Supplier")</button>
+                @if (IsEditMode)
+                {
+                    <button class="btn-secondary" style="background:#b91c1c;" @onclick="DeleteSupplier">Delete</button>
+                }
+                <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string SearchText { get; set; } = "";
+    private bool ShowModal = false;
+    private bool IsEditMode = false;
+    private Supplier CurrentSupplier = new();
+
+    // ERROR FIX: Renamed list from 'Suppliers' to 'SupplierList' to avoid class name conflict
+    private List<Supplier> SupplierList = new()
+    {
+        new() { Id = "SUP-001", Name = "Textile Supply Co", Category = "Linens", TotalItems = 41, TotalSpend = 54000.00m, Location = "Manila" },
+        new() { Id = "SUP-002", Name = "F&B Wholesale", Category = "F&B", TotalItems = 120, TotalSpend = 308.28m, Location = "Davao" },
+    };
+
+    private List<Supplier> FilteredSuppliers => SupplierList
+        .Where(s => string.IsNullOrEmpty(SearchText) || s.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private void OpenCreateModal() { CurrentSupplier = new Supplier(); IsEditMode = false; ShowModal = true; }
+
+    private void OpenEditModal(Supplier s)
+    {
+        CurrentSupplier = new Supplier { Id = s.Id, Name = s.Name, Category = s.Category, TotalItems = s.TotalItems, TotalSpend = s.TotalSpend, Location = s.Location };
+        IsEditMode = true;
+        ShowModal = true;
+    }
+
+    private void CloseModal() => ShowModal = false;
+
+    // ERROR FIX: Updated reference to SupplierList
+    private void SaveSupplier() { if (!IsEditMode) SupplierList.Add(CurrentSupplier); CloseModal(); }
+
+    private void DeleteSupplier() { CloseModal(); }
+
+    public class Supplier
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Category { get; set; } = "";
+        public int TotalItems { get; set; }
+        public decimal TotalSpend { get; set; }
+        public string Location { get; set; } = "";
+    }
+}

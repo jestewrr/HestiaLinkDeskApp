@@ -1,9 +1,153 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@using HestiaLink.Components.Pages
+
 <link rel="stylesheet" href="app.css" />
-@Body
+
+<div class="dashboard-root">
+    <aside class="dashboard-sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo-circle">
+                <img src="/images/hestialogo.png" alt="HestiaLink Logo" />
+            </div>
+            <div>
+                <div class="sidebar-app-name">HestiaLink</div>
+                <div class="sidebar-role">Administrator</div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="sidebar-nav-item @(GetActiveClass("/dashboard"))" @onclick='() => NavigateTo("/dashboard")'>
+                <span class="sidebar-nav-icon">🏠</span>
+                <span>Dashboard</span>
+            </button>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "reservations" ? "open" : "")" @onclick='() => ToggleSection("reservations")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">📅</span>
+                        <span>Reservation &amp; Booking</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "reservations") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "reservations" ? "open" : "")">
+                    <button class="sidebar-subnav-item @(GetActiveClass("/reservations/booking-history"))" @onclick='() => NavigateTo("/reservations/booking-history")'>Booking History</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/reservations/check-in-check-out"))" @onclick='() => NavigateTo("/reservations/check-in-check-out")'>Check In / Check Out</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "housekeeping" ? "open" : "")" @onclick='() => ToggleSection("housekeeping")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">🧹</span>
+                        <span>Housekeeping</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "housekeeping") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "housekeeping" ? "open" : "")">
+                    <button class="sidebar-subnav-item @(GetActiveClass("/housekeeping/room-status"))" @onclick='() => NavigateTo("/housekeeping/room-status")'>Room Status</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/housekeeping/cleaning-schedule"))" @onclick='() => NavigateTo("/housekeeping/cleaning-schedule")'>Cleaning Schedule</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/housekeeping/maintenance-requests"))" @onclick='() => NavigateTo("/housekeeping/maintenance-requests")'>Maintenance Requests</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/housekeeping/inventory-check"))" @onclick='() => NavigateTo("/housekeeping/inventory-check")'>Inventory Check</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/housekeeping/staff-management"))" @onclick='() => NavigateTo("/housekeeping/staff-management")'>Staff Management</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "inventory" ? "open" : "")" @onclick='() => ToggleSection("inventory")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">📦</span>
+                        <span>Inventory</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "inventory") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "inventory" ? "open" : "")">
+                    <button class="sidebar-subnav-item @(GetActiveClass("/inventory/stock-management"))" @onclick='() => NavigateTo("/inventory/stock-management")'>Stock Management</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/inventory/suppliers"))" @onclick='() => NavigateTo("/inventory/suppliers")'>Suppliers</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/inventory/purchase-orders"))" @onclick='() => NavigateTo("/inventory/purchase-orders")'>Purchase Orders</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/inventory/reports"))" @onclick='() => NavigateTo("/inventory/reports")'>Inventory Reports</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/inventory/service-categories"))" @onclick='() => NavigateTo("/inventory/service-categories")'>Service Categories</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "finance" ? "open" : "")" @onclick='() => ToggleSection("finance")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">💵</span>
+                        <span>Finance</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "finance") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "finance" ? "open" : "")">
+                    <button class="sidebar-subnav-item @(GetActiveClass("/finance/billing-invoices"))" @onclick='() => NavigateTo("/finance/billing-invoices")'>Billing Invoices</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/finance/expense-tracking"))" @onclick='() => NavigateTo("/finance/expense-tracking")'>Expense Tracking</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/finance/financial-reports"))" @onclick='() => NavigateTo("/finance/financial-reports")'>Financial Reports</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/finance/tax-management"))" @onclick='() => NavigateTo("/finance/tax-management")'>Tax Management</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/finance/payment-processing"))" @onclick='() => NavigateTo("/finance/payment-processing")'>Payment Processing</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "hr" ? "open" : "")" @onclick='() => ToggleSection("hr")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">👥</span>
+                        <span>HR &amp; Payroll</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "hr") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "hr" ? "open" : "")">
+                    <button class="sidebar-subnav-item @(GetActiveClass("/hr/employee-management"))" @onclick='() => NavigateTo("/hr/employee-management")'>Employee Management</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/hr/department-setup"))" @onclick='() => NavigateTo("/hr/department-setup")'>Department Setup</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/hr/position-setup"))" @onclick='() => NavigateTo("/hr/position-setup")'>Position Setup</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/hr/user-accounts"))" @onclick='() => NavigateTo("/hr/user-accounts")'>User Accounts</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/hr/attendance"))" @onclick='() => NavigateTo("/hr/attendance")'>Attendance</button>
+                    <button class="sidebar-subnav-item @(GetActiveClass("/hr/payroll-processing"))" @onclick='() => NavigateTo("/hr/payroll-processing")'>Payroll Processing</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "settings" ? "open" : "")" @onclick='() => ToggleSection("settings")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">⚙️</span>
+                        <span>System Settings</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "settings") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "settings" ? "open" : "")">
+                    <button class="sidebar-subnav-item @(GetActiveClass("/settings/user-management"))" @onclick='() => NavigateTo("/settings/user-management")'>User Management</button>
+                </div>
+            </div>
+        </nav>
+
+        <button class="sidebar-logout" @onclick='() => Navigation.NavigateTo("/login")'>Logout</button>
+    </aside>
+
+    <main class="dashboard-main">
+        @Body
+    </main>
+</div>
 
 <div id="blazor-error-ui">
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private string? ExpandedSection = "reservations";
+
+    private void ToggleSection(string key)
+    {
+        ExpandedSection = ExpandedSection == key ? null : key;
+    }
+
+    private void NavigateTo(string uri)
+    {
+        Navigation.NavigateTo(uri);
+    }
+
+    private string GetActiveClass(string uri)
+    {
+        return Navigation.Uri.Contains(uri, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    }
+}

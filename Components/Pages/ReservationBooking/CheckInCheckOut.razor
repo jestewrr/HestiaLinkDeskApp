@@ -1,4 +1,169 @@
-@page "/reservations/check-in-check-out"
+﻿@page "/reservations/check-in-check-out"
+@using HestiaLink.Components.Layout
+@layout MainLayout
 
-<h1>Check In / Check Out</h1>
-<p>This is the Check In / Check Out page.</p>
+<div class="checkin-root">
+
+    <header class="booking-history-header" style="margin-bottom: 0;">
+        <h1>Check In / Check Out</h1>
+        <div style="font-weight: 600; color: #004f59;">
+            @DateTime.Now.ToString("dddd, MMM dd, yyyy")
+        </div>
+    </header>
+
+    <div class="checkin-layout">
+
+        <div class="panel-card">
+            <div class="panel-header">
+                <span>Guest Information</span>
+                <span>👤 New Guest</span>
+            </div>
+            <div class="panel-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-input" placeholder="Enter first name" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-input" placeholder="Enter last name" />
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" class="form-input" placeholder="guest@email.com" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Contact Number</label>
+                        <input type="text" class="form-input" placeholder="+63 900 000 0000" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Date of Birth</label>
+                        <input type="date" class="form-input" />
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-input" placeholder="Full address" />
+                    </div>
+
+                    <div class="form-group full-width">
+                        <div style="height: 1px; background: #e2e8f0; margin: 10px 0;"></div>
+                        <label class="form-label">Select Available Room</label>
+                        <select class="form-select">
+                            <option>Select a room...</option>
+                            <option>101 - Standard (Clean)</option>
+                            <option>102 - Deluxe (Clean)</option>
+                            <option>205 - Suite (Clean)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Check In Date</label>
+                        <input type="date" class="form-input" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Check Out Date</label>
+                        <input type="date" class="form-input" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-footer">
+                <button class="btn-primary">Check - IN</button>
+                <button class="btn-secondary" @onclick="OpenCheckOutModal">Check - OUT</button>
+            </div>
+        </div>
+
+        <div class="panel-card">
+            <div class="panel-header">
+                <span>Room List</span>
+                <button style="background:transparent; border:1px solid white; color:white; border-radius:6px; padding:4px 10px; font-size:0.8rem;">History</button>
+            </div>
+            <div class="panel-body">
+                <div class="room-list-grid">
+                    @for (int i = 101; i <= 112; i++)
+                    {
+                        var status = (i % 3 == 0) ? "Occupied" : "Available";
+                        var statusClass = (i % 3 == 0) ? "status-occupied" : "status-available";
+
+                        <div class="room-card-item">
+                            <span class="room-number">@i</span>
+                            <span class="room-status @statusClass">@status</span>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="action-footer" style="justify-content: center;">
+                <button class="btn-secondary" style="background-color: #64748b;">Refresh List</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (ShowCheckOutModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Billing & Payment</h2>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Select Occupied Room to Check-Out:</label>
+                <select class="form-select">
+                    <option>103 - John Doe (Occupied)</option>
+                    <option>106 - Jane Smith (Occupied)</option>
+                </select>
+            </div>
+
+            <div class="bill-summary">
+                <div class="bill-row">
+                    <span>Room Charges:</span>
+                    <span>₱ 2,000.00</span>
+                </div>
+                <div class="bill-row">
+                    <span>Additional Services:</span>
+                    <span>₱ 500.00</span>
+                </div>
+                <div class="bill-row">
+                    <span>Tax (12%):</span>
+                    <span>₱ 300.00</span>
+                </div>
+                <div class="bill-row" style="color:#004f59; font-weight:700;">
+                    <span>Amount Already Paid:</span>
+                    <span>- ₱ 1,000.00</span>
+                </div>
+                <div class="bill-row total">
+                    <span>REMAINING BALANCE:</span>
+                    <span>₱ 1,800.00</span>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">Payment Received:</label>
+                <input type="number" class="form-input" style="font-size: 1.2rem; font-weight:bold;" placeholder="₱ 0.00" />
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" @onclick="CloseModal">Process Check Out</button>
+                <button class="btn-secondary" style="background:#b91c1c;" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool ShowCheckOutModal = false;
+
+    private void OpenCheckOutModal()
+    {
+        ShowCheckOutModal = true;
+    }
+
+    private void CloseModal()
+    {
+        ShowCheckOutModal = false;
+    }
+}
