@@ -1,0 +1,172 @@
+@page "/dashboard"
+@inject Microsoft.AspNetCore.Components.NavigationManager Navigation
+
+<div class="dashboard-root">
+    <aside class="dashboard-sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo-circle">
+                <img src="/images/hestialogo.png" alt="HestiaLink Logo" />
+            </div>
+            <div>
+                <div class="sidebar-app-name">HestiaLink</div>
+                <div class="sidebar-role">Administrator</div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="sidebar-nav-item @(Navigation.Uri.Contains("/dashboard") && !Navigation.Uri.Contains("/reservations/") && !Navigation.Uri.Contains("/housekeeping/") && !Navigation.Uri.Contains("/inventory/") && !Navigation.Uri.Contains("/finance/") && !Navigation.Uri.Contains("/hr/") && !Navigation.Uri.Contains("/settings/") ? "active" : "")" @onclick='() => NavigateTo("/dashboard")'>
+                <span class="sidebar-nav-icon">🏠</span>
+                <span>Dashboard</span>
+            </button>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "reservations" ? "open" : string.Empty)" @onclick='() => ToggleSection("reservations")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">📅</span>
+                        <span>Reservation &amp; Booking</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "reservations") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "reservations" ? "open" : string.Empty)">
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/reservations/booking-history") ? "active" : "")" @onclick='() => NavigateTo("/reservations/booking-history")'>Booking History</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/reservations/check-in-check-out") ? "active" : "")" @onclick='() => NavigateTo("/reservations/check-in-check-out")'>Check In / Check Out</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "housekeeping" ? "open" : string.Empty)" @onclick='() => ToggleSection("housekeeping")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">🧹</span>
+                        <span>Housekeeping &amp; Maintenance</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "housekeeping") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "housekeeping" ? "open" : string.Empty)">
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/housekeeping/room-status") ? "active" : "")" @onclick='() => NavigateTo("/housekeeping/room-status")'>Room Status</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/housekeeping/cleaning-schedule") ? "active" : "")" @onclick='() => NavigateTo("/housekeeping/cleaning-schedule")'>Cleaning Schedule</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/housekeeping/maintenance-requests") ? "active" : "")" @onclick='() => NavigateTo("/housekeeping/maintenance-requests")'>Maintenance Requests</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/housekeeping/inventory-check") ? "active" : "")" @onclick='() => NavigateTo("/housekeeping/inventory-check")'>Inventory Check</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/housekeeping/staff-management") ? "active" : "")" @onclick='() => NavigateTo("/housekeeping/staff-management")'>Staff Management</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "inventory" ? "open" : string.Empty)" @onclick='() => ToggleSection("inventory")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">📦</span>
+                        <span>Inventory Management</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "inventory") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "inventory" ? "open" : string.Empty)">
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/inventory/stock-management") ? "active" : "")" @onclick='() => NavigateTo("/inventory/stock-management")'>Stock Management</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/inventory/suppliers") ? "active" : "")" @onclick='() => NavigateTo("/inventory/suppliers")'>Suppliers</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/inventory/purchase-orders") ? "active" : "")" @onclick='() => NavigateTo("/inventory/purchase-orders")'>Purchase Orders</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/inventory/reports") ? "active" : "")" @onclick='() => NavigateTo("/inventory/reports")'>Inventory Reports</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/inventory/service-categories") ? "active" : "")" @onclick='() => NavigateTo("/inventory/service-categories")'>Service Categories</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "finance" ? "open" : string.Empty)" @onclick='() => ToggleSection("finance")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">💵</span>
+                        <span>Finance &amp; Billing</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "finance") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "finance" ? "open" : string.Empty)">
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/finance/billing-invoices") ? "active" : "")" @onclick='() => NavigateTo("/finance/billing-invoices")'>Billing Invoices</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/finance/expense-tracking") ? "active" : "")" @onclick='() => NavigateTo("/finance/expense-tracking")'>Expense Tracking</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/finance/financial-reports") ? "active" : "")" @onclick='() => NavigateTo("/finance/financial-reports")'>Financial Reports</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/finance/tax-management") ? "active" : "")" @onclick='() => NavigateTo("/finance/tax-management")'>Tax Management</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/finance/payment-processing") ? "active" : "")" @onclick='() => NavigateTo("/finance/payment-processing")'>Payment Processing</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "hr" ? "open" : string.Empty)" @onclick='() => ToggleSection("hr")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">👥</span>
+                        <span>HR &amp; Payroll</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "hr") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "hr" ? "open" : string.Empty)">
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/hr/employee-management") ? "active" : "")" @onclick='() => NavigateTo("/hr/employee-management")'>Employee Management</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/hr/department-setup") ? "active" : "")" @onclick='() => NavigateTo("/hr/department-setup")'>Department Setup</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/hr/position-setup") ? "active" : "")" @onclick='() => NavigateTo("/hr/position-setup")'>Position Setup</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/hr/user-accounts") ? "active" : "")" @onclick='() => NavigateTo("/hr/user-accounts")'>User Accounts</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/hr/attendance") ? "active" : "")" @onclick='() => NavigateTo("/hr/attendance")'>Attendance</button>
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/hr/payroll-processing") ? "active" : "")" @onclick='() => NavigateTo("/hr/payroll-processing")'>Payroll Processing</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header @(ExpandedSection == "settings" ? "open" : string.Empty)" @onclick='() => ToggleSection("settings")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">⚙️</span>
+                        <span>System Settings</span>
+                    </div>
+                    <span class="sidebar-section-chevron">@((ExpandedSection == "settings") ? "▾" : "▸")</span>
+                </button>
+                <div class="sidebar-submenu @(ExpandedSection == "settings" ? "open" : string.Empty)">
+                    <button class="sidebar-subnav-item @(Navigation.Uri.Contains("/settings/user-management") ? "active" : "")" @onclick='() => NavigateTo("/settings/user-management")'>User Management</button>
+                </div>
+            </div>
+        </nav>
+
+        <button class="sidebar-logout">Logout</button>
+    </aside>
+
+    <main class="dashboard-main" style="@(IsSubPage ? "display: none;" : "")">
+        @if (!IsSubPage)
+        {
+            <header class="dashboard-topbar">
+                <h1>Dashboard</h1>
+                <span class="dashboard-date">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</span>
+            </header>
+
+            <section class="dashboard-content">
+                <div class="dashboard-row-4">
+                    <div class="dashboard-card">Total Active Guests</div>
+                    <div class="dashboard-card">Available Rooms</div>
+                    <div class="dashboard-card">Pending Reservations</div>
+                    <div class="dashboard-card">Total Employees</div>
+                </div>
+
+                <div class="dashboard-row-2">
+                    <div class="dashboard-card">Recent Reservations Table</div>
+                    <div class="dashboard-card">Revenue Breakdown</div>
+                </div>
+
+                <div class="dashboard-row-2">
+                    <div class="dashboard-card">Pending Housekeeping Tasks</div>
+                    <div class="dashboard-card">Low-Stock Inventory Items</div>
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    private string? ExpandedSection = "reservations";
+
+    private bool IsSubPage =>
+        Navigation.Uri.Contains("/reservations/") ||
+        Navigation.Uri.Contains("/housekeeping/") ||
+        Navigation.Uri.Contains("/inventory/") ||
+        Navigation.Uri.Contains("/finance/") ||
+        Navigation.Uri.Contains("/hr/") ||
+        Navigation.Uri.Contains("/settings/");
+
+    private void ToggleSection(string key)
+    {
+        ExpandedSection = ExpandedSection == key ? null : key;
+    }
+
+    private void NavigateTo(string uri)
+    {
+        Navigation.NavigateTo(uri);
+    }
+}

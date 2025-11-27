@@ -1,0 +1,244 @@
+@page "/reservations/booking-history"
+@inject Microsoft.AspNetCore.Components.NavigationManager Navigation
+
+<div class="dashboard-root">
+    <aside class="dashboard-sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo-circle">
+                <img src="/images/hestialogo.png" alt="HestiaLink Logo" />
+            </div>
+            <div>
+                <div class="sidebar-app-name">HestiaLink</div>
+                <div class="sidebar-role">Administrator</div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="sidebar-nav-item" @onclick='() => NavigateTo("/dashboard")'>
+                <span class="sidebar-nav-icon">🏠</span>
+                <span>Dashboard</span>
+            </button>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header open" @onclick='() => ToggleSection("reservations")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">📅</span>
+                        <span>Reservation &amp; Booking</span>
+                    </div>
+                    <span class="sidebar-section-chevron">▾</span>
+                </button>
+                <div class="sidebar-submenu open">
+                    <button class="sidebar-subnav-item active" @onclick='() => NavigateTo("/reservations/booking-history")'>Booking History</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/reservations/check-in-check-out")'>Check In / Check Out</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header" @onclick='() => ToggleSection("housekeeping")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">🧹</span>
+                        <span>Housekeeping &amp; Maintenance</span>
+                    </div>
+                    <span class="sidebar-section-chevron">▸</span>
+                </button>
+                <div class="sidebar-submenu">
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/housekeeping/room-status")'>Room Status</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/housekeeping/cleaning-schedule")'>Cleaning Schedule</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/housekeeping/maintenance-requests")'>Maintenance Requests</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/housekeeping/inventory-check")'>Inventory Check</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/housekeeping/staff-management")'>Staff Management</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header" @onclick='() => ToggleSection("inventory")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">📦</span>
+                        <span>Inventory Management</span>
+                    </div>
+                    <span class="sidebar-section-chevron">▸</span>
+                </button>
+                <div class="sidebar-submenu">
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/inventory/stock-management")'>Stock Management</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/inventory/suppliers")'>Suppliers</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/inventory/purchase-orders")'>Purchase Orders</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/inventory/reports")'>Inventory Reports</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/inventory/service-categories")'>Service Categories</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header" @onclick='() => ToggleSection("finance")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">💵</span>
+                        <span>Finance &amp; Billing</span>
+                    </div>
+                    <span class="sidebar-section-chevron">▸</span>
+                </button>
+                <div class="sidebar-submenu">
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/finance/billing-invoices")'>Billing Invoices</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/finance/expense-tracking")'>Expense Tracking</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/finance/financial-reports")'>Financial Reports</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/finance/tax-management")'>Tax Management</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/finance/payment-processing")'>Payment Processing</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header" @onclick='() => ToggleSection("hr")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">👥</span>
+                        <span>HR &amp; Payroll</span>
+                    </div>
+                    <span class="sidebar-section-chevron">▸</span>
+                </button>
+                <div class="sidebar-submenu">
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/hr/employee-management")'>Employee Management</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/hr/department-setup")'>Department Setup</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/hr/position-setup")'>Position Setup</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/hr/user-accounts")'>User Accounts</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/hr/attendance")'>Attendance</button>
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/hr/payroll-processing")'>Payroll Processing</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="sidebar-section-header" @onclick='() => ToggleSection("settings")'>
+                    <div class="sidebar-nav-label">
+                        <span class="sidebar-nav-icon">⚙️</span>
+                        <span>System Settings</span>
+                    </div>
+                    <span class="sidebar-section-chevron">▸</span>
+                </button>
+                <div class="sidebar-submenu">
+                    <button class="sidebar-subnav-item" @onclick='() => NavigateTo("/settings/user-management")'>User Management</button>
+                </div>
+            </div>
+        </nav>
+
+        <button class="sidebar-logout">Logout</button>
+    </aside>
+
+    <main class="dashboard-main">
+        <header class="dashboard-topbar">
+            <h1>Booking History</h1>
+            <span class="dashboard-date">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</span>
+        </header>
+
+        <section class="dashboard-content">
+            <div class="booking-history-root">
+                <header class="booking-history-header">
+                    <h1>Booking History</h1>
+                    <div class="booking-history-actions">
+                        <div class="search-box">
+                            <input type="text" placeholder="Search by guest name or booking ID..." @bind="SearchText" />
+                            <span class="search-icon">🔍</span>
+                        </div>
+                        <select class="filter-select" @bind="SelectedStatus">
+                            <option value="">All Status</option>
+                            <option value="Confirmed">Confirmed</option>
+                            <option value="Checked-In">Checked-In</option>
+                            <option value="Checked-Out">Checked-Out</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                </header>
+
+                <main class="booking-history-main">
+                    <div class="booking-table-wrapper">
+                        <table class="booking-table">
+                            <thead>
+                                <tr>
+                                    <th>Booking ID</th>
+                                    <th>Guest Name</th>
+                                    <th>Room</th>
+                                    <th>Check‑In</th>
+                                    <th>Check‑Out</th>
+                                    <th>Status</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var booking in FilteredBookings)
+                                {
+                                    <tr>
+                                        <td class="booking-id">@booking.Id</td>
+                                        <td>@booking.GuestName</td>
+                                        <td>@booking.Room</td>
+                                        <td>@booking.CheckIn.ToString("MMM dd, yyyy")</td>
+                                        <td>@booking.CheckOut.ToString("MMM dd, yyyy")</td>
+                                        <td><span class="status-badge @booking.StatusClass">@booking.Status</span></td>
+                                        <td class="amount">@booking.Total.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination">
+                        <button class="pagination-btn" disabled="@(CurrentPage == 1)" @onclick="() => ChangePage(-1)">Previous</button>
+                        <span class="pagination-info">Page @CurrentPage of @TotalPages</span>
+                        <button class="pagination-btn" disabled="@(CurrentPage == TotalPages)" @onclick="() => ChangePage(1)">Next</button>
+                    </div>
+                </main>
+            </div>
+        </section>
+    </main>
+</div>
+
+@code {
+    private string SearchText { get; set; } = "";
+    private string SelectedStatus { get; set; } = "";
+    private int CurrentPage = 1;
+    private const int PageSize = 10;
+
+    private List<Booking> AllBookings = new()
+    {
+        new() { Id = "BK001", GuestName = "Alice Chen", Room = "101", CheckIn = new DateOnly(2025, 1, 5), CheckOut = new DateOnly(2025, 1, 7), Status = "Confirmed", Total = 350.00m },
+        new() { Id = "BK002", GuestName = "Ben Carter", Room = "203", CheckIn = new DateOnly(2025, 1, 6), CheckOut = new DateOnly(2025, 1, 10), Status = "Checked-In", Total = 820.00m },
+        new() { Id = "BK003", GuestName = "Clara Wu", Room = "305", CheckIn = new DateOnly(2025, 1, 4), CheckOut = new DateOnly(2025, 1, 6), Status = "Checked-Out", Total = 540.00m },
+        new() { Id = "BK004", GuestName = "David Lee", Room = "112", CheckIn = new DateOnly(2025, 1, 9), CheckOut = new DateOnly(2025, 1, 12), Status = "Cancelled", Total = 600.00m },
+        new() { Id = "BK005", GuestName = "Eve Martinez", Room = "210", CheckIn = new DateOnly(2025, 1, 11), CheckOut = new DateOnly(2025, 1, 14), Status = "Confirmed", Total = 720.00m },
+        new() { Id = "BK006", GuestName = "Frank O’Neil", Room = "401", CheckIn = new DateOnly(2025, 1, 12), CheckOut = new DateOnly(2025, 1, 15), Status = "Confirmed", Total = 960.00m },
+    };
+
+    private List<Booking> FilteredBookings =>
+        AllBookings
+            .Where(b =>
+                (string.IsNullOrEmpty(SearchText) ||
+                 b.GuestName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                 b.Id.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+                && (string.IsNullOrEmpty(SelectedStatus) || b.Status == SelectedStatus))
+            .ToList();
+
+    private int TotalPages => (int)Math.Ceiling((double)FilteredBookings.Count / PageSize);
+
+    private void ChangePage(int delta)
+    {
+        CurrentPage = Math.Max(1, Math.Min(TotalPages, CurrentPage + delta));
+    }
+
+    private void ToggleSection(string key)
+    {
+        // No-op for static sidebar on this page
+    }
+
+    public record Booking(
+        string Id,
+        string GuestName,
+        string Room,
+        DateOnly CheckIn,
+        DateOnly CheckOut,
+        string Status,
+        decimal Total)
+    {
+        public string StatusClass => Status switch
+        {
+            "Confirmed" => "status-confirmed",
+            "Checked-In" => "status-checked-in",
+            "Checked-Out" => "status-checked-out",
+            "Cancelled" => "status-cancelled",
+            _ => ""
+        };
+    }
+}

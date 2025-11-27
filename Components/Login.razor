@@ -1,0 +1,76 @@
+﻿@page "/login"
+@inject Microsoft.AspNetCore.Components.NavigationManager Navigation
+
+<div class="login-page-background">
+    <div class="login-card">
+
+        <div class="header-section">
+            <!-- Text on the LEFT -->
+            <h1>HestiaLink Hospitality ERP System</h1>
+            
+            <!-- Logo on the RIGHT -->
+            <div class="logo-placeholder">
+                <img src="/images/hestialogo.png" alt="HestiaLink Logo" />
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="username">Username</label>
+            <div class="input-container">
+                <span class="icon icon-email"></span>
+                <input id="username" placeholder="Enter your username" @bind="Username" />
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="password">Password</label>
+            <div class="input-container">
+                <span class="icon icon-lock"></span>
+                <input id="password" type="@(ShowPassword ? "text" : "password")" placeholder="Enter your password" @bind="Password" />
+                <span class="eye-icon" @onclick="TogglePasswordVisibility"></span>
+            </div>
+        </div>
+
+        <button class="login-button" @onclick="HandleLogin">Login</button>
+
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <p class="error-message">@Message</p>
+        }
+    </div>
+</div>
+
+@code {
+    // Standard C# Properties used for Blazor two-way binding (@bind)
+    private string Username { get; set; } = "";
+    private string Password { get; set; } = "";
+    private string Message { get; set; } = "";
+
+    // Method renamed to HandleLogin to fix the CS0542 error
+    private void HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            Message = "Please enter both username and password.";
+            return;
+        }
+
+        // C# uses '==' for equality comparison
+        if (Username == "admin" && Password == "1234")
+        {
+            Message = string.Empty;
+            Navigation.NavigateTo("/dashboard");
+        }
+        else
+        {
+            Message = "Invalid username or password. Use admin / 1234 for this demo.";
+        }
+    }
+
+    private bool ShowPassword { get; set; } = false;
+
+    private void TogglePasswordVisibility()
+    {
+        ShowPassword = !ShowPassword;
+    }
+}
