@@ -1,14 +1,15 @@
 ﻿@page "/login"
-@inject Microsoft.AspNetCore.Components.NavigationManager Navigation
+@using HestiaLink.Components.Layout
+@using HestiaLink.Services
+@layout LoginLayout
+@inject NavigationManager Navigation
+@inject UserSession UserSession
 
 <div class="login-page-background">
     <div class="login-card">
 
         <div class="header-section">
-            <!-- Text on the LEFT -->
             <h1>HestiaLink Hospitality ERP System</h1>
-            
-            <!-- Logo on the RIGHT -->
             <div class="logo-placeholder">
                 <img src="/images/hestialogo.png" alt="HestiaLink Logo" />
             </div>
@@ -18,7 +19,7 @@
             <label for="username">Username</label>
             <div class="input-container">
                 <span class="icon icon-email"></span>
-                <input id="username" placeholder="Enter your username" @bind="Username" />
+                <input id="username" placeholder="Enter username (e.g. hr, stock, admin)" @bind="Username" />
             </div>
         </div>
 
@@ -26,7 +27,7 @@
             <label for="password">Password</label>
             <div class="input-container">
                 <span class="icon icon-lock"></span>
-                <input id="password" type="@(ShowPassword ? "text" : "password")" placeholder="Enter your password" @bind="Password" />
+                <input id="password" type="@(ShowPassword ? "text" : "password")" placeholder="Enter password (1234)" @bind="Password" />
                 <span class="eye-icon" @onclick="TogglePasswordVisibility"></span>
             </div>
         </div>
@@ -35,39 +36,64 @@
 
         @if (!string.IsNullOrEmpty(Message))
         {
-            <p class="error-message">@Message</p>
+            <p class="error-message" style="color: #b91c1c; margin-top: 15px; font-weight: 600;">@Message</p>
         }
+
+        <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">
+            <strong>Try these:</strong><br />
+            admin / 1234 (Full Access)<br />
+            hr / 1234 (HR Only)<br />
+            stock / 1234 (Inventory Only)<br />
+            front / 1234 (Reservations Only)
+        </div>
     </div>
 </div>
 
 @code {
-    // Standard C# Properties used for Blazor two-way binding (@bind)
     private string Username { get; set; } = "";
     private string Password { get; set; } = "";
     private string Message { get; set; } = "";
+    private bool ShowPassword { get; set; } = false;
 
-    // Method renamed to HandleLogin to fix the CS0542 error
     private void HandleLogin()
     {
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
         {
-            Message = "Please enter both username and password.";
+            Message = "Please enter credentials.";
             return;
         }
 
-        // C# uses '==' for equality comparison
-        if (Username == "admin" && Password == "1234")
+        if (Password == "1234")
         {
-            Message = string.Empty;
-            Navigation.NavigateTo("/dashboard");
+            // ROUTING LOGIC BASED ON ROLE
+            switch (Username.ToLower())
+            {
+                case "admin":
+                    UserSession.SetUser("Administrator", "Administrator");
+                    Navigation.NavigateTo("/dashboard");
+                    break;
+                case "hr":
+                    UserSession.SetUser("HR Manager", "HR");
+                    Navigation.NavigateTo("/hr/employee-management"); // Jump straight to HR
+                    break;
+                case "stock":
+                    UserSession.SetUser("Stock Clerk", "Inventory");
+                    Navigation.NavigateTo("/inventory/stock-management"); // Jump straight to Inventory
+                    break;
+                case "front":
+                    UserSession.SetUser("Front Desk", "FrontDesk");
+                    Navigation.NavigateTo("/reservations/booking-history"); // Jump straight to Booking
+                    break;
+                default:
+                    Message = "Invalid username. Try admin, hr, stock, or front.";
+                    break;
+            }
         }
         else
         {
-            Message = "Invalid username or password. Use admin / 1234 for this demo.";
+            Message = "Invalid password. (Use 1234)";
         }
     }
-
-    private bool ShowPassword { get; set; } = false;
 
     private void TogglePasswordVisibility()
     {

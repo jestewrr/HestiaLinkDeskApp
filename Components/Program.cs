@@ -1,4 +1,5 @@
 using HestiaLink.Components;
+using HestiaLink.Services; // Add this using statement
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,18 +7,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// --- ADD THIS LINE ---
+builder.Services.AddScoped<UserSession>(); 
+// --------------------
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// ... rest of the file stays the same ...
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-
 app.UseStaticFiles();
 app.UseAntiforgery();
 
