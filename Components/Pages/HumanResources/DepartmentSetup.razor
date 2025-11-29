@@ -1,5 +1,10 @@
 ﻿@page "/hr/department-setup"
 @using HestiaLink.Components.Layout
+@using HestiaLink.Models
+@using HestiaLink.Data
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext Context
+@inject IJSRuntime JSRuntime
 @layout MainLayout
 
 <div class="user-mgmt-root">
@@ -7,107 +12,266 @@
     <header class="booking-history-header" style="margin-bottom: 0;">
         <h1>Department Setup</h1>
         <div style="font-weight: 600; color: #004f59;">HR Administration</div>
+        @if (IsLoaded)
+        {
+            <div style="font-size: 0.8rem; color: #64748b;">
+                Database: Loaded @Departments.Count departments
+                @if (ArchivedDepartmentsCount > 0)
+                {
+                    <span> (@ArchivedDepartmentsCount archived)</span>
+                }
+            </div>
+        }
     </header>
 
     <div class="user-toolbar">
         <div class="toolbar-left">
             <div class="toolbar-search">
-                <input type="text" placeholder="Search departments..." @bind="SearchText" />
+                <input type="text" placeholder="Search departments..." @bind="SearchText" @oninput="OnSearchChanged" />
                 <span class="search-icon">🔍</span>
             </div>
-            <select class="filter-select" style="padding: 10px 16px; min-width: 150px;">
-                <option>Sort by Name</option>
-                <option>Sort by Emp Count</option>
-            </select>
         </div>
-        <button class="btn-primary" style="max-width: 220px;" @onclick="OpenCreateModal">+ Add New Department</button>
+        <div>
+            <button class="btn-secondary" style="margin-right: 10px;" @onclick="OpenArchivedModal">
+                📁 View Archived (@ArchivedDepartmentsCount)
+            </button>
+            <button class="btn-primary" style="max-width: 220px;" @onclick="OpenCreateModal">+ Add New Department</button>
+        </div>
     </div>
 
-    <div class="panel-card">
-        <div class="panel-body user-list-container">
-            <table class="user-table">
-                <thead>
-                    <tr>
-                        <th>Department Name</th>
-                        <th>Primary Position</th>
-                        <th style="text-align:center;">Employees</th>
-                        <th>Base Salary Range</th>
-                        <th>Job Description</th>
-                        <th style="text-align:center;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var dept in FilteredDepartments)
-                    {
-                        <tr>
-                            <td>
-                                <div style="font-weight: 700; color: #102f33;">@dept.Name</div>
-                            </td>
-                            <td>@dept.PrimaryPosition</td>
-                            <td style="text-align:center;">
-                                <span class="badge-active" style="font-size:0.9rem;">@dept.EmployeeCount</span>
-                            </td>
-                            <td>@dept.SalaryRange</td>
-                            <td style="color:#64748b; font-size:0.85rem; max-width: 300px;">@dept.Description</td>
-                            <td style="text-align:center;">
-                                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(dept)">Edit</button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+    @if (!IsLoaded)
+    {
+        <div class="loading">
+            <div>🔄 Loading departments from database...</div>
         </div>
-    </div>
+    }
+    else if (HasError)
+    {
+        <div class="error-message">
+            <h4>❌ Database Connection Error</h4>
+            <p>Error: @ErrorMessage</p>
+            <button class="btn-primary" @onclick="RetryLoad">Retry Connection</button>
+        </div>
+    }
+    else if (!Departments.Any())
+    {
+        <div class="no-data">
+            <p>📭 No departments found in database</p>
+            <p style="font-size: 0.8rem; color: #64748b;">
+                The database table is empty. Click 'Add New Department' to create one.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="panel-card">
+            <div class="panel-body user-list-container">
+                @if (FilteredDepartments.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Department Name</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var dept in FilteredDepartments)
+                            {
+                                <tr>
+                                    <td>@dept.DepartmentID</td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #102f33;">@dept.DepartmentName</div>
+                                    </td>
+                                    <td style="color:#64748b; font-size:0.85rem; max-width: 300px;">
+                                        @(string.IsNullOrEmpty(dept.Description) ? "No description" : dept.Description)
+                                    </td>
+                                    <td>
+                                        <span class="badge-@(dept.Status == "Active" ? "active" : dept.Status == "Inactive" ? "inactive" : "archived")">
+                                            @dept.Status
+                                        </span>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        @if (dept.Status != "Archived")
+                                        {
+                                            <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(dept)">Edit</button>
+                                            <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-left: 5px; background: #f59e0b;" @onclick="() => ArchiveDepartment(dept)">Archive</button>
+                                        }
+
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data">
+                        <p>No departments match your search criteria</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 </div>
 
+<!-- Add/Edit Department Modal -->
 @if (ShowModal)
 {
     <div class="modal-overlay">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header-teal">
                 <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Department" : "Create New Department")</h2>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-                <div class="form-group-container">
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label class="form-label">Department Name</label>
-                        <input type="text" class="form-input" @bind="CurrentDept.Name" placeholder="e.g. Front Office" />
-                    </div>
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label class="form-label">Primary Position</label>
-                        <input type="text" class="form-input" @bind="CurrentDept.PrimaryPosition" placeholder="e.g. Receptionist" />
-                    </div>
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-input" rows="5" @bind="CurrentDept.Description" placeholder="Describe the department's responsibilities..."></textarea>
-                    </div>
+            <div class="form-group-container" style="padding: 20px;">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Department Name *</label>
+                    <input type="text" class="form-input" @bind="CurrentDept.DepartmentName" placeholder="e.g. Front Office" />
+                    @if (string.IsNullOrWhiteSpace(CurrentDept.DepartmentName))
+                    {
+                        <div style="color: #dc2626; font-size: 0.8rem; margin-top: 5px;">Department name is required</div>
+                    }
                 </div>
 
-                <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; border: 1px dashed #cbd5e1;">
-                    <h3 style="margin-top:0; color:#64748b; font-size:0.9rem; text-transform:uppercase;">Department Preview</h3>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-input" rows="4" @bind="CurrentDept.Description" placeholder="Describe the department's responsibilities..."></textarea>
+                </div>
 
-                    <div style="margin-top: 20px;">
-                        <div style="font-size: 0.8rem; color:#64748b;">Department Name</div>
-                        <div style="font-size: 1.2rem; font-weight: 800; color: #004f59;">@(string.IsNullOrEmpty(CurrentDept.Name) ? "---" : CurrentDept.Name)</div>
-                    </div>
-
-                    <div style="margin-top: 15px;">
-                        <div style="font-size: 0.8rem; color:#64748b;">Description</div>
-                        <div style="font-size: 0.95rem; color: #334155; line-height: 1.5;">
-                            @(string.IsNullOrEmpty(CurrentDept.Description) ? "No description entered." : CurrentDept.Description)
-                        </div>
-                    </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" @bind="CurrentDept.Status">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Archived">Archived</option>
+                    </select>
                 </div>
             </div>
 
             <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
-                <button class="btn-primary" @onclick="SaveDepartment">@(IsEditMode ? "Update" : "Add New Department")</button>
-                @if (IsEditMode)
-                {
-                    <button class="btn-secondary" style="background:#b91c1c;" @onclick="DeleteDepartment">Delete</button>
-                }
+                <button class="btn-primary" @onclick="SaveDepartment" disabled="@(!CanSave)">
+                    @(IsEditMode ? "Update Department" : "Add New Department")
+                </button>
                 <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Archived Departments Modal -->
+@if (ShowArchivedModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">📁 Archived Departments</h2>
+                <div style="font-size: 0.9rem; color: #64748b;">
+                    @ArchivedDepartments.Count archived departments
+                </div>
+            </div>
+
+            <div class="panel-body" style="max-height: 60vh; overflow-y: auto;">
+                @if (ArchivedDepartments.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Department Name</th>
+                                <th>Description</th>
+                                <th>Archived Since</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var dept in ArchivedDepartments)
+                            {
+                                <tr>
+                                    <td>@dept.DepartmentID</td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #102f33;">@dept.DepartmentName</div>
+                                    </td>
+                                    <td style="color:#64748b; font-size:0.85rem; max-width: 300px;">
+                                        @(string.IsNullOrEmpty(dept.Description) ? "No description" : dept.Description)
+                                    </td>
+                                    <td style="color:#64748b; font-size:0.8rem;">
+                                        <!-- You can add archive date if you have that field -->
+                                        Previously archived
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #10b981;"
+                                                @onclick="() => RestoreDepartmentFromModal(dept)"
+                                                title="Restore this department">
+                                            🔄 Restore
+                                        </button>
+                                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-left: 5px; background: #dc2626;"
+                                                @onclick="() => ConfirmDeleteFromModal(dept)"
+                                                title="Permanently delete">
+                                            🗑️ Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data" style="padding: 40px;">
+                        <p>📭 No archived departments found</p>
+                        <p style="font-size: 0.8rem; color: #64748b;">
+                            There are no departments in the archive.
+                        </p>
+                    </div>
+                }
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
+                <button class="btn-secondary" @onclick="CloseArchivedModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (ShowDeleteConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">Confirm Delete</h2>
+            </div>
+            <div style="padding: 20px;">
+                <p>Are you sure you want to delete department <strong>@CurrentDept.DepartmentName</strong>?</p>
+                <p style="color: #dc2626; font-size: 0.9rem;">This action cannot be undone.</p>
+            </div>
+            <div class="action-footer" style="border:none; padding-bottom:0;">
+                <button class="btn-secondary" style="background:#dc2626;" @onclick="DeleteDepartment">Delete</button>
+                <button class="btn-secondary" @onclick="CancelDelete">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Archive Confirmation Modal -->
+@if (ShowArchiveConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">Confirm Archive</h2>
+            </div>
+            <div style="padding: 20px;">
+                <p>Are you sure you want to archive department <strong>@ArchiveDept.DepartmentName</strong>?</p>
+                <p style="color: #f59e0b; font-size: 0.9rem;">Archived departments will not appear in active lists but can be restored later.</p>
+            </div>
+            <div class="action-footer" style="border:none; padding-bottom:0;">
+                <button class="btn-secondary" style="background:#f59e0b;" @onclick="ConfirmArchive">Archive</button>
+                <button class="btn-secondary" @onclick="CancelArchive">Cancel</button>
             </div>
         </div>
     </div>
@@ -116,23 +280,98 @@
 @code {
     private string SearchText { get; set; } = "";
     private bool ShowModal = false;
+    private bool ShowDeleteConfirm = false;
+    private bool ShowArchiveConfirm = false;
+    private bool ShowArchivedModal = false; // New modal for archived departments
     private bool IsEditMode = false;
+    private bool IsLoaded = false;
+    private bool HasError = false;
+    private string ErrorMessage = "";
     private Department CurrentDept = new();
+    private Department ArchiveDept = new();
+    private List<Department> Departments = new();
 
-    private List<Department> Departments = new()
+    // Computed properties
+    private List<Department> ArchivedDepartments =>
+        Departments.Where(d => d.Status == "Archived").OrderBy(d => d.DepartmentName).ToList();
+
+    private int ArchivedDepartmentsCount => ArchivedDepartments.Count;
+
+    protected override async Task OnInitializedAsync()
     {
-        new() { Id = 1, Name = "Front Office", PrimaryPosition = "Telephone Operator", EmployeeCount = 2, SalaryRange = "₱18k - ₱25k", Description = "Answers inquires and connects calls, manages guest check-ins." },
-        new() { Id = 2, Name = "Housekeeping", PrimaryPosition = "Room Attendant", EmployeeCount = 5, SalaryRange = "₱15k - ₱20k", Description = "Ensures cleanliness of guest rooms and public areas." },
-        new() { Id = 3, Name = "Food & Beverage", PrimaryPosition = "Waiter/Waitress", EmployeeCount = 8, SalaryRange = "₱16k - ₱22k", Description = "Manages restaurant and room service operations." },
-    };
+        await LoadDepartments();
+    }
 
-    private List<Department> FilteredDepartments => Departments
-        .Where(d => string.IsNullOrEmpty(SearchText) || d.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
-        .ToList();
+    private async Task LoadDepartments()
+    {
+        try
+        {
+            HasError = false;
+            ErrorMessage = "";
+
+            Departments = await Context.Departments
+                .AsNoTracking()
+                .OrderBy(d => d.DepartmentName)
+                .ToListAsync();
+
+            IsLoaded = true;
+            StateHasChanged();
+
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = ex.Message;
+            IsLoaded = true;
+            await JSRuntime.InvokeVoidAsync("alert", $"Database Error: {ex.Message}");
+        }
+    }
+
+    private async Task RetryLoad()
+    {
+        IsLoaded = false;
+        HasError = false;
+        StateHasChanged();
+        await Task.Delay(1000);
+        await LoadDepartments();
+    }
+
+    // FIXED: Renamed method to avoid naming conflict
+    private void OpenArchivedModal()
+    {
+        ShowArchivedModal = true;
+    }
+
+    private void CloseArchivedModal()
+    {
+        ShowArchivedModal = false;
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        SearchText = e.Value?.ToString() ?? "";
+        StateHasChanged();
+    }
+
+    private List<Department> FilteredDepartments
+    {
+        get
+        {
+            var query = Departments.Where(d => d.Status != "Archived").AsQueryable();
+
+            if (!string.IsNullOrEmpty(SearchText))
+            {
+                query = query.Where(d => d.DepartmentName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                                        (d.Description != null && d.Description.Contains(SearchText, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            return query.OrderBy(d => d.DepartmentName).ToList();
+        }
+    }
 
     private void OpenCreateModal()
     {
-        CurrentDept = new Department();
+        CurrentDept = new Department { Status = "Active" };
         IsEditMode = false;
         ShowModal = true;
     }
@@ -141,39 +380,189 @@
     {
         CurrentDept = new Department
         {
-            Id = dept.Id,
-            Name = dept.Name,
-            PrimaryPosition = dept.PrimaryPosition,
-            EmployeeCount = dept.EmployeeCount,
-            SalaryRange = dept.SalaryRange,
-            Description = dept.Description
+            DepartmentID = dept.DepartmentID,
+            DepartmentName = dept.DepartmentName,
+            Description = dept.Description,
+            Status = dept.Status
         };
         IsEditMode = true;
         ShowModal = true;
     }
 
-    private void CloseModal() => ShowModal = false;
-
-    private void SaveDepartment()
+    private void CloseModal()
     {
-        if (!IsEditMode) Departments.Add(CurrentDept);
-        // In a real app, you'd update the existing item here
-        CloseModal();
+        ShowModal = false;
+        CurrentDept = new Department();
     }
 
-    private void DeleteDepartment()
+    private void ConfirmDelete(Department dept)
     {
-        // Delete logic
-        CloseModal();
+        CurrentDept = dept;
+        ShowDeleteConfirm = true;
     }
 
-    public class Department
+    private void CancelDelete()
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string PrimaryPosition { get; set; } = "";
-        public int EmployeeCount { get; set; }
-        public string SalaryRange { get; set; } = "";
-        public string Description { get; set; } = "";
+        ShowDeleteConfirm = false;
+        CurrentDept = new Department();
     }
+
+    private async Task DeleteDepartment()
+    {
+        try
+        {
+            var department = await Context.Departments.FindAsync(CurrentDept.DepartmentID);
+            if (department != null)
+            {
+                Context.Departments.Remove(department);
+                await Context.SaveChangesAsync();
+
+                // Remove from local list
+                Departments.RemoveAll(d => d.DepartmentID == CurrentDept.DepartmentID);
+                StateHasChanged();
+
+                await JSRuntime.InvokeVoidAsync("alert", "Department deleted successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error deleting department: {ex.Message}");
+        }
+        finally
+        {
+            ShowDeleteConfirm = false;
+            CurrentDept = new Department();
+        }
+    }
+
+    // New method: Delete from archived modal
+    private void ConfirmDeleteFromModal(Department dept)
+    {
+        CurrentDept = dept;
+        ShowDeleteConfirm = true;
+    }
+
+    // New method: Restore from archived modal
+    private async Task RestoreDepartmentFromModal(Department dept)
+    {
+        try
+        {
+            var department = await Context.Departments.FindAsync(dept.DepartmentID);
+            if (department != null)
+            {
+                department.Status = "Active";
+                Context.Departments.Update(department);
+                await Context.SaveChangesAsync();
+
+                // Update local list
+                var localDept = Departments.FirstOrDefault(d => d.DepartmentID == dept.DepartmentID);
+                if (localDept != null)
+                {
+                    localDept.Status = "Active";
+                }
+                StateHasChanged();
+
+                await JSRuntime.InvokeVoidAsync("alert", "Department restored successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error restoring department: {ex.Message}");
+        }
+    }
+
+    private void ArchiveDepartment(Department dept)
+    {
+        ArchiveDept = dept;
+        ShowArchiveConfirm = true;
+    }
+
+    private void CancelArchive()
+    {
+        ShowArchiveConfirm = false;
+        ArchiveDept = new Department();
+    }
+
+    private async Task ConfirmArchive()
+    {
+        try
+        {
+            var department = await Context.Departments.FindAsync(ArchiveDept.DepartmentID);
+            if (department != null)
+            {
+                department.Status = "Archived";
+                Context.Departments.Update(department);
+                await Context.SaveChangesAsync();
+
+                // Update local list
+                var localDept = Departments.FirstOrDefault(d => d.DepartmentID == ArchiveDept.DepartmentID);
+                if (localDept != null)
+                {
+                    localDept.Status = "Archived";
+                }
+                StateHasChanged();
+
+                await JSRuntime.InvokeVoidAsync("alert", "Department archived successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error archiving department: {ex.Message}");
+        }
+        finally
+        {
+            ShowArchiveConfirm = false;
+            ArchiveDept = new Department();
+        }
+    }
+
+    private async Task SaveDepartment()
+    {
+        if (!CanSave) return;
+
+        try
+        {
+            if (IsEditMode)
+            {
+                var existingDept = await Context.Departments.FindAsync(CurrentDept.DepartmentID);
+                if (existingDept != null)
+                {
+                    existingDept.DepartmentName = CurrentDept.DepartmentName;
+                    existingDept.Description = CurrentDept.Description;
+                    existingDept.Status = CurrentDept.Status;
+                    Context.Departments.Update(existingDept);
+                    await Context.SaveChangesAsync();
+
+                    // Update local list
+                    var localDept = Departments.FirstOrDefault(d => d.DepartmentID == CurrentDept.DepartmentID);
+                    if (localDept != null)
+                    {
+                        localDept.DepartmentName = CurrentDept.DepartmentName;
+                        localDept.Description = CurrentDept.Description;
+                        localDept.Status = CurrentDept.Status;
+                    }
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                Context.Departments.Add(CurrentDept);
+                await Context.SaveChangesAsync();
+
+                // Reload to get the new department with ID
+                await LoadDepartments();
+            }
+
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert",
+                $"Department {(IsEditMode ? "updated" : "created")} successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert",
+                $"Error saving department: {ex.Message}");
+        }
+    }
+
+    private bool CanSave => !string.IsNullOrWhiteSpace(CurrentDept.DepartmentName);
 }
