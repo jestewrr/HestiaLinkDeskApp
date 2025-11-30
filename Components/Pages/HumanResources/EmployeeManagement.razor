@@ -1,5 +1,10 @@
 ﻿@page "/hr/employee-management"
 @using HestiaLink.Components.Layout
+@using HestiaLink.Models
+@using HestiaLink.Data
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext Context
+@inject IJSRuntime JSRuntime
 @layout MainLayout
 
 <div class="user-mgmt-root">
@@ -7,54 +12,99 @@
     <header class="booking-history-header" style="margin-bottom: 0;">
         <h1>Employee Management</h1>
         <div style="font-weight: 600; color: #004f59;">Staff Directory</div>
+        @if (IsLoaded)
+        {
+            <div style="font-size: 0.8rem; color: #64748b;">
+                Database: Loaded @Employees.Count employees
+                @if (ArchivedEmployeesCount > 0)
+                {
+                    <span> (@ArchivedEmployeesCount archived)</span>
+                }
+            </div>
+        }
     </header>
 
     <div class="user-toolbar">
         <div class="toolbar-left">
             <div class="toolbar-search">
-                <input type="text" placeholder="Search by name or ID..." @bind="SearchText" />
+                <input type="text" placeholder="Search by name or ID..." @bind="SearchText" @oninput="OnSearchChanged" />
                 <span class="search-icon">🔍</span>
             </div>
-            <select class="filter-select">
-                <option>Active Employees</option>
-                <option>On Leave</option>
-                <option>Terminated</option>
+            <select class="filter-select" @bind="FilterStatus">
+                <option value="All">All</option>
+                <option value="Active">Active</option>
+                <option value="Archived">Archived</option>
             </select>
         </div>
-        <button class="btn-primary" @onclick="OpenModal">+ Create New Employee</button>
-    </div>
-
-    <div class="panel-card">
-        <div class="panel-body user-list-container">
-            <table class="user-table">
-                <thead>
-                    <tr>
-                        <th>Employee ID</th>
-                        <th>Full Name</th>
-                        <th>Department</th>
-                        <th>Position</th>
-                        <th>Contact</th>
-                        <th>Hourly Rate</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var emp in FilteredEmployees)
-                    {
-                        <tr>
-                            <td style="font-family:monospace; font-weight:700;">@emp.Id</td>
-                            <td style="font-weight:600;">@emp.FirstName @emp.LastName</td>
-                            <td>@emp.Department</td>
-                            <td>@emp.Position</td>
-                            <td>@emp.Email</td>
-                            <td style="color:#004f59; font-weight:700;">₱@emp.HourlyRate.ToString("N2")</td>
-                            <td><span class="badge-active">Active</span></td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <div>
+            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenArchivedModal">📁 View Archived (@ArchivedEmployeesCount)</button>
+            <button class="btn-primary" @onclick="OpenModal">+ Create New Employee</button>
         </div>
     </div>
+
+    @if (!IsLoaded)
+    {
+        <div class="loading">🔄 Loading employees...</div>
+    }
+    else if (HasError)
+    {
+        <div class="error-message">
+            <h4>❌ Database Error</h4>
+            <p>@ErrorMessage</p>
+            <button class="btn-primary" @onclick="RetryLoad">Retry</button>
+        </div>
+    }
+    else
+    {
+        <div class="panel-card">
+            <div class="panel-body user-list-container">
+                @if (FilteredEmployees.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>Employee ID</th>
+                                <th>Full Name</th>
+                                <th>Position</th>
+                                <th>Contact</th>
+                                <th>Email</th>
+                                <th>Hire Date</th>
+                                <th>Status</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var emp in FilteredEmployees)
+                            {
+                                <tr>
+                                    <td style="font-family:monospace; font-weight:700;">@emp.EmployeeID</td>
+                                    <td style="font-weight:600;">@emp.FirstName @emp.LastName</td>
+                                    <td>@(emp.PositionID?.ToString() ?? "-")</td>
+                                    <td>@emp.ContactNumber</td>
+                                    <td>@emp.Email</td>
+                                    <td>@(emp.HireDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                    <td><span class="badge-@(emp.Status == "Active" ? "active" : "archived")">@emp.Status</span></td>
+                                    <td style="text-align:center;">
+                                        @if (emp.Status != "Archived")
+                                        {
+                                            <div style="display:flex; justify-content:center; gap:8px; align-items:center;">
+                                                <button type="button" class="btn-secondary" style="display:inline-block !important; padding:6px 10px; align-self:center;" @onclick="() => OpenEditModal(emp)">Edit</button>
+                                                <button type="button" class="btn-secondary" style="display:inline-block !important; padding:6px 10px; background:#f59e0b; align-self:center;" @onclick="() => ArchiveEmployee(emp)">Archive</button>
+                                            </div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data">No employees found</div>
+                }
+            </div>
+        </div>
+    }
 </div>
 
 @if (ShowModal)
@@ -62,14 +112,10 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;">Create New Employee</h2>
+                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Employee" : "Create New Employee")</h2>
             </div>
 
             <div class="form-grid">
-                <div class="form-group full-width">
-                    <label class="form-label">Employee ID *</label>
-                    <input type="text" class="form-input" @bind="CurrentEmp.Id" placeholder="e.g. 2025-001" />
-                </div>
 
                 <div class="form-group">
                     <label class="form-label">First Name *</label>
@@ -82,47 +128,122 @@
 
                 <div class="form-group">
                     <label class="form-label">Middle Name</label>
-                    <input type="text" class="form-input" />
+                    <input type="text" class="form-input" @bind="CurrentEmp.MiddleName" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Position</label>
-                    <select class="form-select" @bind="CurrentEmp.Position">
-                        <option>Telephone Operator</option>
-                        <option>Room Attendant</option>
-                        <option>Front Desk Manager</option>
+                    <select class="form-select" @bind="CurrentEmp.PositionID">
+                        <option value="">-- Select Position --</option>
+                        @foreach (var pos in Positions)
+                        {
+                            <option value="@pos.PositionID">@pos.PositionTitle</option>
+                        }
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Department</label>
-                    <select class="form-select" @bind="CurrentEmp.Department">
-                        <option>Front Office</option>
-                        <option>Housekeeping</option>
-                    </select>
-                </div>
+                
                 <div class="form-group">
                     <label class="form-label">Email</label>
                     <input type="email" class="form-input" @bind="CurrentEmp.Email" />
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Address</label>
-                    <input type="text" class="form-input" />
+                    <label class="form-label">Contact Number</label>
+                    <input type="text" class="form-input" @bind="CurrentEmp.ContactNumber" />
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label">Hourly Rate (₱)</label>
-                    <input type="number" class="form-input" @bind="CurrentEmp.HourlyRate" />
+                    <label class="form-label">Address</label>
+                    <input type="text" class="form-input" @bind="CurrentEmp.Address" />
                 </div>
 
                 <div class="form-group full-width">
                     <label class="form-label">Date of Birth</label>
-                    <input type="date" class="form-input" />
+                    <input type="date" class="form-input" @bind="BindDOB" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Hire Date</label>
+                    <input type="date" class="form-input" @bind="BindHireDate" />
                 </div>
             </div>
 
             <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
-                <button class="btn-primary" @onclick="SaveEmployee">Create Employee</button>
+                <button class="btn-primary" @onclick="SaveEmployee">@(IsEditMode ? "Update Employee" : "Create Employee")</button>
                 <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowArchivedModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">📁 Archived Employees</h2>
+                <div style="font-size: 0.9rem; color: #64748b;">@ArchivedEmployees.Count archived employees</div>
+            </div>
+
+            <div class="panel-body" style="max-height:60vh; overflow-y:auto;">
+                @if (ArchivedEmployees.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Full Name</th>
+                                <th>Position</th>
+                                <th>Email</th>
+                                <th>Hire Date</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var emp in ArchivedEmployees)
+                            {
+                                <tr>
+                                    <td>@emp.EmployeeID</td>
+                                    <td style="font-weight:700;">@emp.FirstName @emp.LastName</td>
+                                    <td>@(emp.PositionID?.ToString() ?? "-")</td>
+                                    <td>@emp.Email</td>
+                                    <td>@(emp.HireDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                    <td style="text-align:center;">
+                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreEmployee(emp)">🔄 Restore</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data" style="padding:40px;">No archived employees</div>
+                }
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
+                <button class="btn-secondary" @onclick="CloseArchivedModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Add Archive Confirmation Modal -->
+@if (ShowArchiveConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.2rem;">Confirm Archive</h2>
+            </div>
+            <div style="padding: 20px;">
+                <p>Are you sure you want to archive employee <strong>@(ArchiveTarget?.FirstName + " " + ArchiveTarget?.LastName)</strong>?</p>
+                <p style="color: #f59e0b; font-size: 0.9rem;">Archived employees will not appear in active lists but can be restored later.</p>
+            </div>
+            <div class="action-footer" style="border:none; padding-bottom:0;">
+                <button type="button" class="btn-secondary" style="background:#f59e0b;" @onclick="ConfirmArchive">Archive</button>
+                <button type="button" class="btn-secondary" @onclick="CancelArchive">Cancel</button>
             </div>
         </div>
     </div>
@@ -130,38 +251,239 @@
 
 @code {
     private string SearchText = "";
+    private string FilterStatus = "Active";
     private bool ShowModal = false;
+    private bool ShowArchivedModal = false;
+    private bool IsEditMode = false;
+    private bool IsLoaded = false;
+    private bool HasError = false;
+    private string ErrorMessage = string.Empty;
+
     private Employee CurrentEmp = new();
+    private List<Employee> Employees = new();
+    private List<Position> Positions = new();
 
-    private List<Employee> Employees = new()
+    protected override async Task OnInitializedAsync()
     {
-        new() { Id = "191231", FirstName = "John", LastName = "Doe", Department = "Front Office", Position = "Telephone Operator", Email = "john@hestia.com", HourlyRate = 50.00m },
-        new() { Id = "191234", FirstName = "Jane", LastName = "Smith", Department = "Housekeeping", Position = "Room Attendant", Email = "jane@hestia.com", HourlyRate = 45.00m },
-    };
-
-    private List<Employee> FilteredEmployees => Employees
-        .Where(e => string.IsNullOrEmpty(SearchText) ||
-                    e.FirstName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                    e.LastName.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
-        .ToList();
-
-    private void OpenModal() { CurrentEmp = new Employee(); ShowModal = true; }
-    private void CloseModal() => ShowModal = false;
-
-    private void SaveEmployee()
-    {
-        Employees.Add(CurrentEmp);
-        CloseModal();
+        await LoadData();
     }
 
-    public class Employee
+    private async Task LoadData()
     {
-        public string Id { get; set; } = "";
-        public string FirstName { get; set; } = "";
-        public string LastName { get; set; } = "";
-        public string Department { get; set; } = "";
-        public string Position { get; set; } = "";
-        public string Email { get; set; } = "";
-        public decimal HourlyRate { get; set; }
+        try
+        {
+            HasError = false;
+            ErrorMessage = string.Empty;
+            Employees = await Context.Employees.AsNoTracking().OrderBy(e => e.LastName).ToListAsync();
+            Positions = await Context.Positions.AsNoTracking().OrderBy(p => p.PositionTitle).ToListAsync();
+            IsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = ex.Message;
+            await JSRuntime.InvokeVoidAsync("alert", $"Database Error: {ex.Message}");
+            IsLoaded = true;
+        }
+    }
+
+    private async Task RetryLoad()
+    {
+        IsLoaded = false;
+        StateHasChanged();
+        await Task.Delay(500);
+        await LoadData();
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        SearchText = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private List<Employee> FilteredEmployees
+    {
+        get
+        {
+            var query = Employees.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                query = query.Where(e => (e.FirstName + " " + e.LastName).Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                                         e.EmployeeID.ToString().Contains(SearchText));
+            }
+
+            if (FilterStatus == "Active")
+                query = query.Where(e => e.Status == "Active");
+            else if (FilterStatus == "Archived")
+                query = query.Where(e => e.Status == "Archived");
+
+            return query.OrderBy(e => e.LastName).ToList();
+        }
+    }
+
+    private List<Employee> ArchivedEmployees => Employees.Where(e => e.Status == "Archived").ToList();
+    private int ArchivedEmployeesCount => ArchivedEmployees.Count;
+
+    private void OpenModal()
+    {
+        CurrentEmp = new Employee { Status = "Active", HireDate = DateTime.Now };
+        IsEditMode = false;
+        ShowModal = true;
+    }
+
+    private void CloseModal() { ShowModal = false; }
+
+    private void OpenEditModal(Employee emp)
+    {
+        CurrentEmp = new Employee
+        {
+            EmployeeID = emp.EmployeeID,
+            FirstName = emp.FirstName,
+            MiddleName = emp.MiddleName,
+            LastName = emp.LastName,
+            Email = emp.Email,
+            ContactNumber = emp.ContactNumber,
+            Address = emp.Address,
+            DateOfBirth = emp.DateOfBirth,
+            PositionID = emp.PositionID,
+            HireDate = emp.HireDate,
+            Status = emp.Status
+        };
+        IsEditMode = true;
+        ShowModal = true;
+    }
+
+    // Two-way bind helpers for nullable DateTime
+    private DateTime? BindDOB
+    {
+        get => CurrentEmp.DateOfBirth;
+        set => CurrentEmp.DateOfBirth = value;
+    }
+    private DateTime? BindHireDate
+    {
+        get => CurrentEmp.HireDate;
+        set => CurrentEmp.HireDate = value;
+    }
+
+    private async Task SaveEmployee()
+    {
+        try
+        {
+            if (IsEditMode)
+            {
+                var existing = await Context.Employees.FindAsync(CurrentEmp.EmployeeID);
+                if (existing != null)
+                {
+                    existing.FirstName = CurrentEmp.FirstName;
+                    existing.MiddleName = CurrentEmp.MiddleName;
+                    existing.LastName = CurrentEmp.LastName;
+                    existing.Email = CurrentEmp.Email;
+                    existing.ContactNumber = CurrentEmp.ContactNumber;
+                    existing.Address = CurrentEmp.Address;
+                    existing.DateOfBirth = CurrentEmp.DateOfBirth;
+                    existing.PositionID = CurrentEmp.PositionID;
+                    existing.HireDate = CurrentEmp.HireDate;
+                    existing.Status = CurrentEmp.Status;
+
+                    Context.Employees.Update(existing);
+                    await Context.SaveChangesAsync();
+
+                    // update local list
+                    var local = Employees.FirstOrDefault(e => e.EmployeeID == existing.EmployeeID);
+                    if (local != null)
+                    {
+                        Employees.Remove(local);
+                        Employees.Add(existing);
+                    }
+                }
+            }
+            else
+            {
+                Context.Employees.Add(CurrentEmp);
+                await Context.SaveChangesAsync();
+                Employees.Add(CurrentEmp);
+            }
+
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert", "Employee saved successfully");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving employee: {ex.Message}");
+        }
+    }
+
+    private Employee ArchiveTarget = new();
+    private bool ShowArchiveConfirm = false;
+
+    private void ArchiveEmployee(Employee emp)
+    {
+        ArchiveTarget = emp;
+        ShowArchiveConfirm = true;
+    }
+
+    private void CancelArchive()
+    {
+        ShowArchiveConfirm = false;
+        ArchiveTarget = new Employee();
+    }
+
+    private async Task ConfirmArchive()
+    {
+        try
+        {
+            var emp = await Context.Employees.FindAsync(ArchiveTarget.EmployeeID);
+            if (emp != null)
+            {
+                emp.Status = "Archived";
+                Context.Employees.Update(emp);
+                await Context.SaveChangesAsync();
+
+                var local = Employees.FirstOrDefault(e => e.EmployeeID == emp.EmployeeID);
+                if (local != null) local.Status = "Archived";
+                StateHasChanged();
+                await JSRuntime.InvokeVoidAsync("alert", "Employee archived");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error archiving employee: {ex.Message}");
+        }
+        finally
+        {
+            ShowArchiveConfirm = false;
+            ArchiveTarget = new Employee();
+        }
+    }
+
+    private void OpenArchivedModal()
+    {
+        ShowArchivedModal = true;
+    }
+    private void CloseArchivedModal()
+    {
+        ShowArchivedModal = false;
+    }
+
+    private async Task RestoreEmployee(Employee emp)
+    {
+        try
+        {
+            var existing = await Context.Employees.FindAsync(emp.EmployeeID);
+            if (existing != null)
+            {
+                existing.Status = "Active";
+                Context.Employees.Update(existing);
+                await Context.SaveChangesAsync();
+
+                var local = Employees.FirstOrDefault(e => e.EmployeeID == existing.EmployeeID);
+                if (local != null) local.Status = "Active";
+                StateHasChanged();
+                await JSRuntime.InvokeVoidAsync("alert", "Employee restored");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error restoring employee: {ex.Message}");
+        }
     }
 }
