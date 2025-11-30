@@ -1,5 +1,10 @@
 ﻿@page "/settings/user-management"
 @using HestiaLink.Components.Layout
+@using HestiaLink.Models
+@using HestiaLink.Data
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext Context
+@inject IJSRuntime JSRuntime
 @layout MainLayout
 
 <div class="page-wrapper">
@@ -13,21 +18,25 @@
     <div class="user-toolbar">
         <div class="toolbar-left">
             <div class="toolbar-search">
-                <input type="text" placeholder="Search users..." @bind="SearchText" />
+                <input type="text" placeholder="Search users..." @bind="SearchText" @oninput="OnSearchChanged" />
                 <span class="search-icon">🔍</span>
             </div>
-            <select class="filter-select" style="padding: 10px 16px; min-width: 150px;">
-                <option>Sort by: Name</option>
-                <option>Sort by: Role</option>
-                <option>Sort by: Status</option>
+            <select class="filter-select" style="padding: 10px 16px; min-width: 150px;" @bind="FilterStatus">
+                <option value="All">Sort by: All</option>
+                <option value="Name">Sort by: Name</option>
+                <option value="Role">Sort by: Role</option>
+                <option value="Status">Sort by: Status</option>
             </select>
         </div>
-        <button class="btn-primary" style="max-width: 160px;" @onclick="OpenCreateModal">+ New User</button>
+        <div>
+            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenArchivedModal">📁 View Archived (@ArchivedUsersCount)</button>
+            <button class="btn-create" @onclick="OpenCreateModal">+ New User</button>
+        </div>
     </div>
 
     <div class="checkin-layout">
         <div class="panel-card">
-            <div class="panel-body user-list-container">
+            <div class="panel-body user-list-container" style="height:100%;">
                 <table class="user-table">
                     <thead>
                         <tr>
@@ -36,22 +45,32 @@
                             <th>Username</th>
                             <th>Role</th>
                             <th>Status</th>
+                            <th style="text-align:center;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var user in FilteredUsers)
                         {
-                            <tr class="@(SelectedUser == user ? "selected-row" : "")" @onclick="() => SelectUser(user)">
-                                <td>@user.UserId</td>
-                                <td>@user.EmployeeId</td>
+                            <tr class="@(SelectedUser?.UserID == user.UserID ? "selected-row" : "")">
+                                <td>@user.UserID</td>
+                                <td>@user.EmployeeID</td>
                                 <td>
                                     <div style="font-weight: 700;">@user.Username</div>
                                 </td>
                                 <td><span class="user-role">@user.Role</span></td>
                                 <td>
-                                    <span class="@(user.IsActive ? "badge-active" : "badge-inactive")">
-                                        @(user.IsActive ? "Active" : "Inactive")
+                                    <span class="@(user.Status == "Active" ? "badge-active" : "badge-inactive")">
+                                        @(user.Status == "Active" ? "Active" : "Archived")
                                     </span>
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (user.Status == "Active")
+                                    {
+                                        <div style="display:flex; justify-content:center; gap:8px; align-items:center;">
+                                            <button type="button" class="btn-secondary" style="padding:6px 10px;" @onclick="() => SelectAndEdit(user)">Edit</button>
+                                            <button type="button" class="btn-secondary" style="padding:6px 10px; background:#f59e0b;" @onclick="() => PromptArchive(user)">Archive</button>
+                                        </div>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -60,55 +79,7 @@
             </div>
         </div>
 
-        <div class="panel-card">
-            <div class="panel-header">
-                <span>User's View</span>
-                @if (SelectedUser != null)
-                {
-                    <span class="badge-active">@SelectedUser.UserId</span>
-                }
-            </div>
-            <div class="panel-body">
-                @if (SelectedUser != null)
-                {
-                    <div class="user-detail-view">
-                        <div class="user-avatar-large">
-                            @SelectedUser.Username.Substring(0, 1).ToUpper()
-                        </div>
-                        <h2 style="margin: 0 0 5px 0; color:#102f33;">@SelectedUser.Username</h2>
-                        <span style="color:#64748b; margin-bottom: 30px;">@SelectedUser.Role</span>
-
-                        <div class="detail-row">
-                            <span class="detail-label">Employee ID</span>
-                            <span class="detail-value">@SelectedUser.EmployeeId</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Contact</span>
-                            <span class="detail-value">@SelectedUser.ContactNumber</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Job Desc</span>
-                            <span class="detail-value" style="max-width: 50%; text-align:right;">@SelectedUser.JobDescription</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Status</span>
-                            <span class="detail-value" style="color: @(SelectedUser.IsActive ? "#166534" : "#64748b")">@(SelectedUser.IsActive ? "Active" : "Inactive")</span>
-                        </div>
-                    </div>
-
-                    <div class="action-footer" style="justify-content: center;">
-                        <button class="btn-primary" @onclick="OpenEditModal">Update</button>
-                        <button class="btn-secondary" style="background:#b91c1c;" @onclick="DeleteUser">Delete</button>
-                    </div>
-                }
-                else
-                {
-                    <div style="display:flex; height:100%; align-items:center; justify-content:center; color:#94a3b8;">
-                        Select a user to view details
-                    </div>
-                }
-            </div>
-        </div>
+        
     </div>
     </section>
 </div>
@@ -123,12 +94,23 @@
 
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label">User ID</label>
-                    <input type="text" class="form-input" @bind="CurrentUser.UserId" disabled="@ShowEditModal" />
-                </div>
-                <div class="form-group">
                     <label class="form-label">Username ID (Emp ID)</label>
-                    <input type="text" class="form-input" @bind="CurrentUser.EmployeeId" />
+                    <select class="form-select" @bind="CurrentUser.EmployeeID">
+                        <option value="">-- Select Employee --</option>
+                        @foreach (var emp in AvailableEmployees)
+                        {
+                            <option value="@emp.EmployeeID">@emp.EmployeeID - @emp.FirstName @(" ")@emp.LastName</option>
+                        }
+                        @* If editing, ensure current employee appears even if already has account *@
+                        @if (ShowEditModal && SelectedUser != null && SelectedUser.EmployeeID != null && !AvailableEmployees.Any(e => e.EmployeeID == SelectedUser.EmployeeID))
+                        {
+                            var selEmp = Employees.FirstOrDefault(e => e.EmployeeID == SelectedUser.EmployeeID);
+                            if (selEmp != null)
+                            {
+                                <option value="@selEmp.EmployeeID" selected>@selEmp.EmployeeID - @selEmp.FirstName @selEmp.LastName</option>
+                            }
+                        }
+                    </select>
                 </div>
 
                 <div class="form-group full-width">
@@ -137,28 +119,95 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-input" @bind="CurrentUser.Password" />
+                </div>
+
+                <div class="form-group">
                     <label class="form-label">Role</label>
                     <select class="form-select" @bind="CurrentUser.Role">
                         <option>Administrator</option>
                         <option>Manager</option>
-                        <option>Cashier</option>
+                        <option>FrontDesk</option>
                         <option>Housekeeping</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Contact Number</label>
-                    <input type="text" class="form-input" @bind="CurrentUser.ContactNumber" />
-                </div>
 
-                <div class="form-group full-width">
-                    <label class="form-label">Job Description</label>
-                    <textarea class="form-input" rows="4" @bind="CurrentUser.JobDescription"></textarea>
-                </div>
             </div>
 
             <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
-                <button class="btn-primary" @onclick="SaveUser">@(ShowCreateModal ? "Create User" : "Save Changes")</button>
+                <button class="btn-primary" @onclick="SaveUser">@(ShowCreateModal ? "Create User" : "Save Changes")S</button>
                 <button class="btn-secondary" @onclick="CloseModals">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowArchivedModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">📁 Archived Users</h2>
+                <div style="font-size: 0.9rem; color: #64748b;">@ArchivedUsers.Count archived users</div>
+            </div>
+
+            <div class="panel-body" style="max-height:60vh; overflow-y:auto;">
+                @if (ArchivedUsers.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Employee</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in ArchivedUsers)
+                            {
+                                <tr>
+                                    <td>@user.UserID</td>
+                                    <td>@user.EmployeeID</td>
+                                    <td style="font-weight:700;">@user.Username</td>
+                                    <td>@user.Role</td>
+                                    <td style="text-align:center;">
+                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreUser(user)">🔄 Restore</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data" style="padding:40px;">No archived users</div>
+                }
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
+                <button class="btn-secondary" @onclick="CloseArchivedModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowArchiveConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.2rem;">Confirm Archive</h2>
+            </div>
+            <div style="padding:20px;">
+                <p>Are you sure you want to archive user <strong>@(ArchiveTarget?.Username)</strong>?</p>
+                <p style="color:#f59e0b; font-size:0.9rem;">Archived users will not appear in active lists but can be restored later.</p>
+            </div>
+            <div class="action-footer" style="border:none; padding-bottom:0;">
+                <button class="btn-secondary" style="background:#f59e0b;" @onclick="ConfirmArchive">Archive</button>
+                <button class="btn-secondary" @onclick="CancelArchive">Cancel</button>
             </div>
         </div>
     </div>
@@ -166,51 +215,101 @@
 
 @code {
     private string SearchText { get; set; } = "";
+    private string FilterStatus { get; set; } = "All";
     private bool ShowCreateModal = false;
     private bool ShowEditModal = false;
+    private bool ShowArchivedModal = false;
+    private bool IsLoaded = false;
 
-    private User? SelectedUser;
-    private User CurrentUser = new(); // Holder for form data
+    private SystemUser? SelectedUser;
+    private SystemUser CurrentUser = new(); // Holder for form data
 
-    private List<User> Users = new()
+    private List<SystemUser> Users = new();
+
+    private List<Employee> Employees = new();
+    private List<Employee> AvailableEmployees = new();
+
+    protected override async Task OnInitializedAsync()
     {
-        new() { UserId = "192617", EmployeeId = "191231", Username = "Patrick", Role = "Cashier", ContactNumber = "0917-123-4567", JobDescription = "Handles front desk payments and guest inquiries.", IsActive = true },
-        new() { UserId = "192618", EmployeeId = "191232", Username = "Sarah", Role = "Manager", ContactNumber = "0918-987-6543", JobDescription = "Oversees daily hotel operations.", IsActive = true },
-        new() { UserId = "192619", EmployeeId = "191233", Username = "Mike", Role = "Housekeeping", ContactNumber = "0919-555-0000", JobDescription = "Ensures room cleanliness and maintenance.", IsActive = false },
-    };
+        await LoadData();
+        await LoadAvailableEmployeesAsync();
+        IsLoaded = true;
+    }
 
-    private List<User> FilteredUsers => Users
+    private async Task LoadData()
+    {
+        try
+        {
+            Users = await Context.SystemUsers.AsNoTracking().OrderBy(u => u.Username).ToListAsync();
+            Employees = await Context.Employees.AsNoTracking().OrderBy(e => e.LastName).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"DB load error: {ex.Message}");
+            Users = new List<SystemUser>();
+            Employees = new List<Employee>();
+        }
+    }
+
+    private async Task LoadAvailableEmployeesAsync()
+    {
+        try
+        {
+            // Query DB for active employees that do not have a system user
+            AvailableEmployees = await Context.Employees
+                .AsNoTracking()
+                .Where(e => e.Status == "Active")
+                .Where(e => !Context.SystemUsers.Any(s => s.EmployeeID == e.EmployeeID))
+                .OrderBy(e => e.LastName)
+                .ToListAsync();
+        }
+        catch
+        {
+            // fallback to in-memory filter if DB query fails
+            AvailableEmployees = Employees
+                .Where(emp => emp.Status == "Active" && !Users.Any(u => u.EmployeeID == emp.EmployeeID))
+                .OrderBy(e => e.LastName)
+                .ToList();
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        SearchText = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private List<SystemUser> FilteredUsers => Users
         .Where(u => string.IsNullOrEmpty(SearchText) ||
                     u.Username.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                    u.Role.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
-        .ToList();
+                    u.Role.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (u.EmployeeID != null && u.EmployeeID.ToString().Contains(SearchText)))
+        .OrderBy(u => u.Username).ToList();
 
-    private void SelectUser(User user)
+    private List<SystemUser> ArchivedUsers => Users.Where(u => u.Status == "Archived").OrderBy(u => u.Username).ToList();
+    private int ArchivedUsersCount => ArchivedUsers.Count;
+
+    private void SelectAndEdit(SystemUser user)
     {
         SelectedUser = user;
-    }
-
-    private void OpenCreateModal()
-    {
-        CurrentUser = new User(); // Reset form
-        ShowCreateModal = true;
-    }
-
-    private void OpenEditModal()
-    {
-        if (SelectedUser == null) return;
-        // Clone data to avoid live editing before saving
-        CurrentUser = new User
+        CurrentUser = new SystemUser
         {
-            UserId = SelectedUser.UserId,
-            EmployeeId = SelectedUser.EmployeeId,
-            Username = SelectedUser.Username,
-            Role = SelectedUser.Role,
-            ContactNumber = SelectedUser.ContactNumber,
-            JobDescription = SelectedUser.JobDescription,
-            IsActive = SelectedUser.IsActive
+            UserID = user.UserID,
+            EmployeeID = user.EmployeeID,
+            Username = user.Username,
+            Password = user.Password,
+            Role = user.Role,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt,
+            Status = user.Status
         };
-        ShowEditModal = true;
+    }
+
+    private async Task OpenCreateModal()
+    {
+        CurrentUser = new SystemUser { Status = "Active", CreatedAt = DateTime.Now };
+        await LoadAvailableEmployeesAsync();
+        ShowCreateModal = true;
+        ShowEditModal = false;
     }
 
     private void CloseModals()
@@ -219,44 +318,186 @@
         ShowEditModal = false;
     }
 
-    private void SaveUser()
+    private async Task SaveUser()
     {
-        if (ShowCreateModal)
+        try
         {
-            // Simulate Add
-            CurrentUser.IsActive = true; // Default to active
-            Users.Add(CurrentUser);
-        }
-        else if (ShowEditModal && SelectedUser != null)
-        {
-            // Simulate Update
-            SelectedUser.EmployeeId = CurrentUser.EmployeeId;
-            SelectedUser.Username = CurrentUser.Username;
-            SelectedUser.Role = CurrentUser.Role;
-            SelectedUser.ContactNumber = CurrentUser.ContactNumber;
-            SelectedUser.JobDescription = CurrentUser.JobDescription;
-        }
+            // Basic validation
+            if (CurrentUser.EmployeeID == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Please select an Employee before saving.");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(CurrentUser.Username))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Username is required.");
+                return;
+            }
+            if (ShowCreateModal && string.IsNullOrWhiteSpace(CurrentUser.Password))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Password is required for new users.");
+                return;
+            }
 
-        CloseModals();
+            // Duplicate checks
+            var usernameTaken = await Context.SystemUsers
+                .AsNoTracking()
+                .AnyAsync(u => u.Username == CurrentUser.Username && u.UserID != CurrentUser.UserID);
+            if (usernameTaken)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Username already exists. Choose a different username.");
+                return;
+            }
+
+            var employeeAssigned = await Context.SystemUsers
+                .AsNoTracking()
+                .AnyAsync(u => u.EmployeeID == CurrentUser.EmployeeID && u.UserID != CurrentUser.UserID);
+            if (employeeAssigned)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Selected employee already has a user account.");
+                return;
+            }
+
+            if (ShowCreateModal)
+            {
+                CurrentUser.CreatedAt = DateTime.Now;
+                CurrentUser.Status ??= "Active";
+                // Note: In production, hash passwords before storing
+                // Ensure EF will treat this as a new entity (reset ID if necessary)
+                CurrentUser.UserID = 0;
+                Context.SystemUsers.Add(CurrentUser);
+                await Context.SaveChangesAsync();
+                Users.Add(CurrentUser);
+            }
+            else if (ShowEditModal && SelectedUser != null)
+            {
+                var existing = await Context.SystemUsers.FindAsync(CurrentUser.UserID);
+                if (existing != null)
+                {
+                    existing.EmployeeID = CurrentUser.EmployeeID;
+                    existing.Username = CurrentUser.Username;
+                    // only update password if provided
+                    if (!string.IsNullOrWhiteSpace(CurrentUser.Password))
+                    {
+                        existing.Password = CurrentUser.Password;
+                    }
+                    existing.Role = CurrentUser.Role;
+                    existing.UpdatedAt = DateTime.Now;
+                    existing.Status = CurrentUser.Status ?? existing.Status;
+
+                    Context.SystemUsers.Update(existing);
+                    await Context.SaveChangesAsync();
+
+                    // update local list
+                    var local = Users.FirstOrDefault(u => u.UserID == existing.UserID);
+                    if (local != null)
+                    {
+                        local.EmployeeID = existing.EmployeeID;
+                        local.Username = existing.Username;
+                        local.Password = existing.Password;
+                        local.Role = existing.Role;
+                        local.UpdatedAt = existing.UpdatedAt;
+                        local.Status = existing.Status;
+                    }
+                }
+            }
+
+            // Refresh available employee list and users list
+            await LoadData();
+            await LoadAvailableEmployeesAsync();
+
+            CloseModals();
+            await JSRuntime.InvokeVoidAsync("alert", "User saved successfully");
+        }
+        catch (DbUpdateException dbEx)
+        {
+            var inner = dbEx.GetBaseException();
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving user: {inner?.Message}\n\n{inner}");
+        }
+        catch (Exception ex)
+        {
+            var inner = ex.GetBaseException();
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving user: {inner?.Message}\n\n{inner}");
+        }
     }
 
-    private void DeleteUser()
+    // Archive flow
+    private SystemUser ArchiveTarget = new();
+    private bool ShowArchiveConfirm = false;
+
+    private void PromptArchive(SystemUser user)
     {
-        if (SelectedUser != null)
+        ArchiveTarget = user;
+        ShowArchiveConfirm = true;
+    }
+
+    private void CancelArchive()
+    {
+        ShowArchiveConfirm = false;
+        ArchiveTarget = new SystemUser();
+    }
+
+    private async Task ConfirmArchive()
+    {
+        try
         {
-            Users.Remove(SelectedUser);
-            SelectedUser = null;
+            if (ArchiveTarget != null)
+            {
+                var u = await Context.SystemUsers.FindAsync(ArchiveTarget.UserID);
+                if (u != null)
+                {
+                    u.Status = "Archived";
+                    Context.SystemUsers.Update(u);
+                    await Context.SaveChangesAsync();
+
+                    var local = Users.FirstOrDefault(x => x.UserID == u.UserID);
+                    if (local != null) local.Status = "Archived";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error archiving user: {ex.Message}");
+        }
+        finally
+        {
+            ShowArchiveConfirm = false;
+            ArchiveTarget = new SystemUser();
         }
     }
 
-    public class User
+    private void OpenArchivedModal()
     {
-        public string UserId { get; set; } = "";
-        public string EmployeeId { get; set; } = "";
-        public string Username { get; set; } = "";
-        public string Role { get; set; } = "";
-        public string ContactNumber { get; set; } = "";
-        public string JobDescription { get; set; } = "";
-        public bool IsActive { get; set; } = true;
+        ShowArchivedModal = true;
+    }
+    private void CloseArchivedModal()
+    {
+        ShowArchivedModal = false;
+    }
+
+    private async Task RestoreUser(SystemUser user)
+    {
+        try
+        {
+            var u = await Context.SystemUsers.FindAsync(user.UserID);
+            if (u != null)
+            {
+                u.Status = "Active";
+                Context.SystemUsers.Update(u);
+                await Context.SaveChangesAsync();
+
+                var local = Users.FirstOrDefault(x => x.UserID == u.UserID);
+                if (local != null) local.Status = "Active";
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error restoring user: {ex.Message}");
+        }
+    }
+
+    private void SelectUser(SystemUser user)
+    {
+        SelectedUser = user;
     }
 }

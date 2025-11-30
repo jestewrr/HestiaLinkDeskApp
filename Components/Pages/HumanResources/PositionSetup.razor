@@ -1,5 +1,10 @@
 ﻿@page "/hr/position-setup"
 @using HestiaLink.Components.Layout
+@using HestiaLink.Models
+@using HestiaLink.Data
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext Context
+@inject IJSRuntime JSRuntime
 @layout MainLayout
 
 <div class="page-wrapper">
@@ -13,47 +18,99 @@
     <div class="user-toolbar">
         <div class="toolbar-left">
             <div class="toolbar-search">
-                <input type="text" placeholder="Search positions..." @bind="SearchText" />
+                <input type="text" placeholder="Search positions..." @bind="SearchText" @bind:event="oninput" />
                 <span class="search-icon">🔍</span>
             </div>
-            <select class="filter-select">
-                <option>All Departments</option>
-                <option>Front Office</option>
-                <option>Housekeeping</option>
+            <select class="filter-select" @bind="SelectedDepartmentFilter">
+                <option value="">All Departments</option>
+                @foreach (var d in Departments)
+                {
+                    <option value="@d.DepartmentName">@d.DepartmentName</option>
+                }
             </select>
         </div>
-        <button class="btn-primary" @onclick="OpenModal">+ Create New Position</button>
-    </div>
-
-    <div class="panel-card">
-        <div class="panel-body user-list-container">
-            <table class="user-table">
-                <thead>
-                    <tr>
-                        <th>Position Title</th>
-                        <th>Department</th>
-                        <th>Level</th>
-                        <th>Min Salary</th>
-                        <th>Max Salary</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var pos in FilteredPositions)
-                    {
-                        <tr>
-                            <td style="font-weight: 700;">@pos.Title</td>
-                            <td>@pos.Department</td>
-                            <td>@pos.Level</td>
-                            <td>@pos.MinSalary.ToString("N2")</td>
-                            <td>@pos.MaxSalary.ToString("N2")</td>
-                            <td><span class="badge-active">Active</span></td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <div>
+            <button class="btn-secondary" style="margin-right: 10px;" @onclick="OpenArchivedModal">📁 View Archived (@ArchivedPositionsCount)</button>
+            <button class="btn-create" @onclick="OpenModal">Create New Position</button>
         </div>
     </div>
+
+    @if (!IsLoaded)
+    {
+        <div class="loading">
+            <div>🔄 Loading positions from database...</div>
+        </div>
+    }
+    else if (HasError)
+    {
+        <div class="error-message">
+            <h4>❌ Database Connection Error</h4>
+            <p>Error: @ErrorMessage</p>
+            <button class="btn-create" @onclick="RetryLoad">Retry Connection</button>
+        </div>
+    }
+    else if (!Positions.Any())
+    {
+        <div class="no-data">
+            <p>📭 No positions found in database</p>
+            <p style="font-size: 0.8rem; color: #64748b;">Add a new position to populate the table.</p>
+        </div>
+    }
+    else
+    {
+        <div class="panel-card">
+            <div class="panel-body user-list-container">
+                @if (FilteredPositions.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Position Title</th>
+                                <th>Department</th>
+                                <th>Level</th>
+                                <th>Pay Grade</th>
+                                <th>Salary</th>
+                                <th>Status</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pos in FilteredPositions)
+                            {
+                                <tr>
+                                    <td>@pos.PositionID</td>
+                                    <td style="font-weight: 700;">@pos.PositionTitle</td>
+                                    <td>@pos.Department?.DepartmentName</td>
+                                    <td>@pos.PositionLevel</td>
+                                    <td>@pos.PayGrade</td>
+                                    <td>@pos.Salary.ToString("N2")</td>
+                                    <td>
+                                        <span class="badge-@(pos.Status == "Active" ? "active" : pos.Status == "Inactive" ? "inactive" : "archived")">
+                                            @pos.Status
+                                        </span>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        @if (pos.Status != "Archived")
+                                        {
+                                            <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(pos)">Edit</button>
+                                            <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-left: 5px; background: #f59e0b;" @onclick="() => ArchivePosition(pos)">Archive</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data">
+                        <p>No positions match your search criteria</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
     </section>
 </div>
 
@@ -62,46 +119,140 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;">Create New Position</h2>
+                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Position" : "Create New Position")</h2>
             </div>
 
             <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">Department</label>
-                    <select class="form-select" @bind="CurrentPos.Department">
-                        <option>Front Office</option>
-                        <option>Housekeeping</option>
-                        <option>F&B</option>
+                    <select class="form-select" @bind="CurrentPos.DepartmentID">
+                        @foreach (var d in Departments)
+                        {
+                            <option value="@d.DepartmentID">@d.DepartmentName</option>
+                        }
                     </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Position Title</label>
-                    <input type="text" class="form-input" @bind="CurrentPos.Title" />
+                    <input type="text" class="form-input" @bind="CurrentPos.PositionTitle" />
                 </div>
 
                 <div class="form-group full-width">
                     <label class="form-label">Position Level</label>
-                    <input type="text" class="form-input" @bind="CurrentPos.Level" placeholder="e.g. Entry Level, Senior, Manager" />
+                    <input type="text" class="form-input" @bind="CurrentPos.PositionLevel" placeholder="e.g. Entry Level, Senior, Manager" />
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Min Salary (₱)</label>
-                    <input type="number" class="form-input" @bind="CurrentPos.MinSalary" />
+                    <label class="form-label">Pay Grade</label>
+                    <input type="text" class="form-input" @bind="CurrentPos.PayGrade" />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Max Salary (₱)</label>
-                    <input type="number" class="form-input" @bind="CurrentPos.MaxSalary" />
+                    <label class="form-label">Salary (₱)</label>
+                    <input type="number" class="form-input" @bind="CurrentPos.Salary" />
                 </div>
 
                 <div class="form-group full-width">
                     <label class="form-label">Job Description</label>
-                    <textarea class="form-input" rows="4" placeholder="Enter roles and responsibilities..."></textarea>
+                    <textarea class="form-input" rows="4" @bind="CurrentPos.JobDescription"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" @bind="CurrentPos.Status">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Archived">Archived</option>
+                    </select>
                 </div>
             </div>
 
             <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
-                <button class="btn-primary" @onclick="SavePosition">Create Position</button>
+                <button class="btn-primary" @onclick="SavePosition" disabled="@(!CanSave)">@(IsEditMode ? "Update Position" : "Create Position")</button>
                 <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowArchivedModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">📁 Archived Positions</h2>
+                <div style="font-size: 0.9rem; color: #64748b;">
+                    @ArchivedPositions.Count archived positions
+                </div>
+            </div>
+
+            <div class="panel-body" style="max-height: 60vh; overflow-y: auto;">
+                @if (ArchivedPositions.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Position Title</th>
+                                <th>Department</th>
+                                <th>Level</th>
+                                <th>Archived Since</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pos in ArchivedPositions)
+                            {
+                                <tr>
+                                    <td>@pos.PositionID</td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #102f33;">@pos.PositionTitle</div>
+                                    </td>
+                                    <td style="color:#64748b; font-size:0.85rem;">@pos.Department?.DepartmentName</td>
+                                    <td style="color:#64748b; font-size:0.85rem;">@pos.PositionLevel</td>
+                                    <td style="color:#64748b; font-size:0.8rem;">Previously archived</td>
+                                    <td style="text-align:center;">
+                                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #10b981;" @onclick="() => RestorePositionFromModal(pos)" title="Restore this position">🔄 Restore</button>
+                                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-left: 5px; background: #dc2626;" @onclick="() => ConfirmDeleteFromModal(pos)" title="Permanently delete">🗑️ Delete</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data" style="padding: 40px;">
+                        <p>📭 No archived positions found</p>
+                        <p style="font-size: 0.8rem; color: #64748b;">There are no positions in the archive.</p>
+                    </div>
+                }
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
+                <button class="btn-secondary" @onclick="CloseArchivedModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ShowDeleteConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header-red">
+                <h2 style="margin:0; font-size:1.2rem;">🗑️ Confirm Deletion</h2>
+            </div>
+
+            <div class="modal-body" style="text-align:center; padding:20px;">
+                <p style="margin:0; font-size:1rem;">Are you sure you want to permanently delete this position?</p>
+                <p style="margin:5px 0 0; font-size:0.85rem; color:#dc2626;">
+                    This action cannot be undone.
+                </p>
+            </div>
+
+            <div class="action-footer" style="border:none; padding:10px 0 0;">
+                <button class="btn-danger" @onclick="DeletePosition">Delete Position</button>
+                <button class="btn-secondary" @onclick="CancelDelete">Cancel</button>
             </div>
         </div>
     </div>
@@ -109,35 +260,251 @@
 
 @code {
     private string SearchText = "";
+    private string SelectedDepartmentFilter = "";
     private bool ShowModal = false;
+    private bool IsEditMode = false;
+    private bool IsLoaded = false;
+    private bool HasError = false;
+    private string ErrorMessage = "";
+
     private Position CurrentPos = new();
+    private List<Position> Positions = new();
+    private List<Department> Departments = new();
 
-    private List<Position> Positions = new()
+    // New: archive modal and delete confirm
+    private bool ShowArchivedModal = false;
+    private bool ShowDeleteConfirm = false;
+    private Position CurrentPosForDelete = new();
+
+    private List<Position> ArchivedPositions => Positions.Where(p => p.Status == "Archived").OrderBy(p => p.PositionTitle).ToList();
+    private int ArchivedPositionsCount => ArchivedPositions.Count;
+
+    protected override async Task OnInitializedAsync()
     {
-        new() { Title = "Telephone Operator", Department = "Front Office", Level = "Entry Level", MinSalary = 15000, MaxSalary = 18000 },
-        new() { Title = "Front Desk Manager", Department = "Front Office", Level = "Manager", MinSalary = 30000, MaxSalary = 45000 },
-        new() { Title = "Room Attendant", Department = "Housekeeping", Level = "Entry Level", MinSalary = 14000, MaxSalary = 16000 },
-    };
-
-    private List<Position> FilteredPositions => Positions
-        .Where(p => string.IsNullOrEmpty(SearchText) || p.Title.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
-        .ToList();
-
-    private void OpenModal() { CurrentPos = new Position(); ShowModal = true; }
-    private void CloseModal() => ShowModal = false;
-
-    private void SavePosition()
-    {
-        Positions.Add(CurrentPos);
-        CloseModal();
+        await LoadData();
     }
 
-    public class Position
+    private async Task LoadData()
     {
-        public string Title { get; set; } = "";
-        public string Department { get; set; } = "";
-        public string Level { get; set; } = "";
-        public decimal MinSalary { get; set; }
-        public decimal MaxSalary { get; set; }
+        try
+        {
+            HasError = false;
+            ErrorMessage = string.Empty;
+
+            Departments = await Context.Departments.AsNoTracking().OrderBy(d => d.DepartmentName).ToListAsync();
+
+            // Include Department navigation property
+            Positions = await Context.Positions
+                .Include(p => p.Department)
+                .AsNoTracking()
+                .OrderBy(p => p.PositionTitle)
+                .ToListAsync();
+
+            IsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = ex.Message;
+            IsLoaded = true;
+            await JSRuntime.InvokeVoidAsync("alert", $"Database Error: {ex.Message}");
+        }
     }
+
+    private async Task RetryLoad()
+    {
+        IsLoaded = false;
+        HasError = false;
+        StateHasChanged();
+        await Task.Delay(1000);
+        await LoadData();
+    }
+
+    private List<Position> FilteredPositions
+    {
+        get
+        {
+            var query = Positions.AsQueryable();
+            if (!string.IsNullOrEmpty(SelectedDepartmentFilter))
+            {
+                query = query.Where(p => p.Department != null && string.Equals(p.Department.DepartmentName, SelectedDepartmentFilter, StringComparison.OrdinalIgnoreCase));
+            }
+            if (!string.IsNullOrEmpty(SearchText))
+            {
+                var s = SearchText.Trim();
+                query = query.Where(p =>
+                    (!string.IsNullOrEmpty(p.PositionTitle) && p.PositionTitle.Contains(s, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(p.PositionLevel) && p.PositionLevel.Contains(s, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(p.PayGrade) && p.PayGrade.Contains(s, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(p.JobDescription) && p.JobDescription.Contains(s, StringComparison.OrdinalIgnoreCase)) ||
+                    (p.Department != null && !string.IsNullOrEmpty(p.Department.DepartmentName) && p.Department.DepartmentName.Contains(s, StringComparison.OrdinalIgnoreCase))
+                );
+            }
+            return query.OrderBy(p => p.PositionTitle).ToList();
+        }
+    }
+
+    private void OpenModal() { CurrentPos = new Position { Status = "Active" }; IsEditMode = false; ShowModal = true; }
+    private void OpenEditModal(Position pos)
+    {
+        CurrentPos = new Position
+        {
+            PositionID = pos.PositionID,
+            DepartmentID = pos.DepartmentID,
+            PositionTitle = pos.PositionTitle,
+            PositionLevel = pos.PositionLevel,
+            PayGrade = pos.PayGrade,
+            Salary = pos.Salary,
+            JobDescription = pos.JobDescription,
+            Status = pos.Status
+        };
+        IsEditMode = true;
+        ShowModal = true;
+    }
+
+    private void CloseModal() { ShowModal = false; CurrentPos = new Position(); }
+
+    private async Task ArchivePosition(Position pos)
+    {
+        try
+        {
+            var entity = await Context.Positions.FindAsync(pos.PositionID);
+            if (entity != null)
+            {
+                entity.Status = "Archived";
+                Context.Positions.Update(entity);
+                await Context.SaveChangesAsync();
+
+                var local = Positions.FirstOrDefault(p => p.PositionID == pos.PositionID);
+                if (local != null) local.Status = "Archived";
+                StateHasChanged();
+                await JSRuntime.InvokeVoidAsync("alert", "Position archived successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error archiving position: {ex.Message}");
+        }
+    }
+
+    // New: open/close archived modal
+    private void OpenArchivedModal() => ShowArchivedModal = true;
+    private void CloseArchivedModal() => ShowArchivedModal = false;
+
+    // New: restore position from archived modal
+    private async Task RestorePositionFromModal(Position pos)
+    {
+        try
+        {
+            var entity = await Context.Positions.FindAsync(pos.PositionID);
+            if (entity != null)
+            {
+                entity.Status = "Active";
+                Context.Positions.Update(entity);
+                await Context.SaveChangesAsync();
+
+                var local = Positions.FirstOrDefault(p => p.PositionID == pos.PositionID);
+                if (local != null) local.Status = "Active";
+                StateHasChanged();
+                await JSRuntime.InvokeVoidAsync("alert", "Position restored successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error restoring position: {ex.Message}");
+        }
+    }
+
+    // New: confirm and delete from archived modal
+    private void ConfirmDeleteFromModal(Position pos)
+    {
+        CurrentPosForDelete = pos;
+        ShowDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        ShowDeleteConfirm = false;
+        CurrentPosForDelete = new Position();
+    }
+
+    private async Task DeletePosition()
+    {
+        try
+        {
+            var entity = await Context.Positions.FindAsync(CurrentPosForDelete.PositionID);
+            if (entity != null)
+            {
+                Context.Positions.Remove(entity);
+                await Context.SaveChangesAsync();
+
+                Positions.RemoveAll(p => p.PositionID == CurrentPosForDelete.PositionID);
+                StateHasChanged();
+                await JSRuntime.InvokeVoidAsync("alert", "Position permanently deleted.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error deleting position: {ex.Message}");
+        }
+        finally
+        {
+            ShowDeleteConfirm = false;
+            CurrentPosForDelete = new Position();
+        }
+    }
+
+    private async Task SavePosition()
+    {
+        if (!CanSave) return;
+
+        try
+        {
+            if (IsEditMode)
+            {
+                var existing = await Context.Positions.FindAsync(CurrentPos.PositionID);
+                if (existing != null)
+                {
+                    existing.DepartmentID = CurrentPos.DepartmentID;
+                    existing.PositionTitle = CurrentPos.PositionTitle;
+                    existing.PositionLevel = CurrentPos.PositionLevel;
+                    existing.PayGrade = CurrentPos.PayGrade;
+                    existing.Salary = CurrentPos.Salary;
+                    existing.JobDescription = CurrentPos.JobDescription;
+                    existing.Status = CurrentPos.Status;
+                    Context.Positions.Update(existing);
+                    await Context.SaveChangesAsync();
+
+                    // update local copy
+                    var local = Positions.FirstOrDefault(p => p.PositionID == existing.PositionID);
+                    if (local != null)
+                    {
+                        local.DepartmentID = existing.DepartmentID;
+                        local.Department = Departments.FirstOrDefault(d => d.DepartmentID == existing.DepartmentID);
+                        local.PositionTitle = existing.PositionTitle;
+                        local.PositionLevel = existing.PositionLevel;
+                        local.PayGrade = existing.PayGrade;
+                        local.Salary = existing.Salary;
+                        local.JobDescription = existing.JobDescription;
+                        local.Status = existing.Status;
+                    }
+                }
+            }
+            else
+            {
+                Context.Positions.Add(CurrentPos);
+                await Context.SaveChangesAsync();
+                await LoadData();
+            }
+
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert", $"Position {(IsEditMode ? "updated" : "created")} successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving position: {ex.Message}");
+        }
+    }
+
+    private bool CanSave => !string.IsNullOrWhiteSpace(CurrentPos.PositionTitle) && CurrentPos.DepartmentID > 0;
 }
