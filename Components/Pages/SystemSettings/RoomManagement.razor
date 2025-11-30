@@ -1,5 +1,10 @@
 @page "/settings/room-management"
 @using HestiaLink.Components.Layout
+@using HestiaLink.Data
+@using HestiaLink.Models
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext Context
+@inject IJSRuntime JSRuntime
 @layout MainLayout
 
 <div class="page-wrapper">
@@ -13,7 +18,7 @@
         <div style="display: flex; gap: 12px; margin-bottom: 24px; justify-content: flex-end;">
             <button class="btn-action-secondary" @onclick="ShowRoomStatusView">Room Status</button>
             <button class="btn-create" @onclick="OpenAddRoomModal">Add Room</button>
-            <button class="btn-create" @onclick="OpenAddFloorModal">Add Floor</button>
+            <button class="btn-create" @onclick="OpenAddRoomTypeModal">Add RoomType</button>
         </div>
 
         <!-- Room Status Grid View -->
@@ -27,7 +32,7 @@
                         <div class="room-grid">
                             @foreach (var room in Rooms.Where(r => r.Floor == floor.FloorNumber).OrderBy(r => r.RoomNumber))
                             {
-                                <button class="room-status-card @GetRoomStatusClass(room.Status)" 
+                                <button class="room-status-card @GetRoomStatusClass(room.Status)"
                                         @onclick="() => OpenEditRoomModal(room)">
                                     <span class="room-label">ROOM @room.RoomNumber</span>
                                 </button>
@@ -46,12 +51,12 @@
     <div class="modal-overlay" @onclick="CloseModals">
         <div class="modal-content modal-room-create" @onclick:stopPropagation="true">
             <h2 style="margin-top: 0; margin-bottom: 24px;">Create Room</h2>
-            
+
             <div class="room-modal-layout">
                 <!-- Left Side - Form -->
                 <div class="room-form-section">
                     <h3 style="margin-top: 0; font-size: 1.1rem; margin-bottom: 16px;">Room Information</h3>
-                    
+
                     <div class="form-group" style="margin-bottom: 16px;">
                         <label class="form-label">Room Number</label>
                         <input type="text" class="form-input" @bind="NewRoom.RoomNumber" placeholder="e.g., 101" />
@@ -64,26 +69,24 @@
 
                     <div class="form-group" style="margin-bottom: 16px;">
                         <label class="form-label">Room Type</label>
-                        <select class="form-select" @bind="NewRoom.RoomType">
+                        <select class="form-select" @bind="NewRoom.RoomTypeID">
                             <option value="">Select Type</option>
-                            <option value="Standard">Standard</option>
-                            <option value="Deluxe">Deluxe</option>
-                            <option value="Suite">Suite</option>
-                            <option value="Presidential">Presidential</option>
+                            @foreach (var rt in RoomTypes.Where(rt => rt.Status == "Active"))
+                            {
+                                <option value="@rt.RoomTypeID">@rt.TypeName</option>
+                            }
                         </select>
                     </div>
 
                     <div class="room-action-buttons">
                         <button class="btn-modal-primary" @onclick="AddRoom">Add Room</button>
-                        <button class="btn-modal-primary" @onclick="UpdateRoom">Update Room</button>
-                        <button class="btn-modal-danger" @onclick="DeleteRoom">Delete Room</button>
                     </div>
                 </div>
 
                 <!-- Right Side - List -->
                 <div class="room-list-section">
                     <h3 style="margin-top: 0; font-size: 1.1rem; margin-bottom: 16px;">List of Room</h3>
-                    
+
                     <div class="room-list-table-container">
                         <table class="room-list-table">
                             <thead>
@@ -117,31 +120,36 @@
     <div class="modal-overlay" @onclick="CloseModals">
         <div class="modal-content modal-room-edit" @onclick:stopPropagation="true">
             <h2 style="margin-top: 0; margin-bottom: 24px;">Edit Room</h2>
-            
+
             <div class="room-form-section">
                 <h3 style="margin-top: 0; font-size: 1.1rem; margin-bottom: 16px;">Room Information</h3>
-                
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                     <div class="form-group">
-                        <label class="form-label">Type of Room</label>
-                        <select class="form-select" @bind="SelectedRoom.RoomType">
-                            <option value="Standard">Standard</option>
-                            <option value="Deluxe">Deluxe</option>
-                            <option value="Suite">Suite</option>
-                            <option value="Presidential">Presidential</option>
-                        </select>
+                        <label class="form-label">Room Number</label>
+                        <input type="text" class="form-input" @bind="SelectedRoom.RoomNumber" />
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Status</label>
-                        <input type="text" class="form-input" @bind="SelectedRoom.Status" />
+                        <select class="form-select" @bind="SelectedRoom.Status">
+                            <option value="Available">Available</option>
+                            <option value="Occupied">Occupied</option>
+                            <option value="Maintenance">Maintenance</option>
+                            <option value="Cleaning">Cleaning</option>
+                        </select>
                     </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                     <div class="form-group">
-                        <label class="form-label">Number of Guests</label>
-                        <input type="number" class="form-input" @bind="SelectedRoom.MaxOccupancy" />
+                        <label class="form-label">Room Type</label>
+                        <select class="form-select" @bind="SelectedRoom.RoomTypeID">
+                            @foreach (var rt in RoomTypes.Where(rt => rt.Status == "Active"))
+                            {
+                                <option value="@rt.RoomTypeID">@rt.TypeName</option>
+                            }
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -150,19 +158,7 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px;">
-                    <div class="form-group">
-                        <label class="form-label">Room Price</label>
-                        <input type="number" class="form-input" @bind="SelectedRoom.Price" />
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 24px;">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-input" rows="4" @bind="SelectedRoom.Description" placeholder="Room description..."></textarea>
-                </div>
-
-                <button class="btn-modal-primary" style="width: 100%;" @onclick="SaveRoomEdit">Submit</button>
+                <button class="btn-modal-primary" style="width: 100%;" @onclick="SaveRoomEdit">Update</button>
             </div>
         </div>
     </div>
@@ -174,70 +170,87 @@
     <div class="modal-overlay" @onclick="CloseModals">
         <div class="modal-content modal-room-type" @onclick:stopPropagation="true">
             <h2 style="margin-top: 0; margin-bottom: 24px;">Create Room Type</h2>
-            
-            <div class="form-section">
-                <h3 style="margin-top: 0; font-size: 1.1rem; margin-bottom: 16px;">Room Type</h3>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                    <div class="form-group">
-                        <label class="form-label">Room Type</label>
-                        <input type="text" class="form-input" @bind="NewRoomType.Type" placeholder="e.g., Deluxe" />
+
+            <div class="room-modal-layout">
+                <!-- Left Side - Form -->
+                <div class="room-form-section">
+                    <h3 style="margin-top: 0; font-size: 1.1rem; margin-bottom: 16px;">Room Type Information</h3>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Room Type</label>
+                            <input type="text" class="form-input" @bind="NewRoomType.TypeName" placeholder="e.g., Deluxe" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Max Occupancy</label>
+                            <input type="number" class="form-input" @bind="NewRoomType.MaxOccupancy" />
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Max Occupancy</label>
-                        <input type="number" class="form-input" @bind="NewRoomType.MaxOccupancy" />
-                    </div>
-
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 16px;">
                         <label class="form-label">Base Price</label>
                         <input type="number" class="form-input" @bind="NewRoomType.BasePrice" />
                     </div>
-                </div>
 
-                <div class="form-group" style="margin-bottom: 24px;">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-input" rows="4" @bind="NewRoomType.Description" placeholder="Describe the room type..."></textarea>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-                    <button class="btn-modal-primary" @onclick="ConfirmRoomType">Confirm</button>
-                    <button class="btn-modal-secondary" @onclick="DeleteRoomType">Delete</button>
-                    <button class="btn-modal-secondary" @onclick="UpdateRoomType">Update</button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-<!-- Add Floor Modal -->
-@if (ShowAddFloorModal)
-{
-    <div class="modal-overlay" @onclick="CloseModals">
-        <div class="modal-content modal-floor" @onclick:stopPropagation="true">
-            <h2 style="margin-top: 0; margin-bottom: 24px;">Create Floor</h2>
-            
-            <div class="form-section">
-                <h3 style="margin-top: 0; font-size: 1.1rem; margin-bottom: 16px; color: #004f59;">Floor Description</h3>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                    <div class="form-group">
-                        <label class="form-label">Floor Number</label>
-                        <input type="number" class="form-input" @bind="NewFloor.FloorNumber" placeholder="e.g., 1" />
-                    </div>
-
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 16px;">
                         <label class="form-label">Status</label>
-                        <input type="text" class="form-input" @bind="NewFloor.Status" placeholder="e.g., Active" />
+                        <select class="form-select" @bind="NewRoomType.Status">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 24px;">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-input" rows="3" @bind="NewRoomType.Description" placeholder="Describe the room type..."></textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn-modal-primary" @onclick="ConfirmRoomType">Confirm</button>
+                        <button class="btn-modal-secondary" @onclick="CloseModals">Cancel</button>
                     </div>
                 </div>
 
-                <div class="form-group" style="margin-bottom: 24px;">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-input" rows="4" @bind="NewFloor.Description" placeholder="Describe the floor..."></textarea>
-                </div>
+                <!-- Right Side - Room Type List -->
+                <div class="room-list-section">
+                    <h3 style="margin-top: 0; font-size: 1.1rem; margin-bottom: 16px;">Room Types</h3>
 
-                <button class="btn-modal-primary" style="width: 100%;" @onclick="AddFloor">ADD ROOM</button>
+                    <div class="room-list-table-container">
+                        <table class="room-list-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Max Occupancy</th>
+                                    <th>Base Price</th>
+                                    <th>Status</th>
+                                    <th style="text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var roomType in RoomTypes.OrderBy(rt => rt.TypeName))
+                                {
+                                    <tr>
+                                        <td style="font-weight: 600;">@roomType.TypeName</td>
+                                        <td>@roomType.MaxOccupancy</td>
+                                        <td>@roomType.BasePrice.ToString("C")</td>
+                                        <td>
+                                            <span class="@(roomType.Status == "Active" ? "badge-active" : "badge-inactive")">
+                                                @roomType.Status
+                                            </span>
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                                <button class="btn-small" @onclick="() => EditRoomType(roomType)">Edit</button>
+                                                <button class="btn-small btn-warning" @onclick="() => ArchiveRoomType(roomType)">Archive</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -290,26 +303,26 @@
         justify-content: center;
     }
 
-    .room-status-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
+        .room-status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
 
-    .room-status-card.available {
-        background: #10b981;
-    }
+        .room-status-card.available {
+            background: #10b981;
+        }
 
-    .room-status-card.occupied {
-        background: #ef4444;
-    }
+        .room-status-card.occupied {
+            background: #ef4444;
+        }
 
-    .room-status-card.maintenance {
-        background: #eab308;
-    }
+        .room-status-card.maintenance {
+            background: #eab308;
+        }
 
-    .room-status-card.cleaning {
-        background: #3b82f6;
-    }
+        .room-status-card.cleaning {
+            background: #3b82f6;
+        }
 
     .room-label {
         display: block;
@@ -328,9 +341,9 @@
         transition: all 0.2s;
     }
 
-    .btn-action-secondary:hover {
-        background-color: #64748b;
-    }
+        .btn-action-secondary:hover {
+            background-color: #64748b;
+        }
 
     .modal-room-create {
         max-width: 1000px;
@@ -343,20 +356,8 @@
     }
 
     .modal-room-type {
-        max-width: 900px;
+        max-width: 1250px;
         width: 90%;
-    }
-
-    .modal-floor {
-        max-width: 650px;
-        width: 90%;
-        background: linear-gradient(135deg, #7dd3c0 0%, #5fb3a1 100%);
-        color: white;
-    }
-
-    .modal-floor .form-label {
-        color: white;
-        font-weight: 600;
     }
 
     .room-modal-layout {
@@ -390,29 +391,29 @@
         border-collapse: collapse;
     }
 
-    .room-list-table thead {
-        background: #f8f9fa;
-        position: sticky;
-        top: 0;
-    }
+        .room-list-table thead {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+        }
 
-    .room-list-table th {
-        padding: 12px;
-        text-align: left;
-        font-weight: 600;
-        font-size: 0.9rem;
-        border-bottom: 2px solid #e5e7eb;
-    }
+        .room-list-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
 
-    .room-list-table td {
-        padding: 12px;
-        border-bottom: 1px solid #f1f5f9;
-        font-size: 0.9rem;
-    }
+        .room-list-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.9rem;
+        }
 
-    .room-list-table tbody tr:hover {
-        background: #f8fafc;
-    }
+        .room-list-table tbody tr:hover {
+            background: #f8fafc;
+        }
 
     .room-action-buttons {
         display: flex;
@@ -433,9 +434,9 @@
         transition: all 0.2s;
     }
 
-    .btn-modal-primary:hover {
-        background: #333;
-    }
+        .btn-modal-primary:hover {
+            background: #333;
+        }
 
     .btn-modal-secondary {
         background: #64748b;
@@ -449,24 +450,84 @@
         transition: all 0.2s;
     }
 
-    .btn-modal-secondary:hover {
-        background: #475569;
-    }
+        .btn-modal-secondary:hover {
+            background: #475569;
+        }
 
-    .btn-modal-danger {
-        background: #ef4444;
+    .btn-small {
+        background: #3b82f6;
         color: white;
-        padding: 14px 24px;
-        border-radius: 8px;
+        padding: 6px 12px;
+        border-radius: 6px;
         border: none;
-        font-weight: 600;
-        font-size: 0.95rem;
+        font-weight: 500;
+        font-size: 0.8rem;
         cursor: pointer;
         transition: all 0.2s;
     }
 
-    .btn-modal-danger:hover {
-        background: #dc2626;
+        .btn-small:hover {
+            background: #2563eb;
+        }
+
+        .btn-small.btn-warning {
+            background: #ef4444;
+        }
+
+            .btn-small.btn-warning:hover {
+                background: #dc2626;
+            }
+
+    .badge-active {
+        background: #10b981;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .badge-inactive {
+        background: #ef4444;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.6);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal-content {
+        background-color: white;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+        animation: slideUp 0.3s ease-out;
+    }
+
+    @@keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
     }
 </style>
 
@@ -475,88 +536,80 @@
     private bool ShowAddRoomModal = false;
     private bool ShowEditRoomModal = false;
     private bool ShowAddRoomTypeModal = false;
-    private bool ShowAddFloorModal = false;
 
-    private List<Room> Rooms = new List<Room>();
-    private List<Floor> Floors = new List<Floor>();
-    private List<RoomType> RoomTypes = new List<RoomType>();
+    private List<Room> Rooms = new();
+    private List<Floor> Floors = new();
+    private List<RoomType> RoomTypes = new();
 
-    private Room NewRoom = new Room();
-    private Room SelectedRoom = new Room();
-    private Floor NewFloor = new Floor();
-    private RoomType NewRoomType = new RoomType();
+    private Room NewRoom = new();
+    private Room SelectedRoom = new();
+    private RoomType NewRoomType = new();
+    private RoomType SelectedRoomType = new();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Initialize sample data
-        Floors.Add(new Floor { FloorNumber = 1, Status = "Active" });
-        Floors.Add(new Floor { FloorNumber = 2, Status = "Active" });
-        Floors.Add(new Floor { FloorNumber = 3, Status = "Active" });
-        Floors.Add(new Floor { FloorNumber = 4, Status = "Active" });
-
-        Rooms.Add(new Room { RoomNumber = "1", Floor = 1, Status = "Available", RoomType = "Standard" });
-        Rooms.Add(new Room { RoomNumber = "2", Floor = 1, Status = "Occupied", RoomType = "Deluxe" });
-        Rooms.Add(new Room { RoomNumber = "3", Floor = 1, Status = "Maintenance", RoomType = "Suite" });
-        Rooms.Add(new Room { RoomNumber = "4", Floor = 1, Status = "Available", RoomType = "Standard" });
-
-        Rooms.Add(new Room { RoomNumber = "1", Floor = 2, Status = "Available", RoomType = "Standard" });
-        Rooms.Add(new Room { RoomNumber = "2", Floor = 2, Status = "Available", RoomType = "Deluxe" });
-        Rooms.Add(new Room { RoomNumber = "3", Floor = 2, Status = "Available", RoomType = "Suite" });
-        Rooms.Add(new Room { RoomNumber = "4", Floor = 2, Status = "Maintenance", RoomType = "Standard" });
-
-        Rooms.Add(new Room { RoomNumber = "1", Floor = 3, Status = "Maintenance", RoomType = "Standard" });
-        Rooms.Add(new Room { RoomNumber = "2", Floor = 3, Status = "Available", RoomType = "Deluxe" });
-        Rooms.Add(new Room { RoomNumber = "3", Floor = 3, Status = "Available", RoomType = "Suite" });
-        Rooms.Add(new Room { RoomNumber = "4", Floor = 3, Status = "Maintenance", RoomType = "Standard" });
-
-        Rooms.Add(new Room { RoomNumber = "1", Floor = 4, Status = "Available", RoomType = "Standard" });
-        Rooms.Add(new Room { RoomNumber = "2", Floor = 4, Status = "Available", RoomType = "Deluxe" });
-        Rooms.Add(new Room { RoomNumber = "3", Floor = 4, Status = "Maintenance", RoomType = "Suite" });
-        Rooms.Add(new Room { RoomNumber = "4", Floor = 4, Status = "Available", RoomType = "Standard" });
+        await LoadDataAsync();
     }
 
-    private string GetRoomStatusClass(string status)
+    private async Task LoadDataAsync()
     {
-        return status.ToLower() switch
+        try
         {
-            "available" => "available",
-            "occupied" => "occupied",
-            "maintenance" => "maintenance",
-            "cleaning" => "cleaning",
-            _ => "available"
+            if (Context != null)
+            {
+                RoomTypes = await Context.RoomTypes.AsNoTracking().OrderBy(rt => rt.TypeName).ToListAsync();
+                Rooms = await Context.Rooms.AsNoTracking().OrderBy(r => r.Floor).ThenBy(r => r.RoomNumber).ToListAsync();
+
+                Floors = Rooms.Select(r => r.Floor).Distinct().OrderBy(f => f).Select(f => new Floor { FloorNumber = f }).ToList();
+                if (!Floors.Any()) Floors = new List<Floor> { new Floor { FloorNumber = 1 }, new Floor { FloorNumber = 2 } };
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", ex.Message);
+        }
+
+        // Fallback sample data
+        Floors = new List<Floor> { new Floor { FloorNumber = 1 }, new Floor { FloorNumber = 2 }, new Floor { FloorNumber = 3 } };
+        RoomTypes = new List<RoomType>
+        {
+            new() { RoomTypeID = 1, TypeName = "Standard", MaxOccupancy = 2, BasePrice = 100m, Description = "Standard", Status = "Active" },
+            new() { RoomTypeID = 2, TypeName = "Deluxe", MaxOccupancy = 3, BasePrice = 150m, Description = "Deluxe", Status = "Active" }
+        };
+        Rooms = new List<Room>
+        {
+            new() { RoomID = 1, RoomNumber = "101", Floor = 1, Status = "Available", RoomTypeID = 1 },
+            new() { RoomID = 2, RoomNumber = "102", Floor = 1, Status = "Occupied", RoomTypeID = 2 }
         };
     }
 
-    private void ShowRoomStatusView()
+    private string GetRoomStatusClass(string status) => status?.ToLower() switch
     {
-        CurrentView = "status";
-    }
+        "available" => "available",
+        "occupied" => "occupied",
+        "maintenance" => "maintenance",
+        "cleaning" => "cleaning",
+        _ => "available"
+    };
 
-    private void OpenAddRoomModal()
-    {
-        NewRoom = new Room();
-        ShowAddRoomModal = true;
-    }
+    private void ShowRoomStatusView() => CurrentView = "status";
+    private void OpenAddRoomModal() { NewRoom = new Room(); ShowAddRoomModal = true; ShowAddRoomTypeModal = false; ShowEditRoomModal = false; }
+    private void OpenAddRoomTypeModal() { NewRoomType = new RoomType(); ShowAddRoomTypeModal = true; ShowAddRoomModal = false; ShowEditRoomModal = false; }
 
     private void OpenEditRoomModal(Room room)
     {
         SelectedRoom = new Room
         {
+            RoomID = room.RoomID,
             RoomNumber = room.RoomNumber,
             Floor = room.Floor,
             Status = room.Status,
-            RoomType = room.RoomType,
-            MaxOccupancy = room.MaxOccupancy,
-            Price = room.Price,
-            Description = room.Description
+            RoomTypeID = room.RoomTypeID
         };
         ShowEditRoomModal = true;
-    }
-
-    private void OpenAddFloorModal()
-    {
-        NewFloor = new Floor();
-        ShowAddFloorModal = true;
+        ShowAddRoomModal = false;
+        ShowAddRoomTypeModal = false;
     }
 
     private void CloseModals()
@@ -564,111 +617,173 @@
         ShowAddRoomModal = false;
         ShowEditRoomModal = false;
         ShowAddRoomTypeModal = false;
-        ShowAddFloorModal = false;
     }
 
-    private void AddRoom()
+    private async Task AddRoom()
     {
-        if (!string.IsNullOrWhiteSpace(NewRoom.RoomNumber))
+        if (string.IsNullOrWhiteSpace(NewRoom.RoomNumber)) return;
+
+        try
         {
-            Rooms.Add(new Room
+            if (Context != null)
             {
-                RoomNumber = NewRoom.RoomNumber,
-                Floor = NewRoom.Floor,
-                Status = "Available",
-                RoomType = NewRoom.RoomType
-            });
-            NewRoom = new Room();
+                NewRoom.Status = "Available";
+                Context.Rooms.Add(NewRoom);
+                await Context.SaveChangesAsync();
+                await LoadDataAsync();
+                CloseModals();
+                return;
+            }
         }
-    }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", ex.Message);
+        }
 
-    private void UpdateRoom()
-    {
-        // Update logic here
-    }
-
-    private void DeleteRoom()
-    {
-        // Delete logic here
+        var nextId = Rooms.Any() ? Rooms.Max(r => r.RoomID) + 1 : 1;
+        NewRoom.RoomID = nextId;
+        NewRoom.Status = "Available";
+        Rooms.Add(NewRoom);
+        NewRoom = new Room();
+        CloseModals();
     }
 
     private void SelectRoomFromList(Room room)
     {
-        NewRoom = new Room
-        {
-            RoomNumber = room.RoomNumber,
-            Floor = room.Floor,
-            Status = room.Status,
-            RoomType = room.RoomType
-        };
+        NewRoom = new Room { RoomID = room.RoomID, RoomNumber = room.RoomNumber, Floor = room.Floor, Status = room.Status, RoomTypeID = room.RoomTypeID };
     }
 
-    private void SaveRoomEdit()
+    private async Task SaveRoomEdit()
     {
-        var existingRoom = Rooms.FirstOrDefault(r => r.RoomNumber == SelectedRoom.RoomNumber && r.Floor == SelectedRoom.Floor);
-        if (existingRoom != null)
+        try
         {
-            existingRoom.Status = SelectedRoom.Status;
-            existingRoom.RoomType = SelectedRoom.RoomType;
-            existingRoom.MaxOccupancy = SelectedRoom.MaxOccupancy;
-            existingRoom.Price = SelectedRoom.Price;
-            existingRoom.Description = SelectedRoom.Description;
+            if (Context != null)
+            {
+                var existing = await Context.Rooms.FindAsync(SelectedRoom.RoomID);
+                if (existing != null)
+                {
+                    existing.RoomNumber = SelectedRoom.RoomNumber;
+                    existing.Floor = SelectedRoom.Floor;
+                    existing.Status = SelectedRoom.Status;
+                    existing.RoomTypeID = SelectedRoom.RoomTypeID;
+                    Context.Rooms.Update(existing);
+                    await Context.SaveChangesAsync();
+                    await LoadDataAsync();
+                }
+                CloseModals();
+                return;
+            }
+        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("console.error", ex.Message); }
+
+        var local = Rooms.FirstOrDefault(r => r.RoomID == SelectedRoom.RoomID);
+        if (local != null)
+        {
+            local.RoomNumber = SelectedRoom.RoomNumber;
+            local.Floor = SelectedRoom.Floor;
+            local.Status = SelectedRoom.Status;
+            local.RoomTypeID = SelectedRoom.RoomTypeID;
         }
         CloseModals();
     }
 
-    private void AddFloor()
+    private async Task ConfirmRoomType()
     {
-        if (NewFloor.FloorNumber > 0)
+        if (string.IsNullOrWhiteSpace(NewRoomType.TypeName)) return;
+        try
         {
-            Floors.Add(new Floor
+            if (Context != null)
             {
-                FloorNumber = NewFloor.FloorNumber,
-                Status = NewFloor.Status,
-                Description = NewFloor.Description
-            });
-            CloseModals();
+                if (NewRoomType.RoomTypeID == 0)
+                {
+                    Context.RoomTypes.Add(NewRoomType);
+                }
+                else
+                {
+                    var existing = await Context.RoomTypes.FindAsync(NewRoomType.RoomTypeID);
+                    if (existing != null)
+                    {
+                        existing.TypeName = NewRoomType.TypeName;
+                        existing.MaxOccupancy = NewRoomType.MaxOccupancy;
+                        existing.BasePrice = NewRoomType.BasePrice;
+                        existing.Description = NewRoomType.Description;
+                        existing.Status = NewRoomType.Status;
+                        Context.RoomTypes.Update(existing);
+                    }
+                }
+                await Context.SaveChangesAsync();
+                await LoadDataAsync();
+                CloseModals();
+                return;
+            }
         }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("console.error", ex.Message); }
+
+        if (NewRoomType.RoomTypeID == 0)
+        {
+            var nextId = RoomTypes.Any() ? RoomTypes.Max(rt => rt.RoomTypeID) + 1 : 1;
+            NewRoomType.RoomTypeID = nextId;
+            RoomTypes.Add(NewRoomType);
+        }
+        else
+        {
+            var existing = RoomTypes.FirstOrDefault(rt => rt.RoomTypeID == NewRoomType.RoomTypeID);
+            if (existing != null)
+            {
+                existing.TypeName = NewRoomType.TypeName;
+                existing.MaxOccupancy = NewRoomType.MaxOccupancy;
+                existing.BasePrice = NewRoomType.BasePrice;
+                existing.Description = NewRoomType.Description;
+                existing.Status = NewRoomType.Status;
+            }
+        }
+        NewRoomType = new RoomType();
+        CloseModals();
     }
 
-    private void ConfirmRoomType()
+    private void EditRoomType(RoomType roomType)
     {
-        // Add room type logic
+        NewRoomType = new RoomType
+        {
+            RoomTypeID = roomType.RoomTypeID,
+            TypeName = roomType.TypeName,
+            MaxOccupancy = roomType.MaxOccupancy,
+            BasePrice = roomType.BasePrice,
+            Description = roomType.Description,
+            Status = roomType.Status
+        };
+        ShowAddRoomTypeModal = true;
+        ShowAddRoomModal = false;
+        ShowEditRoomModal = false;
     }
 
-    private void DeleteRoomType()
+    private async Task ArchiveRoomType(RoomType roomType)
     {
-        // Delete room type logic
-    }
+        try
+        {
+            if (Context != null)
+            {
+                var entity = await Context.RoomTypes.FindAsync(roomType.RoomTypeID);
+                if (entity != null)
+                {
+                    entity.Status = "Inactive";
+                    Context.RoomTypes.Update(entity);
+                    await Context.SaveChangesAsync();
+                    await LoadDataAsync();
+                    return;
+                }
+            }
+        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("console.error", ex.Message); }
 
-    private void UpdateRoomType()
-    {
-        // Update room type logic
-    }
-
-    public class Room
-    {
-        public string RoomNumber { get; set; } = "";
-        public int Floor { get; set; }
-        public string Status { get; set; } = "Available";
-        public string RoomType { get; set; } = "";
-        public int MaxOccupancy { get; set; } = 2;
-        public decimal Price { get; set; } = 0;
-        public string Description { get; set; } = "";
+        roomType.Status = "Inactive";
+        StateHasChanged();
     }
 
     public class Floor
     {
         public int FloorNumber { get; set; }
         public string Status { get; set; } = "Active";
-        public string Description { get; set; } = "";
-    }
-
-    public class RoomType
-    {
-        public string Type { get; set; } = "";
-        public int MaxOccupancy { get; set; }
-        public decimal BasePrice { get; set; }
-        public string Description { get; set; } = "";
+        public string Description { get; set; } = string.Empty;
     }
 }
