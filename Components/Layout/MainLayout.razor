@@ -145,6 +145,7 @@
                     </button>
                     <div class="sidebar-submenu @(ExpandedSection == "settings" ? "open" : "")">
                         <button class="sidebar-subnav-item @(GetActiveClass("/settings/user-management"))" @onclick='() => NavigateTo("/settings/user-management")'>User Management</button>
+                        <button class="sidebar-subnav-item @(GetActiveClass("/settings/room-management"))" @onclick='() => NavigateTo("/settings/room-management")'>Room Management</button>
                     </div>
                 </div>
             }

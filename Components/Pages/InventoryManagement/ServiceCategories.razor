@@ -1,4 +1,269 @@
 @page "/inventory/service-categories"
+@layout MainLayout
 
-<h1>Service Categories</h1>
-<p>This is the Service Categories page.</p>
+<div class="page-wrapper">
+    <header class="page-topbar">
+        <h1>Service Categories</h1>
+        <span class="page-topbar-subtitle">Manage Service Types</span>
+    </header>
+
+    <section class="page-content">
+
+    <div class="content-grid">
+        <!-- Left Panel - Create Form -->
+        <div class="form-panel">
+            <h2>Create Service Category</h2>
+            
+            <div class="form-group">
+                <label for="categoryName">Category Name</label>
+                <input type="text" id="categoryName" @bind="CurrentCategory.Name" class="form-input" placeholder="Enter category name" />
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" @bind="CurrentCategory.Description" class="form-textarea" rows="6" placeholder="Enter category description"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn-create" @onclick="AddCategory">Add Category</button>
+                <button class="btn-outlined" @onclick="SwitchMode">Switch Mode</button>
+                <button class="btn-outlined" style="background-color: #dc3545; color: white; border-color: #dc3545;" @onclick="ClearForm">Clear Form</button>
+            </div>
+        </div>
+
+        <!-- Right Panel - Category List -->
+        <div class="list-panel">
+            <h2>List of Categories</h2>
+            
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Category Name</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Categories.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 40px; color: #999;">
+                                    No categories yet. Add your first category to get started.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var category in Categories)
+                            {
+                                <tr>
+                                    <td>@category.Id</td>
+                                    <td>@category.Name</td>
+                                    <td>@category.Description</td>
+                                    <td>
+                                        <div style="display: flex; gap: 8px; justify-content: center;">
+                                            <button class="btn-icon btn-icon-edit" title="Edit" @onclick="() => OpenEditModal(category)">✎</button>
+                                            <button class="btn-icon btn-icon-archive" title="Archive" @onclick="() => ArchiveCategory(category)">🗂</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    </section>
+</div>
+
+<style>
+    .content-grid {
+        display: grid;
+        grid-template-columns: 480px 1fr;
+        gap: 24px;
+        margin-top: 24px;
+    }
+
+    .form-panel {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .form-panel h2 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 24px;
+        color: #004f59;
+    }
+
+    .list-panel {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .list-panel h2 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: #004f59;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #333;
+        font-size: 14px;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: 'Inter', sans-serif;
+        transition: all 0.2s;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #004f59;
+        box-shadow: 0 0 0 3px rgba(0, 79, 89, 0.1);
+    }
+
+    .form-textarea {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: 'Inter', sans-serif;
+        resize: vertical;
+        transition: all 0.2s;
+    }
+
+    .form-textarea:focus {
+        outline: none;
+        border-color: #004f59;
+        box-shadow: 0 0 0 3px rgba(0, 79, 89, 0.1);
+    }
+
+    .form-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 24px;
+    }
+
+    .form-actions button {
+        width: 100%;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table thead {
+        background-color: #f8f9fa;
+    }
+
+    .data-table th {
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        color: #333;
+        border-bottom: 2px solid #e5e7eb;
+    }
+
+    .data-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 14px;
+        color: #555;
+    }
+
+    .data-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .data-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    @@media (max-width: 1200px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@code {
+    private List<ServiceCategory> Categories = new List<ServiceCategory>();
+    private ServiceCategory CurrentCategory = new ServiceCategory();
+    private int NextId = 1;
+
+    private void AddCategory()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentCategory.Name))
+        {
+            return;
+        }
+
+        CurrentCategory.Id = NextId++;
+        Categories.Add(CurrentCategory);
+        CurrentCategory = new ServiceCategory();
+    }
+
+    private void OpenEditModal(ServiceCategory category)
+    {
+        CurrentCategory = new ServiceCategory
+        {
+            Id = category.Id,
+            Name = category.Name,
+            Description = category.Description
+        };
+    }
+
+    private void ArchiveCategory(ServiceCategory category)
+    {
+        Categories.Remove(category);
+    }
+
+    private void SwitchMode()
+    {
+        // Toggle between different modes (e.g., view/edit)
+        // Placeholder for future implementation
+    }
+
+    private void ClearForm()
+    {
+        CurrentCategory = new ServiceCategory();
+    }
+
+    public class ServiceCategory
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+    }
+}

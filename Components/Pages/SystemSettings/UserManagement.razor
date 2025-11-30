@@ -2,12 +2,13 @@
 @using HestiaLink.Components.Layout
 @layout MainLayout
 
-<div class="user-mgmt-root">
-
-    <header class="booking-history-header" style="margin-bottom: 0;">
+<div class="page-wrapper">
+    <header class="page-topbar">
         <h1>User Management</h1>
-        <div style="font-weight: 600; color: #004f59;">System Administrator</div>
+        <span class="page-topbar-subtitle">System Administrator</span>
     </header>
+
+    <section class="page-content">
 
     <div class="user-toolbar">
         <div class="toolbar-left">
@@ -109,6 +110,7 @@
             </div>
         </div>
     </div>
+    </section>
 </div>
 
 @if (ShowCreateModal || ShowEditModal)

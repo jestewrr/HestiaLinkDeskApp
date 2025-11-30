@@ -2,11 +2,13 @@
 @using HestiaLink.Components.Layout
 @layout MainLayout
 
-<div class="user-mgmt-root">
-    <header class="booking-history-header" style="margin-bottom: 20px;">
+<div class="page-wrapper">
+    <header class="page-topbar">
         <h1>Purchase Orders</h1>
-        <div style="font-weight: 600; color: #004f59;">Restocking & Logistics</div>
+        <span class="page-topbar-subtitle">Restocking & Logistics</span>
     </header>
+
+    <section class="page-content">
 
     <div class="user-toolbar">
         <div class="toolbar-left">
@@ -73,6 +75,7 @@
             </table>
         </div>
     </div>
+    </section>
 </div>
 
 @if (ShowModal)

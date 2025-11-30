@@ -2,14 +2,13 @@
 @using HestiaLink.Components.Layout
 @layout MainLayout
 
-<div class="checkin-root">
-
-    <header class="booking-history-header" style="margin-bottom: 0;">
+<div class="page-wrapper">
+    <header class="page-topbar">
         <h1>Check In / Check Out</h1>
-        <div style="font-weight: 600; color: #004f59;">
-            @DateTime.Now.ToString("dddd, MMM dd, yyyy")
-        </div>
+        <span class="page-topbar-subtitle">@DateTime.Now.ToString("dddd, MMM dd, yyyy")</span>
     </header>
+
+    <section class="page-content">
 
     <div class="checkin-layout">
 
@@ -100,6 +99,7 @@
             </div>
         </div>
     </div>
+    </section>
 </div>
 
 @if (ShowCheckOutModal)

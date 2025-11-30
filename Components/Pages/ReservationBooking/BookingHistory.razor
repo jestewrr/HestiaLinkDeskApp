@@ -3,31 +3,29 @@
 @inject NavigationManager Navigation
 @layout MainLayout
 
-<header class="dashboard-topbar">
-    <h1>Booking History</h1>
-    <span class="dashboard-date">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</span>
-</header>
+<div class="page-wrapper">
+    <header class="page-topbar">
+        <h1>Booking History</h1>
+        <span class="page-topbar-date">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</span>
+    </header>
 
-<section class="dashboard-content">
-    <div class="booking-history-root">
-        <header class="booking-history-header">
-            <h1>Booking History</h1>
-            <div class="booking-history-actions">
-                <div class="search-box">
-                    <input type="text" placeholder="Search by guest name or booking ID..." @bind="SearchText" />
-                    <span class="search-icon">🔍</span>
-                </div>
-                <select class="filter-select" @bind="SelectedStatus">
-                    <option value="">All Status</option>
-                    <option value="Confirmed">Confirmed</option>
-                    <option value="Checked-In">Checked-In</option>
-                    <option value="Checked-Out">Checked-Out</option>
-                    <option value="Cancelled">Cancelled</option>
-                </select>
-            </div>
-        </header>
+    <section class="page-content">
+    <div class="toolbar-container" style="margin-bottom: 20px;">
+        <div class="search-box">
+            <input type="text" placeholder="Search by guest name or booking ID..." @bind="SearchText" />
+            <span class="search-icon">🔍</span>
+        </div>
+        <select class="filter-select" @bind="SelectedStatus">
+            <option value="">All Status</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Checked-In">Checked-In</option>
+            <option value="Checked-Out">Checked-Out</option>
+            <option value="Cancelled">Cancelled</option>
+        </select>
+    </div>
 
-        <main class="booking-history-main">
+    <div class="panel-card">
+        <div class="panel-body">
             <div class="booking-table-wrapper">
                 <table class="booking-table">
                     <thead>
@@ -63,9 +61,10 @@
                 <span class="pagination-info">Page @CurrentPage of @TotalPages</span>
                 <button class="pagination-btn" disabled="@(CurrentPage == TotalPages)" @onclick="() => ChangePage(1)">Next</button>
             </div>
-        </main>
+        </div>
     </div>
-</section>
+    </section>
+</div>
 
 @code {
     private string SearchText { get; set; } = "";
@@ -80,7 +79,7 @@
         new() { Id = "BK003", GuestName = "Clara Wu", Room = "305", CheckIn = new DateOnly(2025, 1, 4), CheckOut = new DateOnly(2025, 1, 6), Status = "Checked-Out", Total = 540.00m },
         new() { Id = "BK004", GuestName = "David Lee", Room = "112", CheckIn = new DateOnly(2025, 1, 9), CheckOut = new DateOnly(2025, 1, 12), Status = "Cancelled", Total = 600.00m },
         new() { Id = "BK005", GuestName = "Eve Martinez", Room = "210", CheckIn = new DateOnly(2025, 1, 11), CheckOut = new DateOnly(2025, 1, 14), Status = "Confirmed", Total = 720.00m },
-        new() { Id = "BK006", GuestName = "Frank O’Neil", Room = "401", CheckIn = new DateOnly(2025, 1, 12), CheckOut = new DateOnly(2025, 1, 15), Status = "Confirmed", Total = 960.00m },
+        new() { Id = "BK006", GuestName = "Frank O'Neil", Room = "401", CheckIn = new DateOnly(2025, 1, 12), CheckOut = new DateOnly(2025, 1, 15), Status = "Confirmed", Total = 960.00m },
     };
 
     private List<Booking> FilteredBookings =>
@@ -107,7 +106,6 @@
         CurrentPage = Math.Max(1, Math.Min(TotalPages, CurrentPage + delta));
     }
 
-    // This class structure fixes the previous "CS7036" error
     public class Booking
     {
         public string Id { get; set; } = "";

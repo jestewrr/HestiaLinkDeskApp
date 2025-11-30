@@ -2,12 +2,13 @@
 @using HestiaLink.Components.Layout
 @layout MainLayout
 
-<div class="user-mgmt-root">
-
-    <header class="booking-history-header" style="margin-bottom: 0;">
+<div class="page-wrapper">
+    <header class="page-topbar">
         <h1>Department Setup</h1>
-        <div style="font-weight: 600; color: #004f59;">HR Administration</div>
+        <span class="page-topbar-subtitle">HR Administration</span>
     </header>
+
+    <section class="page-content">
 
     <div class="user-toolbar">
         <div class="toolbar-left">
@@ -20,7 +21,7 @@
                 <option>Sort by Emp Count</option>
             </select>
         </div>
-        <button class="btn-primary" style="max-width: 220px;" @onclick="OpenCreateModal">+ Add New Department</button>
+        <button class="btn-outlined" @onclick="OpenCreateModal">Add New Department</button>
     </div>
 
     <div class="panel-card">
@@ -49,8 +50,9 @@
                             </td>
                             <td>@dept.SalaryRange</td>
                             <td style="color:#64748b; font-size:0.85rem; max-width: 300px;">@dept.Description</td>
-                            <td style="text-align:center;">
-                                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(dept)">Edit</button>
+                            <td style="text-align:center; display:flex; gap:8px; justify-content:center;">
+                                <button class="btn-icon btn-icon-edit" @onclick="() => OpenEditModal(dept)" title="Edit"></button>
+                                <button class="btn-icon btn-icon-archive" @onclick="() => ArchiveDepartment(dept)" title="Archive"></button>
                             </td>
                         </tr>
                     }
@@ -58,6 +60,7 @@
             </table>
         </div>
     </div>
+    </section>
 </div>
 
 @if (ShowModal)
@@ -157,14 +160,18 @@
     private void SaveDepartment()
     {
         if (!IsEditMode) Departments.Add(CurrentDept);
-        // In a real app, you'd update the existing item here
         CloseModal();
     }
 
     private void DeleteDepartment()
     {
-        // Delete logic
         CloseModal();
+    }
+    
+    private void ArchiveDepartment(Department dept)
+    {
+        // Archive logic - for now just remove from list
+        Departments.Remove(dept);
     }
 
     public class Department

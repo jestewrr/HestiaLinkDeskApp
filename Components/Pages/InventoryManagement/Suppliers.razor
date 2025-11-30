@@ -2,11 +2,13 @@
 @using HestiaLink.Components.Layout
 @layout MainLayout
 
-<div class="user-mgmt-root">
-    <header class="booking-history-header" style="margin-bottom: 20px;">
+<div class="page-wrapper">
+    <header class="page-topbar">
         <h1>Suppliers</h1>
-        <div style="font-weight: 600; color: #004f59;">Vendor Directory</div>
+        <span class="page-topbar-subtitle">Vendor Directory</span>
     </header>
+
+    <section class="page-content">
 
     <div class="user-toolbar">
         <div class="toolbar-left">
@@ -19,7 +21,7 @@
                 <option>Sort by Spend</option>
             </select>
         </div>
-        <button class="btn-primary" style="max-width: 180px;" @onclick="OpenCreateModal">+ New Supplier</button>
+        <button class="btn-create" @onclick="OpenCreateModal">New Supplier</button>
     </div>
 
     <div class="panel-card">
@@ -46,8 +48,9 @@
                             <td style="font-weight:600;">@supplier.TotalItems</td>
                             <td style="color:#004f59; font-weight:700;">₱@supplier.TotalSpend.ToString("N2")</td>
                             <td>@supplier.Location</td>
-                            <td style="text-align:center;">
-                                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" @onclick="() => OpenEditModal(supplier)">Edit</button>
+                            <td style="text-align:center; display:flex; gap:8px; justify-content:center;">
+                                <button class="btn-icon btn-icon-edit" @onclick="() => OpenEditModal(supplier)" title="Edit"></button>
+                                <button class="btn-icon btn-icon-archive" @onclick="() => ArchiveSupplier(supplier)" title="Archive"></button>
                             </td>
                         </tr>
                     }
@@ -55,6 +58,7 @@
             </table>
         </div>
     </div>
+    </section>
 </div>
 
 @if (ShowModal)
@@ -107,7 +111,6 @@
     private bool IsEditMode = false;
     private Supplier CurrentSupplier = new();
 
-    // ERROR FIX: Renamed list from 'Suppliers' to 'SupplierList' to avoid class name conflict
     private List<Supplier> SupplierList = new()
     {
         new() { Id = "SUP-001", Name = "Textile Supply Co", Category = "Linens", TotalItems = 41, TotalSpend = 54000.00m, Location = "Manila" },
@@ -129,10 +132,15 @@
 
     private void CloseModal() => ShowModal = false;
 
-    // ERROR FIX: Updated reference to SupplierList
     private void SaveSupplier() { if (!IsEditMode) SupplierList.Add(CurrentSupplier); CloseModal(); }
 
     private void DeleteSupplier() { CloseModal(); }
+    
+    private void ArchiveSupplier(Supplier supplier)
+    {
+        // Archive logic - for now just remove from list
+        SupplierList.Remove(supplier);
+    }
 
     public class Supplier
     {
