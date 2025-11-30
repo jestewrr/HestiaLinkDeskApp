@@ -1,5 +1,7 @@
 using HestiaLink.Components;
-using HestiaLink.Services; // Add this using statement
+using HestiaLink.Data;
+using HestiaLink.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,13 +9,21 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// --- ADD THIS LINE ---
-builder.Services.AddScoped<UserSession>(); 
-// --------------------
+// Add UserSession service
+builder.Services.AddScoped<UserSession>();
+
+// Add database context WITH RETRY LOGIC
+builder.Services.AddDbContext<HestiaLinkContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+    sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
+        maxRetryCount: 5,
+        maxRetryDelay: TimeSpan.FromSeconds(10),
+        errorNumbersToAdd: null
+    )));
 
 var app = builder.Build();
 
-// ... rest of the file stays the same ...
+// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
