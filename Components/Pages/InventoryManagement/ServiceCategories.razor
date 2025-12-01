@@ -1,4 +1,10 @@
 @page "/inventory/service-categories"
+@using HestiaLink.Components.Layout
+@using HestiaLink.Data
+@using HestiaLink.Models
+@using Microsoft.EntityFrameworkCore
+@inject IJSRuntime JSRuntime
+@inject HestiaLinkContext DbContext
 @layout MainLayout
 
 <div class="page-wrapper">
@@ -7,263 +13,399 @@
         <span class="page-topbar-subtitle">Manage Service Types</span>
     </header>
 
-    <section class="page-content">
-
-    <div class="content-grid">
-        <!-- Left Panel - Create Form -->
-        <div class="form-panel">
-            <h2>Create Service Category</h2>
-            
-            <div class="form-group">
-                <label for="categoryName">Category Name</label>
-                <input type="text" id="categoryName" @bind="CurrentCategory.Name" class="form-input" placeholder="Enter category name" />
+    <div class="user-toolbar">
+        <div class="toolbar-left">
+            <div class="toolbar-search">
+                <input type="text" placeholder="Search by name or ID..." @bind="SearchText" @oninput="OnSearchChanged" />
+                <span class="search-icon">🔍</span>
             </div>
-
-            <div class="form-group">
-                <label for="description">Description</label>
-                <textarea id="description" @bind="CurrentCategory.Description" class="form-textarea" rows="6" placeholder="Enter category description"></textarea>
-            </div>
-
-            <div class="form-actions">
-                <button class="btn-create" @onclick="AddCategory">Add Category</button>
-                <button class="btn-outlined" @onclick="SwitchMode">Switch Mode</button>
-                <button class="btn-outlined" style="background-color: #dc3545; color: white; border-color: #dc3545;" @onclick="ClearForm">Clear Form</button>
-            </div>
+            <select class="filter-select" @bind="FilterStatus">
+                <option value="All">All</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+            </select>
         </div>
+        <div>
+            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenInactiveModal">📁 View Inactive (@InactiveCategoriesCount)</button>
+            <button class="btn-create" @onclick="OpenModal">+ Create New Category</button>
+        </div>
+    </div>
 
-        <!-- Right Panel - Category List -->
-        <div class="list-panel">
-            <h2>List of Categories</h2>
-            
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Category Name</th>
-                            <th>Description</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (Categories.Count == 0)
-                        {
+    @if (!IsLoaded)
+    {
+        <div class="loading">🔄 Loading categories...</div>
+    }
+    else if (HasError)
+    {
+        <div class="error-message">
+            <h4>❌ Database Error</h4>
+            <p>@ErrorMessage</p>
+            <button class="btn-primary" @onclick="RetryLoad">Retry</button>
+        </div>
+    }
+    else
+    {
+        <div class="panel-card">
+            <div class="panel-body user-list-container">
+                @if (FilteredCategories.Any())
+                {
+                    <table class="user-table">
+                        <thead>
                             <tr>
-                                <td colspan="4" style="text-align: center; padding: 40px; color: #999;">
-                                    No categories yet. Add your first category to get started.
-                                </td>
+                                <th>ID</th>
+                                <th>Category Name</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th style="text-align:center;">Actions</th>
                             </tr>
-                        }
-                        else
-                        {
-                            @foreach (var category in Categories)
+                        </thead>
+                        <tbody>
+                            @foreach (var category in FilteredCategories)
                             {
                                 <tr>
-                                    <td>@category.Id</td>
-                                    <td>@category.Name</td>
-                                    <td>@category.Description</td>
-                                    <td>
-                                        <div style="display: flex; gap: 8px; justify-content: center;">
-                                            <button class="btn-icon btn-icon-edit" title="Edit" @onclick="() => OpenEditModal(category)">✎</button>
-                                            <button class="btn-icon btn-icon-archive" title="Archive" @onclick="() => ArchiveCategory(category)">🗂</button>
-                                        </div>
+                                    <td style="font-family:monospace; font-weight:700;">@category.ServiceCategoryID</td>
+                                    <td style="font-weight:600;">@category.ServiceCategoryName</td>
+                                    <td>@(string.IsNullOrEmpty(category.Description) ? "-" : category.Description)</td>
+                                    <td><span class="badge-@(category.Status == "Active" ? "active" : "inactive")">@category.Status</span></td>
+                                    <td style="text-align:center;">
+                                        @if (category.Status != "Inactive")
+                                        {
+                                            <div style="display:flex; justify-content:center; gap:8px; align-items:center;">
+                                                <button type="button" class="btn-secondary" style="display:inline-block !important; padding:6px 10px; align-self:center;" @onclick="() => OpenEditModal(category)">Edit</button>
+                                                <button type="button" class="btn-secondary" style="display:inline-block !important; padding:6px 10px; background:#f59e0b; align-self:center;" @onclick="() => SetInactiveCategory(category)">Set Inactive</button>
+                                            </div>
+                                        }
                                     </td>
                                 </tr>
                             }
-                        }
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data">No categories found</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Service Category" : "Create New Service Category")</h2>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label class="form-label">Category Name *</label>
+                    <input type="text" class="form-input" @bind="CurrentCategory.ServiceCategoryName" placeholder="Enter category name" />
+                </div>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" @bind="CurrentCategory.Description" placeholder="Enter category description" rows="4"></textarea>
+                </div>
+
+                @if (IsEditMode)
+                {
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" @bind="CurrentCategory.Status">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                }
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
+                <button class="btn-primary" @onclick="SaveCategory">@(IsEditMode ? "Update Category" : "Create Category")</button>
+                <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
             </div>
         </div>
     </div>
-    </section>
-</div>
+}
 
-<style>
-    .content-grid {
-        display: grid;
-        grid-template-columns: 480px 1fr;
-        gap: 24px;
-        margin-top: 24px;
-    }
+@if (ShowInactiveModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">📁 Inactive Categories</h2>
+                <div style="font-size: 0.9rem; color: #64748b;">@InactiveCategories.Count inactive categories</div>
+            </div>
 
-    .form-panel {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 24px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
+            <div class="panel-body" style="max-height:60vh; overflow-y:auto;">
+                @if (InactiveCategories.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Category Name</th>
+                                <th>Description</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var category in InactiveCategories)
+                            {
+                                <tr>
+                                    <td>@category.ServiceCategoryID</td>
+                                    <td style="font-weight:700;">@category.ServiceCategoryName</td>
+                                    <td>@(string.IsNullOrEmpty(category.Description) ? "-" : category.Description)</td>
+                                    <td style="text-align:center;">
+                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreCategory(category)">🔄 Activate</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data" style="padding:40px;">No inactive categories</div>
+                }
+            </div>
 
-    .form-panel h2 {
-        font-size: 20px;
-        font-weight: 600;
-        margin-bottom: 24px;
-        color: #004f59;
-    }
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
+                <button class="btn-secondary" @onclick="CloseInactiveModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
 
-    .list-panel {
-        background: white;
-        border-radius: 12px;
-        padding: 24px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
-    .list-panel h2 {
-        font-size: 20px;
-        font-weight: 600;
-        margin-bottom: 20px;
-        color: #004f59;
-    }
-
-    .form-group {
-        margin-bottom: 20px;
-    }
-
-    .form-group label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: #333;
-        font-size: 14px;
-    }
-
-    .form-input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        font-size: 14px;
-        font-family: 'Inter', sans-serif;
-        transition: all 0.2s;
-    }
-
-    .form-input:focus {
-        outline: none;
-        border-color: #004f59;
-        box-shadow: 0 0 0 3px rgba(0, 79, 89, 0.1);
-    }
-
-    .form-textarea {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        font-size: 14px;
-        font-family: 'Inter', sans-serif;
-        resize: vertical;
-        transition: all 0.2s;
-    }
-
-    .form-textarea:focus {
-        outline: none;
-        border-color: #004f59;
-        box-shadow: 0 0 0 3px rgba(0, 79, 89, 0.1);
-    }
-
-    .form-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-top: 24px;
-    }
-
-    .form-actions button {
-        width: 100%;
-    }
-
-    .table-container {
-        overflow-x: auto;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-    }
-
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .data-table thead {
-        background-color: #f8f9fa;
-    }
-
-    .data-table th {
-        padding: 12px 16px;
-        text-align: left;
-        font-weight: 600;
-        font-size: 13px;
-        color: #333;
-        border-bottom: 2px solid #e5e7eb;
-    }
-
-    .data-table td {
-        padding: 12px 16px;
-        border-bottom: 1px solid #e5e7eb;
-        font-size: 14px;
-        color: #555;
-    }
-
-    .data-table tbody tr:hover {
-        background-color: #f8f9fa;
-    }
-
-    .data-table tbody tr:last-child td {
-        border-bottom: none;
-    }
-
-    @@media (max-width: 1200px) {
-        .content-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>
+<!-- Add Set Inactive Confirmation Modal -->
+@if (ShowSetInactiveConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.2rem;">Confirm Set Inactive</h2>
+            </div>
+            <div style="padding: 20px;">
+                <p>Are you sure you want to set category <strong>@SetInactiveTarget?.ServiceCategoryName</strong> to inactive?</p>
+                <p style="color: #f59e0b; font-size: 0.9rem;">Inactive categories will not appear in active lists but can be activated later.</p>
+            </div>
+            <div class="action-footer" style="border:none; padding-bottom:0;">
+                <button type="button" class="btn-secondary" style="background:#f59e0b;" @onclick="ConfirmSetInactive">Set Inactive</button>
+                <button type="button" class="btn-secondary" @onclick="CancelSetInactive">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
-    private List<ServiceCategory> Categories = new List<ServiceCategory>();
-    private ServiceCategory CurrentCategory = new ServiceCategory();
-    private int NextId = 1;
+    private string SearchText = "";
+    private string FilterStatus = "Active";
+    private bool ShowModal = false;
+    private bool ShowInactiveModal = false;
+    private bool IsEditMode = false;
+    private bool IsLoaded = false;
+    private bool HasError = false;
+    private string ErrorMessage = string.Empty;
 
-    private void AddCategory()
+    private ServiceCategory CurrentCategory = new();
+    private List<ServiceCategory> Categories = new();
+
+    private ServiceCategory SetInactiveTarget = new();
+    private bool ShowSetInactiveConfirm = false;
+
+    protected override async Task OnInitializedAsync()
     {
-        if (string.IsNullOrWhiteSpace(CurrentCategory.Name))
-        {
-            return;
-        }
-
-        CurrentCategory.Id = NextId++;
-        Categories.Add(CurrentCategory);
-        CurrentCategory = new ServiceCategory();
+        await LoadData();
     }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            HasError = false;
+            ErrorMessage = string.Empty;
+
+            Categories = await DbContext.ServiceCategories.OrderBy(c => c.ServiceCategoryName).ToListAsync();
+
+            IsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = ex.Message;
+            await JSRuntime.InvokeVoidAsync("alert", $"Database Error: {ex.Message}");
+            IsLoaded = true;
+        }
+    }
+
+    private async Task RetryLoad()
+    {
+        IsLoaded = false;
+        StateHasChanged();
+        await Task.Delay(500);
+        await LoadData();
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        SearchText = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private List<ServiceCategory> FilteredCategories
+    {
+        get
+        {
+            var query = Categories.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                query = query.Where(c => c.ServiceCategoryName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                                         c.ServiceCategoryID.ToString().Contains(SearchText));
+            }
+
+            if (FilterStatus == "Active")
+                query = query.Where(c => c.Status == "Active");
+            else if (FilterStatus == "Inactive")
+                query = query.Where(c => c.Status == "Inactive");
+
+            return query.OrderBy(c => c.ServiceCategoryName).ToList();
+        }
+    }
+
+    private List<ServiceCategory> InactiveCategories => Categories.Where(c => c.Status == "Inactive").ToList();
+    private int InactiveCategoriesCount => InactiveCategories.Count;
+
+    private void OpenModal()
+    {
+        CurrentCategory = new ServiceCategory { Status = "Active" };
+        IsEditMode = false;
+        ShowModal = true;
+    }
+
+    private void CloseModal() { ShowModal = false; }
 
     private void OpenEditModal(ServiceCategory category)
     {
         CurrentCategory = new ServiceCategory
         {
-            Id = category.Id,
-            Name = category.Name,
-            Description = category.Description
+            ServiceCategoryID = category.ServiceCategoryID,
+            ServiceCategoryName = category.ServiceCategoryName,
+            Description = category.Description,
+            Status = category.Status,
+            CreatedAt = category.CreatedAt,
+            UpdatedAt = category.UpdatedAt
         };
+        IsEditMode = true;
+        ShowModal = true;
     }
 
-    private void ArchiveCategory(ServiceCategory category)
+    private async Task SaveCategory()
     {
-        Categories.Remove(category);
+        try
+        {
+            if (string.IsNullOrWhiteSpace(CurrentCategory.ServiceCategoryName))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Category Name is required");
+                return;
+            }
+
+            if (IsEditMode)
+            {
+                var existing = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryID == CurrentCategory.ServiceCategoryID);
+                if (existing != null)
+                {
+                    existing.ServiceCategoryName = CurrentCategory.ServiceCategoryName;
+                    existing.Description = CurrentCategory.Description;
+                    existing.Status = CurrentCategory.Status;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    DbContext.ServiceCategories.Update(existing);
+                    await DbContext.SaveChangesAsync();
+                }
+            }
+            else
+            {
+                CurrentCategory.CreatedAt = DateTime.UtcNow;
+                CurrentCategory.UpdatedAt = DateTime.UtcNow;
+                DbContext.ServiceCategories.Add(CurrentCategory);
+                await DbContext.SaveChangesAsync();
+            }
+
+            await LoadData();
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert", "Category saved successfully");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving category: {ex.Message}");
+        }
     }
 
-    private void SwitchMode()
+    private void SetInactiveCategory(ServiceCategory category)
     {
-        // Toggle between different modes (e.g., view/edit)
-        // Placeholder for future implementation
+        SetInactiveTarget = category;
+        ShowSetInactiveConfirm = true;
     }
 
-    private void ClearForm()
+    private void CancelSetInactive()
     {
-        CurrentCategory = new ServiceCategory();
+        ShowSetInactiveConfirm = false;
+        SetInactiveTarget = new ServiceCategory();
     }
 
-    public class ServiceCategory
+    private async Task ConfirmSetInactive()
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string Description { get; set; } = "";
+        try
+        {
+            var category = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryID == SetInactiveTarget.ServiceCategoryID);
+            if (category != null)
+            {
+                category.Status = "Inactive";
+                category.UpdatedAt = DateTime.UtcNow;
+                DbContext.ServiceCategories.Update(category);
+                await DbContext.SaveChangesAsync();
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Category set to inactive");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error setting category to inactive: {ex.Message}");
+        }
+        finally
+        {
+            ShowSetInactiveConfirm = false;
+            SetInactiveTarget = new ServiceCategory();
+        }
+    }
+
+    private void OpenInactiveModal()
+    {
+        ShowInactiveModal = true;
+    }
+
+    private void CloseInactiveModal()
+    {
+        ShowInactiveModal = false;
+    }
+
+    private async Task RestoreCategory(ServiceCategory category)
+    {
+        try
+        {
+            var existing = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryID == category.ServiceCategoryID);
+            if (existing != null)
+            {
+                existing.Status = "Active";
+                existing.UpdatedAt = DateTime.UtcNow;
+                DbContext.ServiceCategories.Update(existing);
+                await DbContext.SaveChangesAsync();
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Category activated");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error activating category: {ex.Message}");
+        }
     }
 }
