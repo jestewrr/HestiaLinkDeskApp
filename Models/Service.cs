@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HestiaLink.Models
 {
@@ -7,22 +8,25 @@ namespace HestiaLink.Models
         [Key]
         public int ServiceID { get; set; }
 
-        [Required(ErrorMessage = "Service name is required")]
+        [Required]
+        [StringLength(100)]
         public string ServiceName { get; set; } = string.Empty;
 
-        public int? CategoryID { get; set; }
-
-        // Navigation property
-        public ServiceCategory? ServiceCategory { get; set; }
-
         [Required]
-        public decimal Price { get; set; }
+        public int ServiceCategoryID { get; set; }
 
-        public string Description { get; set; } = string.Empty;
+        [ForeignKey("ServiceCategoryID")]
+        public ServiceCategory? Category { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal StandardPrice { get; set; }
+
+        public bool IsActive { get; set; } = true;
+
+        [StringLength(20)]
         public string Status { get; set; } = "Active";
 
-        public DateTime? CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }

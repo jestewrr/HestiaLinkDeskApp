@@ -18,6 +18,15 @@ namespace HestiaLink.Data
         public DbSet<Room> Rooms { get; set; }
         public DbSet<RoomType> RoomTypes { get; set; }
         public DbSet<ServiceCategory> ServiceCategories { get; set; }
+        public DbSet<Service> Services { get; set; }
+
+        // Added sets
+        public DbSet<Guest> Guests { get; set; }
+        public DbSet<Reservation> Reservations { get; set; }
+        public DbSet<ReservedRoom> ReservedRooms { get; set; }
+        public DbSet<ServiceTransaction> ServiceTransactions { get; set; }
+        public DbSet<BillDetail> BillDetails { get; set; }
+        public DbSet<Payment> Payments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -29,6 +38,15 @@ namespace HestiaLink.Data
             modelBuilder.Entity<Room>().ToTable("Room");
             modelBuilder.Entity<RoomType>().ToTable("RoomType");
             modelBuilder.Entity<ServiceCategory>().ToTable("ServiceCategory");
+            modelBuilder.Entity<Service>().ToTable("Service");
+
+            // New tables - assume names
+            modelBuilder.Entity<Guest>().ToTable("Guest");
+            modelBuilder.Entity<Reservation>().ToTable("Reservation");
+            modelBuilder.Entity<ReservedRoom>().ToTable("ReservedRoom");
+            modelBuilder.Entity<ServiceTransaction>().ToTable("ServiceTransaction");
+            modelBuilder.Entity<BillDetail>().ToTable("BillDetail");
+            modelBuilder.Entity<Payment>().ToTable("Payment");
         }
     }
 }
