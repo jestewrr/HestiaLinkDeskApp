@@ -15,6 +15,9 @@ namespace HestiaLink.Data
         public DbSet<Position> Positions { get; set; }
         public DbSet<Employee> Employees { get; set; }
         public DbSet<SystemUser> SystemUsers { get; set; }
+        public DbSet<Room> Rooms { get; set; }
+        public DbSet<RoomType> RoomTypes { get; set; }
+        public DbSet<ServiceCategory> ServiceCategories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -23,6 +26,9 @@ namespace HestiaLink.Data
             modelBuilder.Entity<Position>().ToTable("Position");
             modelBuilder.Entity<Employee>().ToTable("Employee");
             modelBuilder.Entity<SystemUser>().ToTable("SystemUser");
+            modelBuilder.Entity<Room>().ToTable("Room");
+            modelBuilder.Entity<RoomType>().ToTable("RoomType");
+            modelBuilder.Entity<ServiceCategory>().ToTable("ServiceCategory");
         }
     }
 }

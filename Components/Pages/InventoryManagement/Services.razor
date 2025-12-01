@@ -40,7 +40,7 @@
                 <option value="">All Categories</option>
                 @foreach (var cat in Categories)
                 {
-                    <option value="@cat.Id">@cat.Name</option>
+                    <option value="@cat.ServiceCategoryID">@cat.ServiceCategoryName</option>
                 }
             </select>
         </div>
@@ -122,7 +122,7 @@
                         <option value="">Select Category</option>
                         @foreach (var cat in Categories)
                         {
-                            <option value="@cat.Id">@cat.Name</option>
+                            <option value="@cat.ServiceCategoryID">@cat.ServiceCategoryName</option>
                         }
                     </select>
                 </div>
@@ -298,11 +298,11 @@
 
     private List<ServiceCategoryItem> Categories = new()
     {
-        new() { Id = 1, Name = "Food & Beverage" },
-        new() { Id = 2, Name = "Housekeeping" },
-        new() { Id = 3, Name = "Wellness" },
-        new() { Id = 4, Name = "Transportation" },
-        new() { Id = 5, Name = "Entertainment" }
+        new() { ServiceCategoryID = 1, ServiceCategoryName = "Food & Beverage" },
+        new() { ServiceCategoryID = 2, ServiceCategoryName = "Housekeeping" },
+        new() { ServiceCategoryID = 3, ServiceCategoryName = "Wellness" },
+        new() { ServiceCategoryID = 4, ServiceCategoryName = "Transportation" },
+        new() { ServiceCategoryID = 5, ServiceCategoryName = "Entertainment" }
     };
 
     protected override void OnInitialized()
@@ -342,7 +342,7 @@
 
     private string GetCategoryName(int categoryId)
     {
-        return Categories.FirstOrDefault(c => c.Id == categoryId)?.Name ?? "Uncategorized";
+        return Categories.FirstOrDefault(c => c.ServiceCategoryID == categoryId)?.ServiceCategoryName ?? "Uncategorized";
     }
 
     private void OpenModal()
@@ -456,7 +456,7 @@
 
     public class ServiceCategoryItem
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
+        public int ServiceCategoryID { get; set; }
+        public string ServiceCategoryName { get; set; } = "";
     }
 }
