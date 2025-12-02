@@ -8,6 +8,17 @@
     --color-dark-teal: #00535b;
     --color-white: #ffffff;
     --color-black: #000000;
+    
+    /* Softer neutrals for less color intensity */
+    --color-gray-50: #f8f9fa;
+    --color-gray-100: #f1f3f5;
+    --color-gray-200: #e9ecef;
+    --color-gray-300: #dee2e6;
+    --color-gray-600: #6c757d;
+    --color-gray-700: #495057;
+    --color-gray-800: #343a40;
+    --color-teal-light: #e6f4f5;
+    --color-teal-muted: #5eb3bb;
 }
 
 /* --- GLOBAL RESET (CRITICAL FOR DASHBOARD ALIGNMENT) --- */
@@ -210,7 +221,7 @@ html, body {
     right: 20px;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--color-teal);
+    color: var(--color-gray-600);
     font-size: 1.2rem;
 }
 
@@ -244,8 +255,8 @@ html, body {
 }
 
 .booking-table th {
-    background-color: var(--color-dark-teal);
-    color: var(--color-white);
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-800);
     padding: 20px 28px;
     text-align: left;
     font-weight: 900;
@@ -339,19 +350,21 @@ html, body {
 .pagination-btn {
     padding: 14px 28px;
     border-radius: 12px;
-    border: none;
-    background: var(--color-teal);
-    color: var(--color-white);
-    font-weight: 700;
+    border: 1px solid var(--color-gray-300);
+    background: var(--color-white);
+    color: var(--color-gray-700);
+    font-weight: 600;
     font-size: 1rem;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0, 147, 160, 0.3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     transition: all 0.2s ease;
 }
 
 .pagination-btn:hover:not(:disabled) {
-    background: var(--color-dark-teal);
-    transform: translateY(-2px);
+    background: var(--color-teal-light);
+    border-color: var(--color-teal-muted);
+    color: var(--color-dark-teal);
+    transform: translateY(-1px);
 }
 
 .pagination-btn:disabled {
@@ -443,8 +456,8 @@ html, body {
 .sidebar-nav-item.active {
     background-color: var(--color-white);
     color: var(--color-dark-teal);
-    font-weight: 900;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
 }
 
 .sidebar-nav-icon {
@@ -610,13 +623,14 @@ html, body {
 
 .page-topbar {
     height: 70px;
-    background-color: var(--color-dark-teal);
-    color: var(--color-white);
+    background-color: var(--color-white);
+    color: var(--color-gray-800);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 40px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid var(--color-gray-200);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .page-topbar h1 {
@@ -798,43 +812,46 @@ html, body {
 }
 
 .btn-primary {
-    background-color: var(--color-teal);
+    background-color: var(--color-dark-teal);
     color: var(--color-white);
-    padding: 12px 24px;
-    border-radius: 10px;
-    border: none;
-    font-weight: 700;
-    cursor: pointer;
-    flex: 1;
-    transition: background 0.2s;
-}
-
-.btn-primary:hover { background-color: var(--color-dark-teal); }
-
-.btn-secondary {
-    background-color: #64748b;
-    color: white;
     padding: 12px 24px;
     border-radius: 10px;
     border: none;
     font-weight: 600;
     cursor: pointer;
     flex: 1;
-    transition: background 0.2s;
+    transition: all 0.2s;
 }
 
-.btn-secondary:hover { background-color: #475569; }
+.btn-primary:hover { background-color: var(--color-dark-teal); }
+
+.btn-secondary {
+    background-color: var(--color-gray-200);
+    color: var(--color-gray-700);
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: 1px solid var(--color-gray-300);
+    font-weight: 600;
+    cursor: pointer;
+    flex: 1;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover { 
+    background-color: var(--color-gray-300); 
+    color: var(--color-gray-800);
+}
 
 /* --- Unified Create/Add button (Teal with + icon) --- */
 .btn-create,
 .btn-outlined,
 .btn-add {
-    background-color: var(--color-teal);
+    background-color: var(--color-dark-teal);
     color: var(--color-white);
     padding: 11px 20px;
     border-radius: 8px;
-    border: 1px solid var(--color-teal);
-    font-weight: 700;
+    border: 1px solid var(--color-dark-teal);
+    font-weight: 600;
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;
@@ -1098,8 +1115,12 @@ html, body {
 }
 
 .badge-active {
-    background-color: #dcfce7; color: #166534;
-    padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+    background-color: var(--color-gray-100); 
+    color: var(--color-gray-700);
+    padding: 4px 10px; 
+    border-radius: 20px; 
+    font-size: 0.75rem; 
+    font-weight: 600;
 }
 
 .badge-inactive {
@@ -1170,14 +1191,43 @@ html, body {
 
 /* Stat Cards for Inventory */
 .stat-card {
-    background-color: #e0f2f1;
+    background-color: var(--color-white);
     padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+    border-radius: 12px;
+    border: 1px solid var(--color-gray-200);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     height: 100px;
 }
-.stat-title { font-size: 0.9rem; font-weight: 700; color: #004f59; text-transform: uppercase; letter-spacing: 0.5px; }
-.stat-value { font-size: 2.2rem; font-weight: 800; color: #102f33; align-self: flex-end; }
+.stat-title { 
+    font-size: 0.85rem; 
+    font-weight: 600; 
+    color: var(--color-gray-600); 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+}
+.stat-value { 
+    font-size: 2rem; 
+    font-weight: 700; 
+    color: var(--color-gray-800); 
+    align-self: flex-end; 
+}
+
+/* Utility classes for softer color accents */
+.text-accent {
+    color: var(--color-dark-teal) !important;
+}
+
+.text-muted {
+    color: var(--color-gray-600) !important;
+}
+
+.text-subtle {
+    color: var(--color-gray-700) !important;
+}
+
+.bg-subtle {
+    background-color: var(--color-gray-50) !important;
+}

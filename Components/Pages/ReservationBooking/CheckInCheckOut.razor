@@ -16,21 +16,21 @@
 
     <section class="page-content">
         <div class="top-cards" style="display:flex; gap:14px; margin-bottom:18px; align-items:center;">
-            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 6px 18px rgba(16,47,51,0.04);">
-                <div style="font-weight:700; color:#102f33;">Occupied</div>
-                <div style="font-size:1.4rem; font-weight:800; color:#92400e;">@Rooms.Count(r => r.Status == "Occupied")</div>
+            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                <div style="font-weight:600; color:#6b7280;">Occupied</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "Occupied")</div>
             </div>
-            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 6px 18px rgba(16,47,51,0.04);">
-                <div style="font-weight:700; color:#102f33;">Under Maintenance</div>
-                <div style="font-size:1.4rem; font-weight:800; color:#f97316;">@Rooms.Count(r => r.Status == "Maintenance")</div>
+            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                <div style="font-weight:600; color:#6b7280;">Under Maintenance</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "Maintenance")</div>
             </div>
-            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 6px 18px rgba(16,47,51,0.04);">
-                <div style="font-weight:700; color:#102f33;">Available</div>
-                <div style="font-size:1.4rem; font-weight:800; color:#065f46;">@Rooms.Count(r => r.Status == "Available")</div>
+            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                <div style="font-weight:600; color:#6b7280;">Available</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "Available")</div>
             </div>
-            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 6px 18px rgba(16,47,51,0.04);">
-                <div style="font-weight:700; color:#102f33;">Suggestion</div>
-                <div style="font-size:0.95rem; color:#334155; margin-top:6px;">Show Total Revenue, Pending Bills, or Occupancy Rate. Example: Occupancy Rate: @GetOccupancyRate()%</div>
+            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                <div style="font-weight:600; color:#6b7280;">Occupancy Rate</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#374151; margin-top:6px;">@GetOccupancyRate()%</div>
             </div>
         </div>
 
@@ -70,21 +70,6 @@
                         <div><strong>Guest:</strong> @(string.IsNullOrEmpty(room.GuestName) ? "-" : room.GuestName)</div>
                         <div><strong>Check-in:</strong> @(room.CheckInDate?.ToString("MMM dd, yyyy") ?? "-")</div>
                         <div><strong>Check-out:</strong> @(room.CheckOutDate?.ToString("MMM dd, yyyy") ?? "-")</div>
-                    </div>
-                    <div class="card-actions">
-                        @if (room.Status == "Occupied")
-                        {
-                            <button class="btn-secondary" @onclick:stopPropagation="true" @onclick="() => OpenCheckOutModal(room)">Check - OUT</button>
-                            <button class="btn-create" @onclick:stopPropagation="true" @onclick="() => OpenAddServiceModal(room)">Add Service</button>
-                        }
-                        else if (room.Status == "Maintenance")
-                        {
-                            <button class="btn-secondary" disabled>Maintenance</button>
-                        }
-                        else
-                        {
-                            <button class="btn-primary" @onclick:stopPropagation="true" @onclick="() => OpenGuestModal(room)">Check - IN</button>
-                        }
                     </div>
                 </div>
             }
@@ -227,10 +212,10 @@
                         <div class="bill-row total"><span>REMAINING BALANCE:</span><span>@(SelectedRoom.TotalDue.ToString("C"))</span></div>
                     </div>
 
-                    <div style="display:flex; gap:10px; margin-top:12px;">
-                        <button class="btn-primary" @onclick="ProcessCheckOut">Process Check Out</button>
-                        <button class="btn-secondary" style="background:#06b6d4;" @onclick="() => OpenAddServiceModal(SelectedRoom)">Add Service</button>
-                        <button class="btn-secondary" style="background:#b91c1c;" @onclick="CloseCheckOutModal">Cancel</button>
+                    <div style="display:flex; gap:10px; margin-top:18px;">
+                        <button class="btn-checkout" @onclick="ProcessCheckOut">Process Check Out</button>
+                        <button class="btn-add-service" @onclick="() => OpenAddServiceModal(SelectedRoom)">Add Service</button>
+                        <button class="btn-cancel" @onclick="CloseCheckOutModal">Cancel</button>
                     </div>
                 </div>
             }
@@ -240,32 +225,43 @@
 
 <style>
     .cards-grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap:18px; }
-    .user-card { background:white; border-radius:12px; padding:14px; box-shadow:0 6px 18px rgba(16,47,51,0.06); cursor:pointer; display:flex; flex-direction:column; justify-content:space-between; }
+    .user-card { background:white; border-radius:12px; padding:14px; border:1px solid #e5e7eb; box-shadow:0 2px 4px rgba(0,0,0,0.04); cursor:pointer; display:flex; flex-direction:column; justify-content:space-between; }
     .card-top { display:flex; align-items:center; gap:12px; }
-    .avatar { width:56px; height:56px; border-radius:8px; background:linear-gradient(135deg,#06b6d4,#0f766e); color:white; display:flex; align-items:center; justify-content:center; font-weight:800; }
+    .avatar { display:none; }
     .card-title { font-weight:800; font-size:1.05rem; }
     .status-badge { margin-left:auto; padding:6px 10px; border-radius:12px; font-size:0.8rem; }
-    .badge-occupied { background:#fde68a; color:#92400e; }
-    .badge-available { background:#bbf7d0; color:#065f46; }
-    .badge-maintenance { background:#fee2e2; color:#7f1d1d; }
+    .badge-occupied { background:#f3f4f6; color:#374151; border: 1px solid #d1d5db; }
+    .badge-available { background:#e0f2f1; color:#00535b; border: 1px solid #b2dfdb; }
+    .badge-maintenance { background:#fef2f2; color:#991b1b; border: 1px solid #fecaca; }
     .card-body { margin-top:12px; color:#334155; display:flex; flex-direction:column; gap:6px; }
     .card-actions { margin-top:12px; display:flex; gap:8px; }
 
     .modal-overlay { position:fixed; inset:0; background:rgba(16,47,51,0.45); display:flex; align-items:center; justify-content:center; z-index:40; }
     .modal-content { background:white; border-radius:10px; width:90%; max-width:900px; box-shadow:0 10px 30px rgba(2,6,23,0.4); }
-    .modal-header-teal { background:#0f766e; color:white; padding:14px 18px; border-top-left-radius:10px; border-top-right-radius:10px; display:flex; align-items:center; justify-content:space-between; }
-    .modal-header { background:#064e3b; color:white; padding:12px 16px; border-top-left-radius:10px; border-top-right-radius:10px; }
+    .modal-header-teal { background:#00535b; color:white; padding:14px 18px; border-top-left-radius:10px; border-top-right-radius:10px; display:flex; align-items:center; justify-content:space-between; }
+    .modal-header { background:#00535b; color:white; padding:12px 16px; border-top-left-radius:10px; border-top-right-radius:10px; }
+    .modal-header h2 { color: #ffffff; margin:0; font-weight:700; }
     .form-grid { display:grid; grid-template-columns: repeat(2,1fr); gap:12px; }
     .form-group { display:flex; flex-direction:column; gap:6px; }
     .form-group.full-width { grid-column:1 / -1; }
     .form-label { font-weight:600; color:#334155; }
     .form-input { padding:10px 12px; border-radius:8px; border:1px solid #e6eef0; }
     .action-footer { padding:12px 16px; }
-    .btn-primary { background:#06b6d4; color:white; padding:10px 14px; border-radius:8px; border:none; }
+    .btn-primary { background:#00535b; color:white; padding:10px 14px; border-radius:8px; border:none; cursor:pointer; transition: background 0.2s ease; }
+    .btn-primary:hover, .btn-primary:active { background:#0093a0; }
     .btn-secondary { background:#64748b; color:white; padding:10px 14px; border-radius:8px; border:none; }
     .btn-create { background:#0ea5a4; color:white; padding:8px 12px; border-radius:8px; border:none; }
+    
+    /* Billing Modal Buttons */
+    .btn-checkout { background:#00535b; color:white; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; font-weight:600; transition: all 0.2s ease; flex:1; }
+    .btn-checkout:hover { background:#0093a0; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,83,91,0.2); }
+    .btn-add-service { background:#0ea5a4; color:white; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; font-weight:600; transition: all 0.2s ease; }
+    .btn-add-service:hover { background:#0093a0; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(14,165,164,0.2); }
+    .btn-cancel { background:#ef4444; color:white; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; font-weight:600; transition: all 0.2s ease; }
+    .btn-cancel:hover { background:#dc2626; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(239,68,68,0.2); }
 
     .search-input { padding:10px 12px; border-radius:12px; border:1px solid #e6eef0; width:360px; }
+    .filter-select { padding:10px 12px; border-radius:12px; border:1px solid #e6eef0; background:white; cursor:pointer; min-width:140px; }
 
     .multi-dropdown { position:relative; }
     .dropdown-toggle { padding:10px 12px; border-radius:8px; border:1px solid #e6eef0; background:white; }
@@ -356,8 +352,24 @@
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("console.error", ex.Message);
-            // fallback sample
-            Rooms = Enumerable.Range(101, 12).Select(i => new RoomCard { RoomNumber = i.ToString(), Floor = i / 100, Status = (i % 3 == 0) ? "Occupied" : "Available", RoomCharge = 2000m }).ToList();
+            // fallback sample with proper guest data for occupied rooms
+            Rooms = Enumerable.Range(101, 12).Select(i => 
+            {
+                var isOccupied = (i % 3 == 0 || i == 101);
+                return new RoomCard 
+                { 
+                    RoomNumber = i.ToString(), 
+                    Floor = i / 100, 
+                    Status = isOccupied ? "Occupied" : "Available", 
+                    RoomCharge = 2000m,
+                    GuestName = isOccupied ? $"Guest {i}" : null,
+                    CheckInDate = isOccupied ? DateTime.Today.AddDays(-1) : null,
+                    CheckOutDate = isOccupied ? DateTime.Today.AddDays(2) : null,
+                    ServiceCharge = 0m,
+                    TaxAmount = isOccupied ? Math.Round(2000m * 0.12m, 2) : 0m,
+                    TotalDue = isOccupied ? 2000m + Math.Round(2000m * 0.12m, 2) : 0m
+                };
+            }).ToList();
         }
     }
 
