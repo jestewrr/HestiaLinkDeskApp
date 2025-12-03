@@ -1,7 +1,4 @@
 ﻿@page "/hr/employee-management"
-@using HestiaLink.Components.Layout
-@using HestiaLink.Models
-@using HestiaLink.Data
 @using Microsoft.EntityFrameworkCore
 @inject HestiaLinkContext Context
 @inject IJSRuntime JSRuntime
@@ -18,7 +15,7 @@
         <div class="toolbar-left">
             <div class="toolbar-search">
                 <input type="text" placeholder="Search by name or ID..." @bind="SearchText" @oninput="OnSearchChanged" />
-                <span class="search-icon">🔍</span>
+                <span class="search-icon"></span>
             </div>
             <select class="filter-select" @bind="FilterStatus">
                 <option value="All">All</option>
@@ -27,19 +24,19 @@
             </select>
         </div>
         <div>
-            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenArchivedModal">📁 View Archived (@ArchivedEmployeesCount)</button>
+            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenArchivedModal"> View Archived (@ArchivedEmployeesCount)</button>
             <button class="btn-create" @onclick="OpenModal">+ Create New Employee</button>
         </div>
     </div>
 
     @if (!IsLoaded)
     {
-        <div class="loading">🔄 Loading employees...</div>
+        <div class="loading"> Loading employees...</div>
     }
     else if (HasError)
     {
         <div class="error-message">
-            <h4>❌ Database Error</h4>
+            <h4>? Database Error</h4>
             <p>@ErrorMessage</p>
             <button class="btn-primary" @onclick="RetryLoad">Retry</button>
         </div>
@@ -171,7 +168,7 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;">📁 Archived Employees</h2>
+                <h2 style="margin:0; font-size:1.4rem;"> Archived Employees</h2>
                 <div style="font-size: 0.9rem; color: #64748b;">@ArchivedEmployees.Count archived employees</div>
             </div>
 
@@ -199,7 +196,7 @@
                                     <td>@emp.Email</td>
                                     <td>@(emp.HireDate?.ToString("yyyy-MM-dd") ?? "-")</td>
                                     <td style="text-align:center;">
-                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreEmployee(emp)">🔄 Restore</button>
+                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreEmployee(emp)"> Restore</button>
                                     </td>
                                 </tr>
                             }

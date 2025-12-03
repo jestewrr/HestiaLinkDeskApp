@@ -1,7 +1,4 @@
-@page "/inventory/services"
-@using HestiaLink.Components.Layout
-@using HestiaLink.Data
-@using HestiaLink.Models
+﻿@page "/inventory/services"
 @using Microsoft.EntityFrameworkCore
 @using System.Globalization
 @inject IJSRuntime JSRuntime
@@ -33,8 +30,8 @@
                 <div class="summary-value">
                     @(
                                     ServicesList.Any()
-                                    ? "₱" + ServicesList.Average(s => s.StandardPrice).ToString("N2", CultureInfo.InvariantCulture)
-                                    : "₱0.00"
+                                    ? "?" + ServicesList.Average(s => s.StandardPrice).ToString("N2", CultureInfo.InvariantCulture)
+                                    : "?0.00"
                                     )
                 </div>
             </div>
@@ -50,7 +47,7 @@
         <div class="toolbar-left">
             <div class="toolbar-search">
                 <input type="text" placeholder="Search by name or ID..." @bind="SearchText" @oninput="OnSearchChanged" />
-                <span class="search-icon">🔍</span>
+                <span class="search-icon"></span>
             </div>
             <select class="filter-select" @bind="FilterStatus">
                 <option value="All">All</option>
@@ -59,19 +56,19 @@
             </select>
         </div>
         <div>
-            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenInactiveModal">📁 View Inactive (@InactiveServicesCount)</button>
+            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenInactiveModal"> View Inactive (@InactiveServicesCount)</button>
             <button class="btn-create" @onclick="OpenModal">+ Create New Service</button>
         </div>
     </div>
 
     @if (!IsLoaded)
     {
-        <div class="loading">🔄 Loading services...</div>
+        <div class="loading"> Loading services...</div>
     }
     else if (HasError)
     {
         <div class="error-message">
-            <h4>❌ Database Error</h4>
+            <h4>? Database Error</h4>
             <p>@ErrorMessage</p>
             <button class="btn-primary" @onclick="RetryLoad">Retry</button>
         </div>
@@ -180,7 +177,7 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;">📁 Inactive Services</h2>
+                <h2 style="margin:0; font-size:1.4rem;"> Inactive Services</h2>
                 <div style="font-size: 0.9rem; color: #64748b;">@InactiveServices.Count inactive services</div>
             </div>
 
@@ -206,7 +203,7 @@
                                     <td>@(service.Category?.ServiceCategoryName ?? "-")</td>
                                     <td>@service.StandardPrice.ToString("C", CultureInfo.InvariantCulture)</td>
                                     <td style="text-align:center;">
-                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreService(service)">🔄 Activate</button>
+                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreService(service)"> Activate</button>
                                     </td>
                                 </tr>
                             }
@@ -255,11 +252,11 @@
     private bool HasError = false;
     private string ErrorMessage = string.Empty;
 
-    private Models.Service CurrentService = new();
-    private List<Models.Service> ServicesList = new();
+    private HestiaLink.Models.Service CurrentService = new();
+    private List<HestiaLink.Models.Service> ServicesList = new();
     private List<ServiceCategory> ActiveCategories = new();
 
-    private Models.Service SetInactiveTarget = new();
+    private HestiaLink.Models.Service SetInactiveTarget = new();
     private bool ShowSetInactiveConfirm = false;
 
     protected override async Task OnInitializedAsync()
@@ -310,7 +307,7 @@
         SearchText = e.Value?.ToString() ?? string.Empty;
     }
 
-    private List<Models.Service> FilteredServices
+    private List<HestiaLink.Models.Service> FilteredServices
     {
         get
         {
@@ -331,12 +328,12 @@
         }
     }
 
-    private List<Models.Service> InactiveServices => ServicesList.Where(s => s.Status == "Inactive").ToList();
+    private List<HestiaLink.Models.Service> InactiveServices => ServicesList.Where(s => s.Status == "Inactive").ToList();
     private int InactiveServicesCount => InactiveServices.Count;
 
     private void OpenModal()
     {
-        CurrentService = new Models.Service
+        CurrentService = new HestiaLink.Models.Service
         {
             Status = "Active",
             StandardPrice = 0,
@@ -348,9 +345,9 @@
 
     private void CloseModal() { ShowModal = false; }
 
-    private void OpenEditModal(Models.Service service)
+    private void OpenEditModal(HestiaLink.Models.Service service)
     {
-        CurrentService = new Models.Service
+        CurrentService = new HestiaLink.Models.Service
         {
             ServiceID = service.ServiceID,
             ServiceName = service.ServiceName,
@@ -422,7 +419,7 @@
         }
     }
 
-    private void SetInactiveService(Models.Service service)
+    private void SetInactiveService(HestiaLink.Models.Service service)
     {
         SetInactiveTarget = service;
         ShowSetInactiveConfirm = true;
@@ -431,7 +428,7 @@
     private void CancelSetInactive()
     {
         ShowSetInactiveConfirm = false;
-        SetInactiveTarget = new Models.Service();
+        SetInactiveTarget = new HestiaLink.Models.Service();
     }
 
     private async Task ConfirmSetInactive()
@@ -457,7 +454,7 @@
         finally
         {
             ShowSetInactiveConfirm = false;
-            SetInactiveTarget = new Models.Service();
+            SetInactiveTarget = new HestiaLink.Models.Service();
         }
     }
 
@@ -471,7 +468,7 @@
         ShowInactiveModal = false;
     }
 
-    private async Task RestoreService(Models.Service service)
+    private async Task RestoreService(HestiaLink.Models.Service service)
     {
         try
         {

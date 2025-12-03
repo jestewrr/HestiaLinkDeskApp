@@ -1,0 +1,114 @@
+@page "/loginpage"
+@layout LoginLayout
+@inject NavigationManager Navigation
+@inject UserSession UserSession
+
+<div class="login-page-background">
+    <div class="login-card-modern">
+        <div class="login-header">
+            <div class="login-title-section">
+                <h1 class="login-title">HestiaLink<br/>Hospitality<br/>ERP System</h1>
+            </div>
+            <div class="login-logo-section">
+                <img src="/images/hestialogo.png" alt="HestiaLink Logo" class="login-logo" />
+            </div>
+        </div>
+
+        <div class="login-form">
+            <div class="input-group-modern">
+                <label for="username" class="input-label">Username</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">✉️</span>
+                    <input id="username" 
+                           type="text" 
+                           class="input-field" 
+                           placeholder="Enter your username" 
+                           @bind="Username" 
+                           @onkeydown="HandleKeyPress" />
+                </div>
+            </div>
+
+            <div class="input-group-modern">
+                <label for="password" class="input-label">Password</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🔒</span>
+                    <input id="password" 
+                           type="@(ShowPassword ? "text" : "password")" 
+                           class="input-field" 
+                           placeholder="Enter your password" 
+                           @bind="Password"
+                           @onkeydown="HandleKeyPress" />
+                    <span class="eye-icon-modern" @onclick="TogglePasswordVisibility">
+                        @(ShowPassword ? "👁️" : "👁️")
+                    </span>
+                </div>
+            </div>
+
+            <button class="login-button-modern" @onclick="HandleLogin">Login</button>
+
+            @if (!string.IsNullOrEmpty(Message))
+            {
+                <p class="error-message-modern">@Message</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string Username { get; set; } = "";
+    private string Password { get; set; } = "";
+    private string Message { get; set; } = "";
+    private bool ShowPassword { get; set; } = false;
+
+    private void HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            HandleLogin();
+        }
+    }
+
+    private void HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            Message = "Please enter credentials.";
+            return;
+        }
+
+        if (Password == "1234")
+        {
+            switch (Username.ToLower())
+            {
+                case "admin":
+                    UserSession.SetUser("Administrator", "Administrator");
+                    Navigation.NavigateTo("/dashboard");
+                    break;
+                case "hr":
+                    UserSession.SetUser("HR Manager", "HR");
+                    Navigation.NavigateTo("/hr/employee-management");
+                    break;
+                case "stock":
+                    UserSession.SetUser("Stock Clerk", "Inventory");
+                    Navigation.NavigateTo("/inventory/stock-management");
+                    break;
+                case "front":
+                    UserSession.SetUser("Front Desk", "FrontDesk");
+                    Navigation.NavigateTo("/reservations/booking-history");
+                    break;
+                default:
+                    Message = "Invalid username. Try admin, hr, stock, or front.";
+                    break;
+            }
+        }
+        else
+        {
+            Message = "Invalid password. (Use 1234)";
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        ShowPassword = !ShowPassword;
+    }
+}

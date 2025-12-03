@@ -1,7 +1,4 @@
 ﻿@page "/settings/user-management"
-@using HestiaLink.Components.Layout
-@using HestiaLink.Models
-@using HestiaLink.Data
 @using Microsoft.EntityFrameworkCore
 @inject HestiaLinkContext Context
 @inject IJSRuntime JSRuntime
@@ -17,9 +14,9 @@
     @if (!string.IsNullOrEmpty(ErrorMessage))
     {
         <div class="error-banner">
-            <span class="error-icon">⚠️</span>
+            <span class="error-icon"></span>
             <span class="error-message">@ErrorMessage</span>
-            <button class="error-close" @onclick="ClearError">×</button>
+            <button class="error-close" @onclick="ClearError">�</button>
         </div>
     }
 
@@ -40,11 +37,11 @@
                            @bind="SearchText"
                            @oninput="OnSearchChanged"
                            @onkeydown="HandleKeyDown" />
-                    <span class="search-icon">🔍</span>
+                    <span class="search-icon"></span>
                     @if (!string.IsNullOrEmpty(SearchText))
                     {
                         <button class="clear-search" @onclick="ClearSearch" title="Clear search">
-                            ×
+                            �
                         </button>
                     }
                 </div>
@@ -64,7 +61,7 @@
             </div>
             <div>
                 <button class="btn-secondary" @onclick="OpenArchivedModal" disabled="@(!IsLoaded || IsProcessing)">
-                    📁 View Archived (@ArchivedUsersCount)
+                     View Archived (@ArchivedUsersCount)
                 </button>
                 <button class="btn-create" @onclick="OpenCreateModal" disabled="@(!IsLoaded || IsProcessing)">
                     + New User
@@ -130,11 +127,11 @@
                                 <div class="user-actions">
                                     <button class="btn-action edit" @onclick="() => SelectAndEdit(user)"
                                             title="Edit User" disabled="@IsProcessing">
-                                        ✏️ Edit
+                                         Edit
                                     </button>
                                     <button class="btn-action archive" @onclick="() => PromptArchive(user)"
                                             title="Archive User" disabled="@IsProcessing">
-                                        📁 Archive
+                                         Archive
                                     </button>
                                 </div>
                             }
@@ -145,7 +142,7 @@
             else if (IsLoaded)
             {
                 <div class="no-users-message">
-                    <div class="no-users-icon">👥</div>
+                    <div class="no-users-icon"></div>
                     <h3>No users found</h3>
                     <p>
                         @if (!string.IsNullOrEmpty(SearchText))
@@ -252,7 +249,7 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;">📁 Archived Users</h2>
+                <h2 style="margin:0; font-size:1.4rem;"> Archived Users</h2>
                 <div style="font-size: 0.9rem; color: #64748b;">@ArchivedUsers.Count archived users</div>
             </div>
 
@@ -280,7 +277,7 @@
                                     <td style="text-align:center;">
                                         <button class="btn-secondary" style="background:#10b981;" 
                                                 @onclick="() => RestoreUser(user)" disabled="@IsProcessing">
-                                            🔄 Restore
+                                             Restore
                                         </button>
                                     </td>
                                 </tr>

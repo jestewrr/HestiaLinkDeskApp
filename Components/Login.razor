@@ -1,50 +1,55 @@
 ﻿@page "/login"
-@using HestiaLink.Components.Layout
-@using HestiaLink.Services
 @layout LoginLayout
 @inject NavigationManager Navigation
 @inject UserSession UserSession
 
 <div class="login-page-background">
-    <div class="login-card">
-
-        <div class="header-section">
-            <h1>HestiaLink Hospitality ERP System</h1>
-            <div class="logo-placeholder">
-                <img src="/images/hestialogo.png" alt="HestiaLink Logo" />
+    <div class="login-card-modern">
+        <div class="login-header">
+            <div class="login-title-section">
+                <h1 class="login-title">HestiaLink<br/>Hospitality<br/>ERP System</h1>
+            </div>
+            <div class="login-logo-section">
+                <img src="/images/hestialogo.png" alt="HestiaLink Logo" class="login-logo" />
             </div>
         </div>
 
-        <div class="input-group">
-            <label for="username">Username</label>
-            <div class="input-container">
-                <span class="icon icon-email"></span>
-                <input id="username" placeholder="Enter username (e.g. hr, stock, admin)" @bind="Username" />
+        <div class="login-form">
+            <div class="input-group-modern">
+                <label for="username" class="input-label">Username</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">✉️</span>
+                    <input id="username" 
+                           type="text" 
+                           class="input-field" 
+                           placeholder="Enter your username" 
+                           @bind="Username" 
+                           @onkeydown="HandleKeyPress" />
+                </div>
             </div>
-        </div>
 
-        <div class="input-group">
-            <label for="password">Password</label>
-            <div class="input-container">
-                <span class="icon icon-lock"></span>
-                <input id="password" type="@(ShowPassword ? "text" : "password")" placeholder="Enter password (1234)" @bind="Password" />
-                <span class="eye-icon" @onclick="TogglePasswordVisibility"></span>
+            <div class="input-group-modern">
+                <label for="password" class="input-label">Password</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🔒</span>
+                    <input id="password" 
+                           type="@(ShowPassword ? "text" : "password")" 
+                           class="input-field" 
+                           placeholder="Enter your password" 
+                           @bind="Password"
+                           @onkeydown="HandleKeyPress" />
+                    <span class="eye-icon-modern" @onclick="TogglePasswordVisibility">
+                        @(ShowPassword ? "👁️" : "👁️")
+                    </span>
+                </div>
             </div>
-        </div>
 
-        <button class="login-button" @onclick="HandleLogin">Login</button>
+            <button class="login-button-modern" @onclick="HandleLogin">Login</button>
 
-        @if (!string.IsNullOrEmpty(Message))
-        {
-            <p class="error-message" style="color: #b91c1c; margin-top: 15px; font-weight: 600;">@Message</p>
-        }
-
-        <div style="margin-top: 20px; font-size: 0.8rem; color: #666;">
-            <strong>Try these:</strong><br />
-            admin / 1234 (Full Access)<br />
-            hr / 1234 (HR Only)<br />
-            stock / 1234 (Inventory Only)<br />
-            front / 1234 (Reservations Only)
+            @if (!string.IsNullOrEmpty(Message))
+            {
+                <p class="error-message-modern">@Message</p>
+            }
         </div>
     </div>
 </div>
@@ -54,6 +59,14 @@
     private string Password { get; set; } = "";
     private string Message { get; set; } = "";
     private bool ShowPassword { get; set; } = false;
+
+    private void HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            HandleLogin();
+        }
+    }
 
     private void HandleLogin()
     {

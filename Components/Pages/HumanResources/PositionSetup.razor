@@ -1,7 +1,4 @@
 ﻿@page "/hr/position-setup"
-@using HestiaLink.Components.Layout
-@using HestiaLink.Models
-@using HestiaLink.Data
 @using Microsoft.EntityFrameworkCore
 @inject HestiaLinkContext Context
 @inject IJSRuntime JSRuntime
@@ -19,7 +16,7 @@
         <div class="toolbar-left">
             <div class="toolbar-search">
                 <input type="text" placeholder="Search positions..." @bind="SearchText" @bind:event="oninput" />
-                <span class="search-icon">🔍</span>
+                <span class="search-icon"></span>
             </div>
             <select class="filter-select" @bind="SelectedDepartmentFilter">
                 <option value="">All Departments</option>
@@ -30,7 +27,7 @@
             </select>
         </div>
         <div>
-            <button class="btn-secondary" style="margin-right: 10px;" @onclick="OpenArchivedModal">📁 View Archived (@ArchivedPositionsCount)</button>
+            <button class="btn-secondary" style="margin-right: 10px;" @onclick="OpenArchivedModal"> View Archived (@ArchivedPositionsCount)</button>
             <button class="btn-create" @onclick="OpenModal">Create New Position</button>
         </div>
     </div>
@@ -38,13 +35,13 @@
     @if (!IsLoaded)
     {
         <div class="loading">
-            <div>🔄 Loading positions from database...</div>
+            <div> Loading positions from database...</div>
         </div>
     }
     else if (HasError)
     {
         <div class="error-message">
-            <h4>❌ Database Connection Error</h4>
+            <h4>? Database Connection Error</h4>
             <p>Error: @ErrorMessage</p>
             <button class="btn-create" @onclick="RetryLoad">Retry Connection</button>
         </div>
@@ -52,7 +49,7 @@
     else if (!Positions.Any())
     {
         <div class="no-data">
-            <p>📭 No positions found in database</p>
+            <p> No positions found in database</p>
             <p style="font-size: 0.8rem; color: #64748b;">Add a new position to populate the table.</p>
         </div>
     }
@@ -147,7 +144,7 @@
                     <input type="text" class="form-input" @bind="CurrentPos.PayGrade" />
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Salary (₱)</label>
+                    <label class="form-label">Salary (?)</label>
                     <input type="number" class="form-input" @bind="CurrentPos.Salary" />
                 </div>
 
@@ -179,7 +176,7 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;">📁 Archived Positions</h2>
+                <h2 style="margin:0; font-size:1.4rem;"> Archived Positions</h2>
                 <div style="font-size: 0.9rem; color: #64748b;">
                     @ArchivedPositions.Count archived positions
                 </div>
@@ -211,8 +208,8 @@
                                     <td style="color:#64748b; font-size:0.85rem;">@pos.PositionLevel</td>
                                     <td style="color:#64748b; font-size:0.8rem;">Previously archived</td>
                                     <td style="text-align:center;">
-                                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #10b981;" @onclick="() => RestorePositionFromModal(pos)" title="Restore this position">🔄 Restore</button>
-                                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-left: 5px; background: #dc2626;" @onclick="() => ConfirmDeleteFromModal(pos)" title="Permanently delete">🗑️ Delete</button>
+                                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; background: #10b981;" @onclick="() => RestorePositionFromModal(pos)" title="Restore this position"> Restore</button>
+                                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-left: 5px; background: #dc2626;" @onclick="() => ConfirmDeleteFromModal(pos)" title="Permanently delete"> Delete</button>
                                     </td>
                                 </tr>
                             }
@@ -222,7 +219,7 @@
                 else
                 {
                     <div class="no-data" style="padding: 40px;">
-                        <p>📭 No archived positions found</p>
+                        <p> No archived positions found</p>
                         <p style="font-size: 0.8rem; color: #64748b;">There are no positions in the archive.</p>
                     </div>
                 }
@@ -240,7 +237,7 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header-red">
-                <h2 style="margin:0; font-size:1.2rem;">🗑️ Confirm Deletion</h2>
+                <h2 style="margin:0; font-size:1.2rem;"> Confirm Deletion</h2>
             </div>
 
             <div class="modal-body" style="text-align:center; padding:20px;">
