@@ -1,4 +1,137 @@
 ﻿@page "/housekeeping/room-status"
+@using HestiaLink.Data
+@using HestiaLink.Models
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext DbContext
+@inject NavigationManager Navigation
 
-<h1>Room Status</h1>
-<p>This is the Room Status page.</p>
+<div class="page-wrapper">
+    <div class="page-topbar">
+        <div>
+            <h1>Room Status</h1>
+            <div class="page-topbar-subtitle">Manage room cleanliness and availability</div>
+        </div>
+        <div class="page-topbar-date">@DateTime.Now.ToString("MMMM dd, yyyy")</div>
+    </div>
+
+    <div class="page-content">
+        <!-- Filter/Actions -->
+        <div class="user-toolbar">
+            <div class="toolbar-left">
+                <div class="toolbar-search">
+                    <input type="text" placeholder="Search Room..." @bind="SearchTerm" @bind:event="oninput" />
+                    <span class="search-icon">🔍</span>
+                </div>
+                <select class="form-select" @bind="FilterStatus" style="width: 200px;">
+                    <option value="">All Statuses</option>
+                    <option value="Available">Available</option>
+                    <option value="Occupied">Occupied</option>
+                    <option value="Dirty">Dirty</option>
+                    <option value="Maintenance">Maintenance</option>
+                </select>
+            </div>
+            <button class="btn-secondary" @onclick="LoadRooms">Refresh</button>
+        </div>
+
+        <!-- Room Grid -->
+        <div class="room-list-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
+            @if (FilteredRooms == null)
+            {
+                <p>Loading...</p>
+            }
+            else if (!FilteredRooms.Any())
+            {
+                <p>No rooms found.</p>
+            }
+            else
+            {
+                @foreach (var room in FilteredRooms)
+                {
+                    <div class="room-card-item @GetStatusClass(room.Status)" style="text-align: left; padding: 20px; border-left: 5px solid @GetStatusColor(room.Status);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span class="room-number" style="font-size: 1.5rem;">@room.RoomNumber</span>
+                            <span class="room-status" style="color: @GetStatusColor(room.Status);">@room.Status</span>
+                        </div>
+                        <div style="font-size: 0.9rem; color: #64748b; margin-bottom: 15px;">
+                            @room.RoomType?.TypeofRoom <br/>
+                            Floor: @room.Floor
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            @if (room.Status == "Dirty")
+                            {
+                                <button class="btn-primary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => UpdateStatus(room, \"Available\")">Mark Clean</button>
+                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => UpdateStatus(room, \"Maintenance\")">Maintenance</button>
+                            }
+                            else if (room.Status == "Available")
+                            {
+                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => UpdateStatus(room, \"Dirty\")">Mark Dirty</button>
+                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => UpdateStatus(room, \"Maintenance\")">Maintenance</button>
+                            }
+                            else if (room.Status == "Maintenance")
+                            {
+                                <button class="btn-primary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => UpdateStatus(room, \"Available\")">Finish Maint.</button>
+                            }
+                            else if (room.Status == "Occupied")
+                            {
+                                <span class="badge-active">Occupied</span>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Room> Rooms = new();
+    private string SearchTerm = "";
+    private string FilterStatus = "";
+
+    private IEnumerable<Room> FilteredRooms => Rooms
+        .Where(r => string.IsNullOrEmpty(SearchTerm) || r.RoomNumber.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase))
+        .Where(r => string.IsNullOrEmpty(FilterStatus) || r.Status == FilterStatus);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRooms();
+    }
+
+    private async Task LoadRooms()
+    {
+        Rooms = await DbContext.Rooms.Include(r => r.RoomType).ToListAsync();
+    }
+
+    private async Task UpdateStatus(Room room, string newStatus)
+    {
+        room.Status = newStatus;
+        DbContext.Rooms.Update(room);
+        await DbContext.SaveChangesAsync();
+        // Refresh local list if needed, or just let UI update since it's bound
+    }
+
+    private string GetStatusClass(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "available" => "status-available-bg",
+            "occupied" => "status-occupied-bg",
+            "dirty" => "status-dirty-bg",
+            "maintenance" => "status-maintenance-bg",
+            _ => ""
+        };
+    }
+
+    private string GetStatusColor(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "available" => "#047857", // Green
+            "occupied" => "#b91c1c", // Red
+            "dirty" => "#d97706", // Amber/Orange
+            "maintenance" => "#6b7280", // Gray
+            _ => "#000000"
+        };
+    }
+}

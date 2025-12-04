@@ -166,14 +166,11 @@
 </div>
 
 @code {
-    private string? ExpandedSection = "reservations";
+    private string? ExpandedSection;
 
     protected override void OnInitialized()
     {
-        // Auto-expand the relevant section based on Role
-        if (UserSession.Role == "HR") ExpandedSection = "hr";
-        else if (UserSession.Role == "Inventory") ExpandedSection = "inventory";
-        else if (UserSession.Role == "FrontDesk") ExpandedSection = "reservations";
+        UpdateExpandedSection(Navigation.Uri);
     }
 
     private void ToggleSection(string key)
@@ -183,7 +180,19 @@
 
     private void NavigateTo(string uri)
     {
+        UpdateExpandedSection(uri);
         Navigation.NavigateTo(uri);
+    }
+
+    private void UpdateExpandedSection(string uri)
+    {
+        if (uri.Contains("reservations", StringComparison.OrdinalIgnoreCase)) ExpandedSection = "reservations";
+        else if (uri.Contains("housekeeping", StringComparison.OrdinalIgnoreCase)) ExpandedSection = "housekeeping";
+        else if (uri.Contains("inventory", StringComparison.OrdinalIgnoreCase)) ExpandedSection = "inventory";
+        else if (uri.Contains("finance", StringComparison.OrdinalIgnoreCase)) ExpandedSection = "finance";
+        else if (uri.Contains("hr", StringComparison.OrdinalIgnoreCase)) ExpandedSection = "hr";
+        else if (uri.Contains("settings", StringComparison.OrdinalIgnoreCase)) ExpandedSection = "settings";
+        else ExpandedSection = null;
     }
 
     private string GetActiveClass(string uri)

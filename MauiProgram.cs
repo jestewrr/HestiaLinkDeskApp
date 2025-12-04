@@ -23,7 +23,7 @@ namespace HestiaIT13Final
             builder.Services.AddScoped<UserSession>();
 
             // Add database context with connection string
-            var connectionString = "Data Source=MSI\\\\SQLEXPRESS;Initial Catalog=IT13;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+            var connectionString = "Data Source=.\\SQLEXPRESS;Initial Catalog=IT13;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
             
             builder.Services.AddDbContext<HestiaLinkContext>(options =>
                 options.UseSqlServer(connectionString,
