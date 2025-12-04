@@ -25,6 +25,7 @@ namespace HestiaLink.Data
         public DbSet<Reservation> Reservations { get; set; }
         public DbSet<ReservedRoom> ReservedRooms { get; set; }
         public DbSet<ServiceTransaction> ServiceTransactions { get; set; }
+        public DbSet<Bill> Bills { get; set; }
         public DbSet<BillDetail> BillDetails { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<MaintenanceRequest> MaintenanceRequests { get; set; }
@@ -46,6 +47,7 @@ namespace HestiaLink.Data
             modelBuilder.Entity<Reservation>().ToTable("Reservation");
             modelBuilder.Entity<ReservedRoom>().ToTable("ReservedRoom");
             modelBuilder.Entity<ServiceTransaction>().ToTable("ServiceTransaction");
+            modelBuilder.Entity<Bill>().ToTable("Bill");
             modelBuilder.Entity<BillDetail>().ToTable("BillDetail");
             modelBuilder.Entity<Payment>().ToTable("Payment");
             modelBuilder.Entity<MaintenanceRequest>().ToTable("MaintenanceRequest");
