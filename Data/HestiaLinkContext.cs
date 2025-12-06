@@ -30,6 +30,7 @@ namespace HestiaLink.Data
         public DbSet<Payment> Payments { get; set; }
         public DbSet<MaintenanceRequest> MaintenanceRequests { get; set; }
         public DbSet<Attendance> Attendances { get; set; } // New DbSet for Attendance
+        public DbSet<Schedule> Schedules { get; set; } // New DbSet for Schedule
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,6 +54,7 @@ namespace HestiaLink.Data
             modelBuilder.Entity<Payment>().ToTable("Payment");
             modelBuilder.Entity<MaintenanceRequest>().ToTable("MaintenanceRequest");
             modelBuilder.Entity<Attendance>().ToTable("Attendance"); // Mapping for Attendance table
+            modelBuilder.Entity<Schedule>().ToTable("Schedule"); // Mapping for Schedule table
         }
     }
 }

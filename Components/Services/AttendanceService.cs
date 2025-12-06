@@ -14,78 +14,84 @@ namespace HestiaLink.Services
         }
 
         /// <summary>
-        /// Gets all active employees with their attendance status for a specific date
-        /// This shows ALL employees, including those who haven't checked in yet
+        /// Gets all active employees with their schedules and attendance for a specific date
         /// </summary>
-        public async Task<List<AttendanceRecordDto>> GetAllEmployeesWithAttendanceAsync(DateTime attendanceDate, int? departmentId = null)
+        public async Task<List<EmployeeWithScheduleDto>> GetAllEmployeesForDateAsync(DateTime date)
         {
             try
             {
-                // Get all active employees with Position and Department
-                var employees = await _context.Employees
+                // Get ALL active employees
+                var allEmployees = await _context.Employees
                     .Where(e => e.Status == "Active")
                     .Include(e => e.Position)
                     .ThenInclude(p => p!.Department)
                     .AsNoTracking()
                     .ToListAsync();
 
-                // Get attendance records for the selected date
-                var attendanceRecords = await _context.Attendances
-                    .Where(a => a.AttendanceDate.Date == attendanceDate.Date)
+                // Get schedules for this date
+                var schedules = await _context.Schedules
+                    .Where(s => s.ScheduleDate.Date == date.Date && s.IsActive)
                     .AsNoTracking()
-                    .ToListAsync();
+                    .ToDictionaryAsync(s => s.EmployeeID);
 
-                var attendanceDict = attendanceRecords.ToDictionary(a => a.EmployeeID);
+                // Get attendance for this date
+                var attendances = await _context.Attendances
+                    .Where(a => a.AttendanceDate.Date == date.Date)
+                    .AsNoTracking()
+                    .ToDictionaryAsync(a => a.EmployeeID);
 
-                var attendanceList = new List<AttendanceRecordDto>();
+                var result = new List<EmployeeWithScheduleDto>();
 
-                foreach (var employee in employees)
+                foreach (var emp in allEmployees)
                 {
-                    var position = employee.Position;
+                    var position = emp.Position;
                     var department = position?.Department;
+                    schedules.TryGetValue(emp.EmployeeID, out var schedule);
+                    attendances.TryGetValue(emp.EmployeeID, out var attendance);
 
-                    // Filter by department if specified
-                    if (departmentId.HasValue && position?.DepartmentID != departmentId)
-                        continue;
-
-                    // Check if employee has attendance record for this date
-                    attendanceDict.TryGetValue(employee.EmployeeID, out var attendance);
-
-                    attendanceList.Add(new AttendanceRecordDto
+                    // Calculate IsLate dynamically
+                    var isLate = false;
+                    if (attendance?.ActualCheckIn != null && schedule != null)
                     {
-                        AttendanceID = attendance?.AttendanceID ?? 0,
-                        EmployeeID = employee.EmployeeID,
-                        FirstName = employee.FirstName,
-                        LastName = employee.LastName,
+                        var graceTime = schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15));
+                        isLate = attendance.ActualCheckIn.Value.TimeOfDay > graceTime;
+                    }
+
+                    var dto = new EmployeeWithScheduleDto
+                    {
+                        EmployeeID = emp.EmployeeID,
+                        FirstName = emp.FirstName,
+                        LastName = emp.LastName,
                         Department = department?.DepartmentName ?? "-",
                         Position = position?.PositionTitle ?? "-",
-                        AttendanceDate = attendanceDate,
-                        ScheduleStart = attendance?.ScheduleStart,
-                        ScheduleEnd = attendance?.ScheduleEnd,
+                        AttendanceDate = date,
+                        ScheduleID = schedule?.ScheduleID,
+                        ScheduleStart = schedule?.ScheduledStart,
+                        ScheduleEnd = schedule?.ScheduledEnd,
+                        AttendanceID = attendance?.AttendanceID,
                         ActualCheckIn = attendance?.ActualCheckIn,
                         ActualCheckOut = attendance?.ActualCheckOut,
+                        AttendanceStatus = attendance?.AttendanceStatus ?? (schedule != null ? "Pending" : "Not Scheduled"),
+                        IsLate = isLate,
                         RegularHours = attendance?.RegularHours ?? 0,
                         OvertimeHours = attendance?.OvertimeHours ?? 0,
-                        AttendanceStatus = attendance?.AttendanceStatus ?? "Not Checked In",
-                        IsLate = attendance?.IsLate ?? false,
-                        Notes = attendance?.Notes,
-                        HoursWorked = attendance?.ActualCheckIn != null && attendance?.ActualCheckOut != null
-                            ? (decimal)(attendance.ActualCheckOut.Value - attendance.ActualCheckIn.Value).TotalHours
-                            : 0
-                    });
+                        Notes = attendance?.Notes
+                    };
+
+                    result.Add(dto);
                 }
 
-                return attendanceList.OrderBy(a => a.FirstName).ThenBy(a => a.LastName).ToList();
+                return result.OrderBy(e => e.FirstName).ThenBy(e => e.LastName).ToList();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error getting employees with attendance: {ex.Message}");
-                return new List<AttendanceRecordDto>();
+                Console.WriteLine($"Error getting employees for date: {ex.Message}");
+                return new List<EmployeeWithScheduleDto>();
             }
         }
 
         /// <summary>
-        /// Gets attendance records for a specific date with employee details (only employees with records)
+        /// Gets attendance records for a specific date
         /// </summary>
         public async Task<List<AttendanceRecordDto>> GetAttendanceByDateAsync(DateTime attendanceDate, int? departmentId = null)
         {
@@ -93,13 +99,12 @@ namespace HestiaLink.Services
             {
                 var records = await _context.Attendances
                     .Where(a => a.AttendanceDate.Date == attendanceDate.Date)
+                    .Include(a => a.Schedule)
                     .AsNoTracking()
                     .ToListAsync();
 
-                // Get employee IDs from attendance records
                 var employeeIds = records.Select(r => r.EmployeeID).Distinct().ToList();
 
-                // Load employees with Position and Department
                 var employees = await _context.Employees
                     .Where(e => employeeIds.Contains(e.EmployeeID))
                     .Include(e => e.Position)
@@ -117,9 +122,16 @@ namespace HestiaLink.Services
                     var position = employee.Position;
                     var department = position?.Department;
 
-                    // Filter by department if specified
                     if (departmentId.HasValue && position?.DepartmentID != departmentId)
                         continue;
+
+                    // Calculate IsLate dynamically
+                    var isLate = false;
+                    if (record.ActualCheckIn != null && record.Schedule != null)
+                    {
+                        var graceTime = record.Schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15));
+                        isLate = record.ActualCheckIn.Value.TimeOfDay > graceTime;
+                    }
 
                     attendanceList.Add(new AttendanceRecordDto
                     {
@@ -130,14 +142,14 @@ namespace HestiaLink.Services
                         Department = department?.DepartmentName ?? "-",
                         Position = position?.PositionTitle ?? "-",
                         AttendanceDate = record.AttendanceDate,
-                        ScheduleStart = record.ScheduleStart,
-                        ScheduleEnd = record.ScheduleEnd,
+                        ScheduleStart = record.Schedule?.ScheduledStart,
+                        ScheduleEnd = record.Schedule?.ScheduledEnd,
                         ActualCheckIn = record.ActualCheckIn,
                         ActualCheckOut = record.ActualCheckOut,
                         RegularHours = record.RegularHours,
                         OvertimeHours = record.OvertimeHours,
                         AttendanceStatus = record.AttendanceStatus,
-                        IsLate = record.IsLate,
+                        IsLate = isLate,
                         Notes = record.Notes,
                         HoursWorked = record.ActualCheckIn.HasValue && record.ActualCheckOut.HasValue
                             ? (decimal)(record.ActualCheckOut.Value - record.ActualCheckIn.Value).TotalHours
@@ -155,54 +167,9 @@ namespace HestiaLink.Services
         }
 
         /// <summary>
-        /// Gets all active employees with Position and Department
-        /// </summary>
-        public async Task<List<EmployeeDto>> GetActiveEmployeesAsync(int? departmentId = null)
-        {
-            try
-            {
-                var employees = await _context.Employees
-                    .Where(e => e.Status == "Active")
-                    .Include(e => e.Position)
-                    .ThenInclude(p => p!.Department)
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                var employeeList = new List<EmployeeDto>();
-
-                foreach (var employee in employees)
-                {
-                    var position = employee.Position;
-                    var department = position?.Department;
-
-                    // Filter by department if specified
-                    if (departmentId.HasValue && position?.DepartmentID != departmentId)
-                        continue;
-
-                    employeeList.Add(new EmployeeDto
-                    {
-                        EmployeeID = employee.EmployeeID,
-                        FirstName = employee.FirstName,
-                        LastName = employee.LastName,
-                        Department = department?.DepartmentName ?? "-",
-                        Position = position?.PositionTitle ?? "-",
-                        Status = employee.Status
-                    });
-                }
-
-                return employeeList.OrderBy(e => e.FirstName).ThenBy(e => e.LastName).ToList();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error getting employees: {ex.Message}");
-                return new List<EmployeeDto>();
-            }
-        }
-
-        /// <summary>
         /// Records employee check-in
         /// </summary>
-        public async Task<bool> RecordCheckInAsync(int employeeID, DateTime attendanceDate, TimeSpan? scheduleStart)
+        public async Task<bool> RecordCheckInAsync(int employeeID, DateTime attendanceDate, int? scheduleId)
         {
             try
             {
@@ -210,26 +177,16 @@ namespace HestiaLink.Services
                     .FirstOrDefaultAsync(a => a.EmployeeID == employeeID && a.AttendanceDate.Date == attendanceDate.Date);
 
                 var checkInTime = DateTime.Now;
-                var isLate = false;
-
-                // Check if late (more than 5 minutes after scheduled start)
-                if (scheduleStart.HasValue)
-                {
-                    var scheduledStartTime = attendanceDate.Date.Add(scheduleStart.Value);
-                    isLate = checkInTime > scheduledStartTime.AddMinutes(5);
-                }
 
                 if (attendance == null)
                 {
-                    // Create new attendance record
                     var newAttendance = new Attendance
                     {
                         EmployeeID = employeeID,
+                        ScheduleID = scheduleId,
                         AttendanceDate = attendanceDate,
-                        ScheduleStart = scheduleStart,
                         ActualCheckIn = checkInTime,
                         AttendanceStatus = "Present",
-                        IsLate = isLate,
                         RegularHours = 0,
                         OvertimeHours = 0,
                         CreatedAt = DateTime.UtcNow,
@@ -239,10 +196,8 @@ namespace HestiaLink.Services
                 }
                 else
                 {
-                    // Update existing record
                     attendance.ActualCheckIn = checkInTime;
                     attendance.AttendanceStatus = "Present";
-                    attendance.IsLate = isLate;
                     attendance.UpdatedAt = DateTime.UtcNow;
                     _context.Attendances.Update(attendance);
                 }
@@ -275,7 +230,6 @@ namespace HestiaLink.Services
                 var checkOutTime = DateTime.Now;
                 var totalHours = (decimal)(checkOutTime - attendance.ActualCheckIn.Value).TotalHours;
 
-                // Separate regular and overtime (8 hours regular)
                 if (totalHours <= 8)
                 {
                     attendance.RegularHours = totalHours;
@@ -313,27 +267,38 @@ namespace HestiaLink.Services
 
                 var records = await _context.Attendances
                     .Where(a => a.EmployeeID == employeeID && a.AttendanceDate >= fromDate && a.AttendanceDate <= toDate)
+                    .Include(a => a.Schedule)
                     .AsNoTracking()
                     .OrderByDescending(a => a.AttendanceDate)
                     .ToListAsync();
 
-                return records.Select(a => new AttendanceRecordDto
-                {
-                    AttendanceID = a.AttendanceID,
-                    EmployeeID = a.EmployeeID,
-                    AttendanceDate = a.AttendanceDate,
-                    ScheduleStart = a.ScheduleStart,
-                    ScheduleEnd = a.ScheduleEnd,
-                    ActualCheckIn = a.ActualCheckIn,
-                    ActualCheckOut = a.ActualCheckOut,
-                    RegularHours = a.RegularHours,
-                    OvertimeHours = a.OvertimeHours,
-                    AttendanceStatus = a.AttendanceStatus,
-                    IsLate = a.IsLate,
-                    Notes = a.Notes,
-                    HoursWorked = a.ActualCheckIn.HasValue && a.ActualCheckOut.HasValue
-                        ? (decimal)(a.ActualCheckOut.Value - a.ActualCheckIn.Value).TotalHours
-                        : 0
+                return records.Select(a => {
+                    // Calculate IsLate dynamically
+                    var isLate = false;
+                    if (a.ActualCheckIn != null && a.Schedule != null)
+                    {
+                        var graceTime = a.Schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15));
+                        isLate = a.ActualCheckIn.Value.TimeOfDay > graceTime;
+                    }
+
+                    return new AttendanceRecordDto
+                    {
+                        AttendanceID = a.AttendanceID,
+                        EmployeeID = a.EmployeeID,
+                        AttendanceDate = a.AttendanceDate,
+                        ScheduleStart = a.Schedule?.ScheduledStart,
+                        ScheduleEnd = a.Schedule?.ScheduledEnd,
+                        ActualCheckIn = a.ActualCheckIn,
+                        ActualCheckOut = a.ActualCheckOut,
+                        RegularHours = a.RegularHours,
+                        OvertimeHours = a.OvertimeHours,
+                        AttendanceStatus = a.AttendanceStatus,
+                        IsLate = isLate,
+                        Notes = a.Notes,
+                        HoursWorked = a.ActualCheckIn.HasValue && a.ActualCheckOut.HasValue
+                            ? (decimal)(a.ActualCheckOut.Value - a.ActualCheckIn.Value).TotalHours
+                            : 0
+                    };
                 }).ToList();
             }
             catch (Exception ex)
@@ -344,219 +309,44 @@ namespace HestiaLink.Services
         }
 
         /// <summary>
-        /// Updates schedule start and end times for an attendance record
+        /// Creates a new schedule for an employee on a specific date
         /// </summary>
-        public async Task<bool> UpdateScheduleAsync(int attendanceID, TimeSpan scheduleStart, TimeSpan scheduleEnd)
+        public async Task<bool> CreateScheduleAsync(int employeeId, DateTime scheduleDate, TimeSpan startTime, TimeSpan endTime, string? notes = null)
         {
             try
             {
-                var attendance = await _context.Attendances.FindAsync(attendanceID);
-                if (attendance == null) return false;
+                var existingSchedule = await _context.Schedules
+                    .FirstOrDefaultAsync(s => s.EmployeeID == employeeId && s.ScheduleDate.Date == scheduleDate.Date);
 
-                attendance.ScheduleStart = scheduleStart;
-                attendance.ScheduleEnd = scheduleEnd;
-                attendance.UpdatedAt = DateTime.UtcNow;
+                if (existingSchedule != null)
+                {
+                    existingSchedule.ScheduledStart = startTime;
+                    existingSchedule.ScheduledEnd = endTime;
+                    existingSchedule.Notes = notes;
+                    existingSchedule.UpdatedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    var newSchedule = new Schedule
+                    {
+                        EmployeeID = employeeId,
+                        ScheduleDate = scheduleDate.Date,
+                        ScheduledStart = startTime,
+                        ScheduledEnd = endTime,
+                        IsActive = true,
+                        Notes = notes,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _context.Schedules.AddAsync(newSchedule);
+                }
 
-                _context.Attendances.Update(attendance);
                 await _context.SaveChangesAsync();
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error updating schedule: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Creates a new attendance record with shift assignment
-        /// </summary>
-        public async Task<bool> CreateAttendanceWithShiftAsync(
-            int employeeID,
-            DateTime attendanceDate,
-            TimeSpan scheduleStart,
-            TimeSpan scheduleEnd,
-            string? notes = null)
-        {
-            try
-            {
-                Console.WriteLine($"=== CreateAttendanceWithShiftAsync START ===");
-                Console.WriteLine($"EmployeeID: {employeeID}");
-                Console.WriteLine($"AttendanceDate: {attendanceDate:yyyy-MM-dd}");
-                Console.WriteLine($"ScheduleStart: {scheduleStart}");
-                Console.WriteLine($"ScheduleEnd: {scheduleEnd}");
-                Console.WriteLine($"Notes: {notes ?? "(null)"}");
-                
-                // Check if employee exists
-                var employeeExists = await _context.Employees.AnyAsync(e => e.EmployeeID == employeeID);
-                if (!employeeExists)
-                {
-                    Console.WriteLine($"ERROR: Employee with ID {employeeID} does not exist!");
-                    return false;
-                }
-                Console.WriteLine($"Employee {employeeID} verified.");
-                
-                // Check if record already exists for this employee and date
-                var existingRecord = await _context.Attendances
-                    .FirstOrDefaultAsync(a => a.EmployeeID == employeeID && a.AttendanceDate.Date == attendanceDate.Date);
-
-                if (existingRecord != null)
-                {
-                    Console.WriteLine($"Found existing record ID: {existingRecord.AttendanceID}, updating...");
-                    // Update existing record with shift info
-                    existingRecord.ScheduleStart = scheduleStart;
-                    existingRecord.ScheduleEnd = scheduleEnd;
-                    existingRecord.Notes = notes;
-                    existingRecord.UpdatedAt = DateTime.UtcNow;
-                }
-                else
-                {
-                    Console.WriteLine("No existing record found, creating new attendance...");
-                    // Create new attendance record
-                    var newAttendance = new Attendance
-                    {
-                        EmployeeID = employeeID,
-                        AttendanceDate = attendanceDate.Date,
-                        ScheduleStart = scheduleStart,
-                        ScheduleEnd = scheduleEnd,
-                        AttendanceStatus = "Pending",
-                        IsLate = false,
-                        RegularHours = 0,
-                        OvertimeHours = 0,
-                        Notes = notes,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    
-                    Console.WriteLine($"Adding new attendance record...");
-                    await _context.Attendances.AddAsync(newAttendance);
-                }
-
-                Console.WriteLine("Calling SaveChangesAsync...");
-                var changes = await _context.SaveChangesAsync();
-                Console.WriteLine($"SaveChangesAsync completed. Rows affected: {changes}");
-                
-                // Return true even if changes is 0 (might happen if no actual changes were made)
-                Console.WriteLine("=== CreateAttendanceWithShiftAsync SUCCESS ===");
-                return true;
-            }
-            catch (DbUpdateException dbEx)
-            {
-                Console.WriteLine($"DATABASE ERROR in CreateAttendanceWithShiftAsync:");
-                Console.WriteLine($"Message: {dbEx.Message}");
-                Console.WriteLine($"Inner Exception: {dbEx.InnerException?.Message}");
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"ERROR in CreateAttendanceWithShiftAsync: {ex.Message}");
-                Console.WriteLine($"Exception Type: {ex.GetType().Name}");
-                Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Updates a complete attendance record including schedule, check in/out, status, and notes
-        /// </summary>
-        public async Task<bool> UpdateAttendanceRecordAsync(
-            int attendanceID,
-            TimeSpan scheduleStart,
-            TimeSpan scheduleEnd,
-            DateTime? actualCheckIn,
-            DateTime? actualCheckOut,
-            string attendanceStatus,
-            bool isLate,
-            string? notes)
-        {
-            try
-            {
-                Console.WriteLine($"=== UpdateAttendanceRecordAsync START ===");
-                Console.WriteLine($"AttendanceID: {attendanceID}");
-                Console.WriteLine($"ScheduleStart: {scheduleStart}");
-                Console.WriteLine($"ScheduleEnd: {scheduleEnd}");
-                Console.WriteLine($"ActualCheckIn: {actualCheckIn}");
-                Console.WriteLine($"ActualCheckOut: {actualCheckOut}");
-                Console.WriteLine($"Status: {attendanceStatus}");
-                Console.WriteLine($"IsLate: {isLate}");
-                Console.WriteLine($"Notes: {notes ?? "(null)"}");
-                
-                var attendance = await _context.Attendances.FindAsync(attendanceID);
-                if (attendance == null)
-                {
-                    Console.WriteLine($"ERROR: Attendance record with ID {attendanceID} not found!");
-                    return false;
-                }
-                
-                Console.WriteLine($"Found attendance record for Employee: {attendance.EmployeeID}, Date: {attendance.AttendanceDate:yyyy-MM-dd}");
-
-                // Update schedule
-                attendance.ScheduleStart = scheduleStart;
-                attendance.ScheduleEnd = scheduleEnd;
-                
-                // Update actual times
-                attendance.ActualCheckIn = actualCheckIn;
-                attendance.ActualCheckOut = actualCheckOut;
-                
-                // Calculate hours if both check in and out are set
-                if (actualCheckIn.HasValue && actualCheckOut.HasValue)
-                {
-                    var totalHours = (decimal)(actualCheckOut.Value - actualCheckIn.Value).TotalHours;
-                    if (totalHours < 0)
-                    {
-                        // Handle overnight shifts
-                        totalHours += 24;
-                    }
-                    
-                    Console.WriteLine($"Total hours calculated: {totalHours:F2}");
-                    
-                    // Separate regular and overtime (8 hours regular)
-                    if (totalHours <= 8)
-                    {
-                        attendance.RegularHours = totalHours;
-                        attendance.OvertimeHours = 0;
-                    }
-                    else
-                    {
-                        attendance.RegularHours = 8;
-                        attendance.OvertimeHours = totalHours - 8;
-                    }
-                    
-                    Console.WriteLine($"RegularHours: {attendance.RegularHours:F2}, OvertimeHours: {attendance.OvertimeHours:F2}");
-                }
-                else
-                {
-                    // Keep existing hours if no check in/out provided
-                    Console.WriteLine("No check in/out times - keeping existing hours");
-                }
-                
-                // Update status and flags
-                attendance.AttendanceStatus = attendanceStatus;
-                attendance.IsLate = isLate;
-                attendance.Notes = notes;
-                attendance.UpdatedAt = DateTime.UtcNow;
-
-                Console.WriteLine("Calling SaveChangesAsync...");
-                var changes = await _context.SaveChangesAsync();
-                Console.WriteLine($"SaveChangesAsync completed. Rows affected: {changes}");
-                
-                Console.WriteLine("=== UpdateAttendanceRecordAsync SUCCESS ===");
-                return true;
-            }
-            catch (DbUpdateException dbEx)
-            {
-                Console.WriteLine($"DATABASE ERROR in UpdateAttendanceRecordAsync:");
-                Console.WriteLine($"Message: {dbEx.Message}");
-                Console.WriteLine($"Inner Exception: {dbEx.InnerException?.Message}");
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"ERROR in UpdateAttendanceRecordAsync: {ex.Message}");
-                Console.WriteLine($"Exception Type: {ex.GetType().Name}");
-                Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                Console.WriteLine($"Error creating schedule: {ex.Message}");
                 return false;
             }
         }
@@ -570,6 +360,7 @@ namespace HestiaLink.Services
             {
                 var records = await _context.Attendances
                     .Where(a => a.AttendanceDate.Date == attendanceDate.Date)
+                    .Include(a => a.Schedule)
                     .AsNoTracking()
                     .ToListAsync();
 
@@ -578,12 +369,18 @@ namespace HestiaLink.Services
 
                 var presentCount = records.Count(a => a.AttendanceStatus == "Present");
 
+                // Calculate late count dynamically
+                var lateCount = records.Count(a => 
+                    a.ActualCheckIn != null && 
+                    a.Schedule != null && 
+                    a.ActualCheckIn.Value.TimeOfDay > a.Schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15)));
+
                 return new AttendanceSummaryDto
                 {
                     PresentCount = presentCount,
                     AbsentCount = totalActiveEmployees - presentCount - records.Count(a => a.AttendanceStatus == "On Leave"),
                     OnLeaveCount = records.Count(a => a.AttendanceStatus == "On Leave"),
-                    LateCount = records.Count(a => a.IsLate),
+                    LateCount = lateCount,
                     TotalRecords = totalActiveEmployees
                 };
             }
@@ -617,6 +414,27 @@ namespace HestiaLink.Services
         public decimal HoursWorked { get; set; }
     }
 
+    public class EmployeeWithScheduleDto
+    {
+        public int EmployeeID { get; set; }
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Department { get; set; } = "";
+        public string Position { get; set; } = "";
+        public int? ScheduleID { get; set; }
+        public TimeSpan? ScheduleStart { get; set; }
+        public TimeSpan? ScheduleEnd { get; set; }
+        public int? AttendanceID { get; set; }
+        public DateTime? ActualCheckIn { get; set; }
+        public DateTime? ActualCheckOut { get; set; }
+        public DateTime AttendanceDate { get; set; }
+        public string AttendanceStatus { get; set; } = "Not Scheduled";
+        public bool IsLate { get; set; }
+        public decimal RegularHours { get; set; }
+        public decimal OvertimeHours { get; set; }
+        public string? Notes { get; set; }
+    }
+
     public class EmployeeDto
     {
         public int EmployeeID { get; set; }
@@ -634,5 +452,6 @@ namespace HestiaLink.Services
         public int OnLeaveCount { get; set; }
         public int LateCount { get; set; }
         public int TotalRecords { get; set; }
+        public int NotScheduledCount { get; set; }
     }
 }

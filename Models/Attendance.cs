@@ -11,14 +11,10 @@ namespace HestiaLink.Models
         [Required]
         public int EmployeeID { get; set; }
 
+        public int? ScheduleID { get; set; }
+
         [Required]
         public DateTime AttendanceDate { get; set; }
-
-        [Column(TypeName = "time")]
-        public TimeSpan? ScheduleStart { get; set; }
-
-        [Column(TypeName = "time")]
-        public TimeSpan? ScheduleEnd { get; set; }
 
         public DateTime? ActualCheckIn { get; set; }
 
@@ -31,9 +27,7 @@ namespace HestiaLink.Models
         public decimal OvertimeHours { get; set; } = 0;
 
         [StringLength(20)]
-        public string AttendanceStatus { get; set; } = "Absent"; // Present, Absent, On Leave, Half Day
-
-        public bool IsLate { get; set; } = false;
+        public string AttendanceStatus { get; set; } = "Absent"; // Present, Absent, On Leave, Half Day, Pending
 
         [StringLength(500)]
         public string? Notes { get; set; }
@@ -42,8 +36,11 @@ namespace HestiaLink.Models
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation property
+        // Navigation properties
         [ForeignKey("EmployeeID")]
         public Employee? Employee { get; set; }
+
+        [ForeignKey("ScheduleID")]
+        public Schedule? Schedule { get; set; }
     }
 }
