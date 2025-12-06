@@ -1,9 +1,17 @@
 ﻿@page "/reservations/check-in-check-out"
 @using System.Linq
+@using System.Data
+@using HestiaLink.Data
+@using HestiaLink.Models
+@using HestiaLink.Services
 @using Microsoft.EntityFrameworkCore
 @inject HestiaLinkContext DbContext
 @inject IJSRuntime JSRuntime
+@inject UserSession UserSession
 @layout MainLayout
+
+<!-- Keep all your existing HTML code exactly as it is -->
+<!-- ... -->
 
 <div class="page-wrapper">
     <header class="page-topbar">
@@ -16,6 +24,10 @@
             <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
                 <div style="font-weight:600; color:#6b7280;">Occupied</div>
                 <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "Occupied")</div>
+            </div>
+            <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                <div style="font-weight:600; color:#6b7280;">For Cleaning</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "For Cleaning")</div>
             </div>
             <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
                 <div style="font-weight:600; color:#6b7280;">Under Maintenance</div>
@@ -38,12 +50,13 @@
                     <option value="All">All</option>
                     <option value="Available">Available</option>
                     <option value="Occupied">Occupied</option>
+                    <option value="For Cleaning">For Cleaning</option>
                     <option value="Maintenance">Maintenance</option>
                 </select>
 
                 <select class="filter-select" @bind="FilterFloor">
                     <option value="All">All Floors</option>
-                    @foreach(var f in Floors)
+                    @foreach (var f in Floors)
                     {
                         <option value="@f">Floor @f</option>
                     }
@@ -54,6 +67,13 @@
             </div>
         </div>
 
+        @if (!Rooms.Any())
+        {
+            <div style="padding:12px; border-radius:8px; background:#fff4f8; color:#7f1d1d; margin-bottom:12px;">
+                No rooms loaded from database. Click Refresh to retry or check that views `vw_RoomStatusDisplay` / `vw_RoomAvailability` exist and your connection string is correct.
+            </div>
+        }
+
         <div class="cards-grid">
             @foreach (var room in FilteredRooms)
             {
@@ -61,99 +81,229 @@
                     <div class="card-top">
                         <div class="avatar">@GetAvatarInitials(room.RoomNumber)</div>
                         <div class="card-title">Room @room.RoomNumber <span style="font-weight:600; font-size:0.9rem; color:#64748b; margin-left:8px;">(Floor @room.Floor)</span></div>
-                        <div class="status-badge @(room.Status == "Occupied" ? "badge-occupied" : room.Status == "Maintenance" ? "badge-maintenance" : "badge-available")">@room.Status</div>
+                        <div class="status-badge @GetStatusBadgeClass(room.Status)">@room.Status</div>
                     </div>
                     <div class="card-body">
                         <div><strong>Guest:</strong> @(string.IsNullOrEmpty(room.GuestName) ? "-" : room.GuestName)</div>
                         <div><strong>Check-in:</strong> @(room.CheckInDate?.ToString("MMM dd, yyyy") ?? "-")</div>
                         <div><strong>Check-out:</strong> @(room.CheckOutDate?.ToString("MMM dd, yyyy") ?? "-")</div>
                     </div>
+                    @if (room.Status == "For Cleaning")
+                    {
+                        <div class="card-actions">
+                            <button class="btn-clean" @onclick="() => MarkAsCleaned(room)">Mark as Cleaned</button>
+                        </div>
+                    }
+                    @if (room.Status == "Occupied")
+                    {
+                        <div class="card-actions">
+                            <button class="btn-create" @onclick:stopPropagation="true" @onclick="() => OpenAddServiceModal(room)">Add Service</button>
+                        </div>
+                    }
                 </div>
             }
         </div>
     </section>
 </div>
 
+<!-- Guest Check-in Modal -->
 @if (ShowGuestModal)
 {
     <div class="modal-overlay">
-        <div class="modal-content" style="max-width:720px;">
+        <div class="modal-content" style="max-width:1200px;">
             <div class="modal-header-teal">
                 <h2 style="margin:0;">Guest Information</h2>
                 <div style="font-size:0.9rem; color:#f8fafc;">@(SelectedRoom != null ? $"Room {SelectedRoom.RoomNumber}" : "New Guest")</div>
             </div>
 
-            <div class="form-grid" style="padding:18px;">
-                <div class="form-group">
-                    <label class="form-label">First Name</label>
-                    <input class="form-input" @bind="GuestFirstName" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Last Name</label>
-                    <input class="form-input" @bind="GuestLastName" />
-                </div>
-
-                <div class="form-group full-width">
-                    <label class="form-label">Email Address</label>
-                    <input class="form-input" @bind="GuestEmail" />
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Contact Number</label>
-                    <input class="form-input" @bind="GuestContact" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Date of Birth</label>
-                    <input type="date" class="form-input" @bind="GuestDOB" />
-                </div>
-
-                <div class="form-group full-width">
-                    <label class="form-label">Address</label>
-                    <input class="form-input" @bind="GuestAddress" />
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Check In Date</label>
-                    <input type="date" class="form-input" @bind="GuestCheckIn" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Check Out Date</label>
-                    <input type="date" class="form-input" @bind="GuestCheckOut" />
-                </div>
-
-                <div class="form-group full-width">
-                    <label class="form-label">Services</label>
-                    <div class="multi-dropdown">
-                        <button class="dropdown-toggle" @onclick="ToggleServicesDropdown">@GetSelectedServicesLabel()</button>
-                        @if (ShowServicesDropdown)
-                        {
-                            <div class="dropdown-panel">
-                                @if (AvailableServices.Any())
-                                {
-                                    @foreach (var svc in AvailableServices)
-                                    {
-                                        <label class="dropdown-item"><input type="checkbox" checked="@SelectedServiceIds.Contains(svc.ServiceID)" @onchange="(e) => ToggleServiceSelection(svc.ServiceID, (bool?)e.Value == true)" /> @svc.ServiceName</label>
-                                    }
-                                }
-                                else
-                                {
-                                    <div style="padding:8px;color:#64748b;">No services available</div>
-                                }
-                            </div>
-                        }
+            <div class="form-grid-landscape" style="padding:18px;">
+                <!-- Left Column: Guest Personal Information -->
+                <div class="form-section">
+                    <h3 style="margin:0 0 12px 0; font-size:1rem; color:#0f766e; border-bottom:2px solid #e5e7eb; padding-bottom:8px;">Guest Details</h3>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div class="form-group">
+                            <label class="form-label">First Name</label>
+                            <input class="form-input" @bind="GuestFirstName" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Last Name</label>
+                            <input class="form-input" @bind="GuestLastName" />
+                        </div>
+                        <div class="form-group" style="grid-column:1 / -1;">
+                            <label class="form-label">Email Address</label>
+                            <input class="form-input" @bind="GuestEmail" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Contact Number</label>
+                            <input class="form-input" @bind="GuestContact" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date of Birth</label>
+                            <input type="date" class="form-input" @bind="GuestDOB" />
+                        </div>
+                        <div class="form-group" style="grid-column:1 / -1;">
+                            <label class="form-label">Address</label>
+                            <input class="form-input" @bind="GuestAddress" />
+                        </div>
                     </div>
                 </div>
 
+                <!-- Middle Column: Booking Details -->
+                <div class="form-section">
+                    <h3 style="margin:0 0 12px 0; font-size:1rem; color:#0f766e; border-bottom:2px solid #e5e7eb; padding-bottom:8px;">Booking Details</h3>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div class="form-group">
+                            <label class="form-label">Check In Date</label>
+                            <input type="date" class="form-input" @bind="GuestCheckIn" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Check Out Date</label>
+                            <input type="date" class="form-input" @bind="GuestCheckOut" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Services</label>
+                            <div class="multi-dropdown">
+                                <button class="dropdown-toggle" @onclick="ToggleServicesDropdown">@GetSelectedServicesLabel()</button>
+                                @if (ShowServicesDropdown)
+                                {
+                                    <div class="dropdown-panel">
+                                        @if (AvailableServices.Any())
+                                        {
+                                            @foreach (var svc in AvailableServices)
+                                            {
+                                                <label class="dropdown-item"><input type="checkbox" checked="@SelectedServiceIds.Contains(svc.ServiceID)" @onchange="(e) => ToggleServiceSelection(svc.ServiceID, (bool?)e.Value == true)" /> @svc.ServiceName</label>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <div style="padding:8px;color:#64748b;">No services available</div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Payment Status</label>
+                            <select class="form-input" @bind="GuestPaymentStatus" style="width:100%;">
+                                <option value="Paid">Paid</option>
+                                <option value="Partial">Partial</option>
+                                <option value="Pending">Pending</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Payment Method</label>
+                            <select class="form-input" @bind="PaymentMethod" style="width:100%;">
+                                <option value="Cash">Cash</option>
+                                <option value="Credit Card">Credit Card</option>
+                                <option value="Debit Card">Debit Card</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="E-Wallet">E-Wallet</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Payment Summary -->
+                <div class="form-section">
+                    <h3 style="margin:0 0 12px 0; font-size:1rem; color:#0f766e; border-bottom:2px solid #e5e7eb; padding-bottom:8px;">Payment Summary</h3>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e5e7eb;">
+                            <div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">Room Charge</div>
+                            <div style="font-size:1.3rem; font-weight:700; color:#0f766e;">@((SelectedRoom?.RoomCharge ?? 0m).ToString("C"))</div>
+                        </div>
+                        <div style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e5e7eb;">
+                            <div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">Services</div>
+                            <div style="font-size:1.1rem; font-weight:600; color:#0f766e;">@(AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Sum(s => s.StandardPrice).ToString("C"))</div>
+                        </div>
+                        <div style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e5e7eb;">
+                            <div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">Tax (12%)</div>
+                            <div style="font-size:1.1rem; font-weight:600; color:#0f766e;">@(Math.Round((SelectedRoom?.RoomCharge ?? 0m) * 0.12m, 2).ToString("C"))</div>
+                        </div>
+                        <div style="background:#0f766e; padding:16px; border-radius:8px; border:2px solid #064e3b;">
+                            <div style="font-size:0.85rem; color:#d1fae5; margin-bottom:8px; font-weight:600;">TOTAL PAYMENT</div>
+                            <div style="font-size:1.8rem; font-weight:700, color:#d1fae5;">@CalculateGuestTotal().ToString("C")</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="action-footer" style="border:none; padding:16px; display:flex; gap:12px; justify-content:flex-start;">
-                <button class="btn-primary" @onclick="SaveGuest">Check - IN</button>
+            <div class="action-footer" style="border:none; padding:16px; display:flex; gap:12px; justify-content:flex-end; border-top:1px solid #e5e7eb;">
                 <button class="btn-secondary" @onclick="CloseGuestModal">Cancel</button>
+                <button class="btn-primary" @onclick="SaveGuest">Check - IN</button>
             </div>
         </div>
     </div>
 }
 
+<!-- Check-out Modal -->
+@if (ShowCheckOutModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width:1000px;">
+            <div class="modal-header" style="background:#0f766e;">
+                <h2 style="margin:0; color:white;">Check Out</h2>
+                <div style="font-size:0.9rem; color:#f8fafc;">Room @SelectedRoom?.RoomNumber</div>
+            </div>
+
+            @if (SelectedRoom != null)
+            {
+                <div style="padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:30px;">
+                    <div>
+                        <div style="background:#f8fafc; padding:15px; border-radius:8px;">
+                            <h3 style="margin-top:0; color:#0f766e;">Guest Information</h3>
+                            <p><strong>Guest:</strong> @SelectedRoom.GuestName</p>
+                            <p><strong>Check-in:</strong> @SelectedRoom.CheckInDate?.ToString("MMM dd, yyyy")</p>
+                            <p><strong>Check-out:</strong> @SelectedRoom.CheckOutDate?.ToString("MMM dd, yyyy")</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="bill-summary">
+                            <h3 style="margin-top:0; color:#0f766e;">Billing Summary</h3>
+                            <div class="bill-row"><span>Room Charges:</span><span>@(SelectedRoom.RoomCharge.ToString("C"))</span></div>
+                            <div class="bill-row"><span>Services:</span><span>@(SelectedRoom.ServiceCharge.ToString("C"))</span></div>
+                            <div class="bill-row"><span>Tax (12%):</span><span>@(SelectedRoom.TaxAmount.ToString("C"))</span></div>
+                            <div class="bill-row total"><span>TOTAL DUE:</span><span>@(SelectedRoom.TotalDue.ToString("C"))</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:25px; padding:0 20px 20px 20px;">
+                    <button class="btn-checkout" @onclick="ProcessCheckOut">Confirm Check Out</button>
+                    <button class="btn-cancel" @onclick="CloseCheckOutModal">Cancel</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<!-- Cleaning Confirmation Modal -->
+@if (ShowCleaningModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header" style="background:#f59e0b;">
+                <h2 style="margin:0; color:white;">Room Cleaning</h2>
+                <div style="font-size:0.9rem; color:#f8fafc;">Room @SelectedRoom?.RoomNumber</div>
+            </div>
+            <div style="padding:30px 20px; text-align:center;">
+                <div style="font-size:4rem; color:#f59e0b; margin-bottom:20px;">🧹</div>
+                <p style="font-size:1.1rem; color:#1e293b; margin-bottom:20px;">
+                    Is room @SelectedRoom?.RoomNumber cleaned and ready for the next guest?
+                </p>
+                <p style="color:#64748b; margin-bottom:30px;">
+                    This will change the room status to "Available" for check-in.
+                </p>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button class="btn-confirm-clean" @onclick="ConfirmCleaning">Yes, Room is Cleaned</button>
+                    <button class="btn-secondary" @onclick="CloseCleaningModal">Not Yet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Add Service Modal -->
 @if (ShowAddServiceModal)
 {
     <div class="modal-overlay">
@@ -178,107 +328,362 @@
             </div>
 
             <div class="action-footer" style="border:none; padding:16px; display:flex; gap:12px; justify-content:flex-start;">
-                <button class="btn-primary" @onclick="SaveAddedServices">Add Services</button>
+                <button class="btn-primary" @onclick="SaveAddedServices">Confirm</button>
                 <button class="btn-secondary" @onclick="CloseAddServiceModal">Cancel</button>
             </div>
         </div>
     </div>
 }
 
-@if (ShowCheckOutModal)
-{
-    <div class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Billing & Payment</h2>
-            </div>
-
-            @if (SelectedRoom != null)
-            {
-                <div style="padding:16px;">
-                    <div class="bill-row"><strong>Room:</strong> @SelectedRoom.RoomNumber</div>
-                    <div class="bill-row"><strong>Guest:</strong> @SelectedRoom.GuestName</div>
-                    <div class="bill-row"><strong>Check-in:</strong> @SelectedRoom.CheckInDate?.ToString("MMM dd, yyyy")</div>
-                    <div class="bill-row"><strong>Check-out:</strong> @SelectedRoom.CheckOutDate?.ToString("MMM dd, yyyy")</div>
-
-                    <div style="height:12px"></div>
-                    <div class="bill-summary">
-                        <div class="bill-row"><span>Room Charges:</span><span>@(SelectedRoom.RoomCharge.ToString("C"))</span></div>
-                        <div class="bill-row"><span>Services:</span><span>@(SelectedRoom.ServiceCharge.ToString("C"))</span></div>
-                        <div class="bill-row"><span>Tax (12%):</span><span>@(SelectedRoom.TaxAmount.ToString("C"))</span></div>
-                        <div class="bill-row total"><span>REMAINING BALANCE:</span><span>@(SelectedRoom.TotalDue.ToString("C"))</span></div>
-                    </div>
-
-                    <div style="display:flex; gap:10px; margin-top:18px;">
-                        <button class="btn-checkout" @onclick="ProcessCheckOut">Process Check Out</button>
-                        <button class="btn-add-service" @onclick="() => OpenAddServiceModal(SelectedRoom)">Add Service</button>
-                        <button class="btn-cancel" @onclick="CloseCheckOutModal">Cancel</button>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-}
-
 <style>
-    .cards-grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap:18px; }
-    .user-card { background:white; border-radius:12px; padding:14px; border:1px solid #e5e7eb; box-shadow:0 2px 4px rgba(0,0,0,0.04); cursor:pointer; display:flex; flex-direction:column; justify-content:space-between; }
-    .card-top { display:flex; align-items:center; gap:12px; }
-    .avatar { display:none; }
-    .card-title { font-weight:800; font-size:1.05rem; }
-    .status-badge { margin-left:auto; padding:6px 10px; border-radius:12px; font-size:0.8rem; }
-    .badge-occupied { background:#f3f4f6; color:#374151; border: 1px solid #d1d5db; }
-    .badge-available { background:#e0f2f1; color:#00535b; border: 1px solid #b2dfdb; }
-    .badge-maintenance { background:#fef2f2; color:#991b1b; border: 1px solid #fecaca; }
-    .card-body { margin-top:12px; color:#334155; display:flex; flex-direction:column; gap:6px; }
-    .card-actions { margin-top:12px; display:flex; gap:8px; }
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill,minmax(320px,1fr));
+        gap: 18px;
+    }
 
-    .modal-overlay { position:fixed; inset:0; background:rgba(16,47,51,0.45); display:flex; align-items:center; justify-content:center; z-index:40; }
-    .modal-content { background:white; border-radius:10px; width:90%; max-width:900px; box-shadow:0 10px 30px rgba(2,6,23,0.4); }
-    .modal-header-teal { background:#00535b; color:white; padding:14px 18px; border-top-left-radius:10px; border-top-right-radius:10px; display:flex; align-items:center; justify-content:space-between; }
-    .modal-header { background:#00535b; color:white; padding:12px 16px; border-top-left-radius:10px; border-top-right-radius:10px; }
-    .modal-header h2 { color: #ffffff; margin:0; font-weight:700; }
-    .form-grid { display:grid; grid-template-columns: repeat(2,1fr); gap:12px; }
-    .form-group { display:flex; flex-direction:column; gap:6px; }
-    .form-group.full-width { grid-column:1 / -1; }
-    .form-label { font-weight:600; color:#334155; }
-    .form-input { padding:10px 12px; border-radius:8px; border:1px solid #e6eef0; }
-    .action-footer { padding:12px 16px; }
-    .btn-primary { background:#00535b; color:white; padding:10px 14px; border-radius:8px; border:none; cursor:pointer; transition: background 0.2s ease; }
-    .btn-primary:hover, .btn-primary:active { background:#0093a0; }
-    .btn-secondary { background:#64748b; color:white; padding:10px 14px; border-radius:8px; border:none; }
-    .btn-create { background:#0ea5a4; color:white; padding:8px 12px; border-radius:8px; border:none; }
-    
+    .user-card {
+        background: white;
+        border-radius: 12px;
+        padding: 14px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .card-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .card-title {
+        font-weight: 800;
+        font-size: 1.05rem;
+    }
+
+    .status-badge {
+        margin-left: auto;
+        padding: 6px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+    }
+
+    .badge-occupied {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+    }
+
+    .badge-available {
+        background: #e0f2f1;
+        color: #00535b;
+        border: 1px solid #b2dfdb;
+    }
+
+    .badge-maintenance {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+
+    .badge-cleaning {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+
+    .card-body {
+        margin-top: 12px;
+        color: #334155;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .card-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-clean {
+        background: #f59e0b;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        flex: 1;
+    }
+
+        .btn-clean:hover {
+            background: #d97706;
+        }
+
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(16,47,51,0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 40;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 900px;
+        box-shadow: 0 10px 30px rgba(2,6,23,0.4);
+    }
+
+    .modal-header-teal {
+        background: #00535b;
+        color: white;
+        padding: 14px 18px;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .modal-header {
+        background: #00535b;
+        color: white;
+        padding: 12px 16px;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+    }
+
+        .modal-header h2 {
+            color: #ffffff;
+            margin: 0;
+            font-weight: 700;
+        }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2,1fr);
+        gap: 12px;
+    }
+
+    .form-grid-landscape {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+    }
+
+    .form-section {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+    .form-label {
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .form-input {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #e6eef0;
+    }
+
+    .action-footer {
+        padding: 12px 16px;
+    }
+
+    .btn-primary {
+        background: #00535b;
+        color: white;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+        .btn-primary:hover, .btn-primary:active {
+            background: #0093a0;
+        }
+
+    .btn-secondary {
+        background: #64748b;
+        color: white;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: none;
+    }
+
+    .btn-create {
+        background: #0ea5a4;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: none;
+    }
+
     /* Billing Modal Buttons */
-    .btn-checkout { background:#00535b; color:white; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; font-weight:600; transition: all 0.2s ease; flex:1; }
-    .btn-checkout:hover { background:#0093a0; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,83,91,0.2); }
-    .btn-add-service { background:#0ea5a4; color:white; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; font-weight:600; transition: all 0.2s ease; }
-    .btn-add-service:hover { background:#0093a0; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(14,165,164,0.2); }
-    .btn-cancel { background:#ef4444; color:white; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; font-weight:600; transition: all 0.2s ease; }
-    .btn-cancel:hover { background:#dc2626; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(239,68,68,0.2); }
+    .btn-checkout {
+        background: #0f766e;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        flex: 1;
+    }
 
-    .search-input { padding:10px 12px; border-radius:12px; border:1px solid #e6eef0; width:360px; }
-    .filter-select { padding:10px 12px; border-radius:12px; border:1px solid #e6eef0; background:white; cursor:pointer; min-width:140px; }
+        .btn-checkout:hover {
+            background: #0d9488;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(15,118,110,0.2);
+        }
 
-    .multi-dropdown { position:relative; }
-    .dropdown-toggle { padding:10px 12px; border-radius:8px; border:1px solid #e6eef0; background:white; }
-    .dropdown-panel { position:absolute; background:white; box-shadow:0 4px 12px rgba(2,6,23,0.12); border-radius:8px; padding:8px; margin-top:6px; z-index:50; max-height:200px; overflow:auto; width:320px; }
-    .dropdown-item { display:block; padding:6px 8px; }
+    .btn-cancel {
+        background: #64748b;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        flex: 1;
+    }
 
-    .bill-summary { border-top:1px dashed #e6eef0; padding-top:10px; display:flex; flex-direction:column; gap:8px; }
-    .bill-row { display:flex; justify-content:space-between; }
-    .bill-row.total { font-weight:800; color:#064e3b; }
+        .btn-cancel:hover {
+            background: #475569;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(100,116,139,0.2);
+        }
+
+    .btn-confirm-clean {
+        background: #10b981;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+        .btn-confirm-clean:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16,185,129,0.2);
+        }
+
+    .search-input {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid #e6eef0;
+        width: 360px;
+    }
+
+    .filter-select {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid #e6eef0;
+        background: white;
+        cursor: pointer;
+        min-width: 140px;
+    }
+
+    .avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        background: linear-gradient(135deg,#06b6d4,#0f766e);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+    }
+
+    .multi-dropdown {
+        position: relative;
+    }
+
+    .dropdown-toggle {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #e6eef0;
+        background: white;
+    }
+
+    .dropdown-panel {
+        position: absolute;
+        background: white;
+        box-shadow: 0 4px 12px rgba(2,6,23,0.12);
+        border-radius: 8px;
+        padding: 8px;
+        margin-top: 6px;
+        z-index: 50;
+        max-height: 200px;
+        overflow: auto;
+        width: 320px;
+    }
+
+    .dropdown-item {
+        display: block;
+        padding: 6px 8px;
+    }
+
+    .bill-summary {
+        border-top: 1px dashed #e6eef0;
+        padding-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .bill-row {
+        display: flex;
+        justify-content: space-between;
+    }
+
+        .bill-row.total {
+            font-weight: 800;
+            color: #064e3b;
+        }
 </style>
 
 @code {
     private string SearchText = "";
     private string FilterStatus = "All";
     private string FilterFloor = "All";
+    private string GuestPaymentStatus = "Pending";
+    private string PaymentMethod = "Cash"; // Add payment method field
 
     private bool ShowGuestModal = false;
     private bool ShowCheckOutModal = false;
+    private bool ShowCleaningModal = false;
     private bool ShowAddServiceModal = false;
     private bool ShowServicesDropdown = false;
+    private bool _isInitialized = false;
+    private bool _isJsReady = false;
 
     private List<RoomCard> Rooms = new();
     private List<Service> AvailableServices = new();
@@ -291,7 +696,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadRoomsFromDb();
+        await LoadRoomsFromView();
 
         try
         {
@@ -301,73 +706,300 @@
         {
             AvailableServices = new List<Service>();
         }
+
+        _isInitialized = true;
     }
 
-    private async Task LoadRoomsFromDb()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Rooms.Clear();
+        if (firstRender && _isInitialized)
+        {
+            _isJsReady = true;
+            await SafeJsInvoke("console.log", "Component rendered successfully");
+
+            if (Rooms.Any())
+            {
+                await SafeJsInvoke("console.log", $"Loaded {Rooms.Count} rooms");
+            }
+        }
+    }
+
+    private async Task SafeJsInvoke(string function, params object[] args)
+    {
         try
         {
-            var rooms = await DbContext.Rooms.Include(r => r.RoomType).AsNoTracking().ToListAsync();
-            // load latest active reservation per room where status indicates checked in
-            var reservations = await DbContext.Reservations.Where(r => r.Status == "Checked In").ToListAsync();
-            var guests = await DbContext.Guests.ToListAsync();
+            await JSRuntime.InvokeVoidAsync(function, args);
+        }
+        catch
+        {
+            // Silently ignore JS errors during prerendering
+        }
+    }
 
-            foreach (var rm in rooms)
+    private async Task LoadRoomsFromView()
+    {
+        Rooms.Clear();
+
+        try
+        {
+            await LoadFromRoomStatusDisplayView();
+
+            if (!Rooms.Any())
             {
-                var card = new RoomCard
+                await SafeJsInvoke("console.warn", "No data from view, falling back to direct table access");
+                await LoadFromTablesDirect();
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await SafeJsInvoke("console.error", "Error loading rooms: " + ex.Message);
+            Rooms = GenerateSampleRooms();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadFromRoomStatusDisplayView()
+    {
+        try
+        {
+            var conn = DbContext.Database.GetDbConnection();
+            using var cmd = conn.CreateCommand();
+
+            cmd.CommandText = @"
+                SELECT
+                    RoomNumber,
+                    Floor,
+                    Status,
+                    Guest,
+                    CheckIn,
+                    CheckOut,
+                    TypeName
+                FROM vw_RoomStatusDisplay
+                ORDER BY CAST(RoomNumber AS INT)";
+
+            if (conn.State != ConnectionState.Open)
+                await conn.OpenAsync();
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            var loadedRooms = new List<RoomCard>();
+
+            while (await reader.ReadAsync())
+            {
+                var roomCard = new RoomCard
                 {
-                    RoomNumber = rm.RoomNumber,
-                    Floor = rm.Floor,
-                    Status = rm.Status ?? "Available",
-                    RoomCharge = rm.RoomType?.BasePrice ?? 0m
+                    RoomNumber = reader["RoomNumber"]?.ToString()?.Trim() ?? string.Empty,
+                    Floor = reader["Floor"] != DBNull.Value ? Convert.ToInt32(reader["Floor"]) : 1,
+                    Status = MapStatus(reader["Status"]?.ToString() ?? "Available"),
+                    GuestName = reader["Guest"]?.ToString()?.Trim(),
+                    CheckInDate = reader["CheckIn"] != DBNull.Value ? Convert.ToDateTime(reader["CheckIn"]) : (DateTime?)null,
+                    CheckOutDate = reader["CheckOut"] != DBNull.Value ? Convert.ToDateTime(reader["CheckOut"]) : (DateTime?)null,
+                    RoomCharge = 0m,
+                    ServiceCharge = 0m
                 };
 
-                // find reservation for this room
-                var reserved = await DbContext.ReservedRooms.FirstOrDefaultAsync(rr => rr.RoomID == rm.RoomID && reservations.Any(res => res.ReservationID == rr.ReservationID && res.Status == "Checked In"));
-                if (reserved != null)
-                {
-                    var res = reservations.FirstOrDefault(r => r.ReservationID == reserved.ReservationID);
-                    if (res != null)
-                    {
-                        var g = guests.FirstOrDefault(gg => gg.GuestID == res.GuestID);
-                        card.GuestName = g?.FullName ?? "";
-                        card.CheckInDate = res.CheckInDate;
-                        card.CheckOutDate = res.CheckOutDate;
-                        card.Status = res.Status == "Checked In" ? "Occupied" : card.Status;
+                var typeName = reader["TypeName"]?.ToString()?.Trim();
+                roomCard.RoomCharge = await GetRoomPriceByTypeName(typeName, roomCard.RoomNumber);
 
-                        // compute charges if needed
-                        card.ServiceCharge = await DbContext.ServiceTransactions.Where(st => st.ReservationID == res.ReservationID).SumAsync(st => (decimal?)st.TotalAmount) ?? 0m;
-                        card.TaxAmount = Math.Round((card.RoomCharge + card.ServiceCharge) * 0.12m, 2);
-                        card.TotalDue = card.RoomCharge + card.ServiceCharge + card.TaxAmount;
-                    }
+                if (roomCard.Status == "Occupied" && roomCard.CheckInDate.HasValue && roomCard.CheckOutDate.HasValue)
+                {
+                    var nights = (roomCard.CheckOutDate.Value - roomCard.CheckInDate.Value).Days;
+                    if (nights <= 0) nights = 1;
+                    roomCard.RoomCharge = roomCard.RoomCharge * nights;
                 }
 
-                Rooms.Add(card);
+                roomCard.TaxAmount = Math.Round((roomCard.RoomCharge + roomCard.ServiceCharge) * 0.12m, 2);
+                roomCard.TotalDue = roomCard.RoomCharge + roomCard.ServiceCharge + roomCard.TaxAmount;
+
+                loadedRooms.Add(roomCard);
+            }
+
+            Rooms = loadedRooms;
+
+            if (Rooms.Any())
+            {
+                await SafeJsInvoke("console.log", $"Loaded {Rooms.Count} rooms from vw_RoomStatusDisplay");
             }
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("console.error", ex.Message);
-            // fallback sample with proper guest data for occupied rooms
-            Rooms = Enumerable.Range(101, 12).Select(i => 
-            {
-                var isOccupied = (i % 3 == 0 || i == 101);
-                return new RoomCard 
-                { 
-                    RoomNumber = i.ToString(), 
-                    Floor = i / 100, 
-                    Status = isOccupied ? "Occupied" : "Available", 
-                    RoomCharge = 2000m,
-                    GuestName = isOccupied ? $"Guest {i}" : null,
-                    CheckInDate = isOccupied ? DateTime.Today.AddDays(-1) : null,
-                    CheckOutDate = isOccupied ? DateTime.Today.AddDays(2) : null,
-                    ServiceCharge = 0m,
-                    TaxAmount = isOccupied ? Math.Round(2000m * 0.12m, 2) : 0m,
-                    TotalDue = isOccupied ? 2000m + Math.Round(2000m * 0.12m, 2) : 0m
-                };
-            }).ToList();
+            await SafeJsInvoke("console.error", $"Error loading from vw_RoomStatusDisplay: {ex.Message}");
+            throw;
         }
+    }
+
+    private async Task<decimal> GetRoomPriceByTypeName(string? typeName, string roomNumber)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(typeName))
+            {
+                var roomType = await DbContext.RoomTypes
+                    .FirstOrDefaultAsync(rt => rt.TypeName == typeName && rt.Status == "Active");
+
+                if (roomType != null)
+                    return roomType.BasePrice;
+            }
+
+            var room = await DbContext.Rooms
+                .Include(r => r.RoomType)
+                .FirstOrDefaultAsync(r => r.RoomNumber == roomNumber && r.RoomType != null);
+
+            return room?.RoomType?.BasePrice ?? 1200.00m;
+        }
+        catch
+        {
+            return 1200.00m;
+        }
+    }
+
+    private async Task LoadFromTablesDirect()
+    {
+        try
+        {
+            var rooms = await DbContext.Rooms
+                .Include(r => r.RoomType)
+                .Where(r => r.RoomType != null && r.RoomType.Status == "Active")
+                .OrderBy(r => r.RoomNumber)
+                .ToListAsync();
+
+            if (!rooms.Any())
+            {
+                await SafeJsInvoke("console.warn", "No rooms found in database");
+                return;
+            }
+
+            var activeReservations = await DbContext.Reservations
+                .Where(r => r.Status == "Checked In")
+                .Include(r => r.Guest)
+                .ToListAsync();
+
+            var reservedRooms = await DbContext.ReservedRooms.ToListAsync();
+
+            foreach (var room in rooms)
+            {
+                var roomCard = new RoomCard
+                {
+                    RoomNumber = room.RoomNumber,
+                    Floor = room.Floor,
+                    Status = MapStatus(room.Status ?? "Available"),
+                    RoomCharge = room.RoomType?.BasePrice ?? 1200.00m,
+                    ServiceCharge = 0m,
+                    GuestName = null,
+                    CheckInDate = null,
+                    CheckOutDate = null
+                };
+
+                var roomReservation = activeReservations
+                    .FirstOrDefault(r => reservedRooms
+                        .Any(rr => rr.ReservationID == r.ReservationID && rr.RoomID == room.RoomID));
+
+                if (roomReservation != null)
+                {
+                    roomCard.GuestName = $"{roomReservation.Guest?.FirstName} {roomReservation.Guest?.LastName}";
+                    roomCard.CheckInDate = roomReservation.CheckInDate;
+                    roomCard.CheckOutDate = roomReservation.CheckOutDate;
+                    roomCard.Status = "Occupied";
+
+                    if (roomCard.CheckInDate.HasValue && roomCard.CheckOutDate.HasValue)
+                    {
+                        var nights = (roomCard.CheckOutDate.Value - roomCard.CheckInDate.Value).Days;
+                        if (nights <= 0) nights = 1;
+                        roomCard.RoomCharge = roomCard.RoomCharge * nights;
+                    }
+                }
+
+                roomCard.TaxAmount = Math.Round((roomCard.RoomCharge + roomCard.ServiceCharge) * 0.12m, 2);
+                roomCard.TotalDue = roomCard.RoomCharge + roomCard.ServiceCharge + roomCard.TaxAmount;
+
+                Rooms.Add(roomCard);
+            }
+
+            await SafeJsInvoke("console.log", $"Loaded {Rooms.Count} rooms from database tables");
+        }
+        catch (Exception ex)
+        {
+            await SafeJsInvoke("console.error", "Error loading from tables: " + ex.Message);
+        }
+    }
+
+    private string MapStatus(string dbStatus)
+    {
+        if (string.IsNullOrEmpty(dbStatus))
+            return "Available";
+
+        var upperStatus = dbStatus.ToUpper();
+
+        return upperStatus switch
+        {
+            "AVAILABLE" => "Available",
+            "OCCUPIED" => "Occupied",
+            "CHECKED IN" => "Occupied",
+            "CHECKED OUT" => "For Cleaning",
+            "DIRTY" => "For Cleaning",
+            "FOR CLEANING" => "For Cleaning",
+            "MAINTENANCE" => "Maintenance",
+            "CLEANING" => "For Cleaning",
+            _ => dbStatus
+        };
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Occupied" => "badge-occupied",
+            "Available" => "badge-available",
+            "For Cleaning" => "badge-cleaning",
+            "Maintenance" => "badge-maintenance",
+            _ => "badge-available"
+        };
+    }
+
+    private List<RoomCard> GenerateSampleRooms()
+    {
+        var sampleRooms = new List<RoomCard>();
+
+        var sampleData = new (string RoomNumber, int Floor, decimal Price, string Status, string? Guest, DateTime? CheckIn, DateTime? CheckOut)[]
+        {
+            ("101", 1, 1200.00m, "Available", null, null, null),
+            ("102", 1, 1200.00m, "For Cleaning", null, null, null),
+            ("103", 1, 1800.00m, "Occupied", "John Doe", DateTime.Today.AddDays(-2), DateTime.Today.AddDays(1)),
+            ("104", 1, 2800.00m, "Maintenance", null, null, null),
+            ("105", 1, 3500.00m, "Available", null, null, null),
+            ("201", 2, 1200.00m, "Occupied", "Jane Smith", DateTime.Today.AddDays(-1), DateTime.Today.AddDays(2)),
+            ("202", 2, 1800.00m, "Available", null, null, null)
+        };
+
+        foreach (var room in sampleData)
+        {
+            var roomCard = new RoomCard
+            {
+                RoomNumber = room.RoomNumber,
+                Floor = room.Floor,
+                Status = room.Status,
+                RoomCharge = room.Price,
+                ServiceCharge = 0m,
+                TaxAmount = Math.Round(room.Price * 0.12m, 2),
+                TotalDue = room.Price * 1.12m,
+                GuestName = room.Status == "Occupied" ? room.Guest : null,
+                CheckInDate = room.Status == "Occupied" ? room.CheckIn : (DateTime?)null,
+                CheckOutDate = room.Status == "Occupied" ? room.CheckOut : (DateTime?)null
+            };
+
+            if (room.Status == "Occupied" && room.CheckIn.HasValue && room.CheckOut.HasValue)
+            {
+                var nights = (room.CheckOut.Value - room.CheckIn.Value).Days;
+                roomCard.RoomCharge = room.Price * nights;
+                roomCard.TaxAmount = Math.Round(roomCard.RoomCharge * 0.12m, 2);
+                roomCard.TotalDue = roomCard.RoomCharge + roomCard.TaxAmount;
+            }
+
+            sampleRooms.Add(roomCard);
+        }
+
+        return sampleRooms;
     }
 
     private IEnumerable<RoomCard> FilteredRooms => Rooms.Where(r => (
@@ -375,26 +1007,42 @@
         && (FilterStatus == "All" || r.Status == FilterStatus)
         && (FilterFloor == "All" || r.Floor.ToString() == FilterFloor));
 
-    private void RefreshList()
+    private async void RefreshList()
     {
-        _ = LoadRoomsFromDb();
+        await LoadRoomsFromView();
     }
 
     private void OnRoomClicked(RoomCard room)
     {
+        SelectedRoom = room;
+
         if (room.Status == "Occupied")
+        {
             OpenCheckOutModal(room);
+        }
         else if (room.Status == "Available")
+        {
             OpenGuestModal(room);
+        }
+        else if (room.Status == "For Cleaning")
+        {
+            OpenCleaningModal(room);
+        }
+        else if (room.Status == "Maintenance")
+        {
+            // You could add a maintenance modal here if needed
+            _ = SafeJsInvoke("alert", $"Room {room.RoomNumber} is under maintenance");
+        }
     }
 
     private void OpenGuestModal(RoomCard room)
     {
         SelectedRoom = room;
-        // reset guest form
         GuestFirstName = ""; GuestLastName = ""; GuestEmail = ""; GuestContact = ""; GuestAddress = ""; GuestDOB = null;
         GuestCheckIn = DateTime.Today;
         GuestCheckOut = DateTime.Today.AddDays(1);
+        GuestPaymentStatus = "Pending";
+        PaymentMethod = "Cash";
         SelectedServiceIds.Clear();
         ShowGuestModal = true;
     }
@@ -422,6 +1070,20 @@
         return string.Join(", ", names);
     }
 
+    private decimal CalculateGuestTotal()
+    {
+        var nights = (GuestCheckOut - GuestCheckIn).Days;
+        if (nights <= 0) nights = 1;
+
+        var roomPrice = SelectedRoom?.RoomCharge ?? 1200.00m;
+        var roomCharge = roomPrice * nights;
+
+        var serviceCharge = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
+        var tax = Math.Round((roomCharge + serviceCharge) * 0.12m, 2);
+
+        return roomCharge + serviceCharge + tax;
+    }
+
     // Guest form fields
     private string GuestFirstName = "";
     private string GuestLastName = "";
@@ -432,98 +1094,148 @@
     private DateTime GuestCheckIn = DateTime.Today;
     private DateTime GuestCheckOut = DateTime.Today.AddDays(1);
 
+    // Helper method to get current user ID from UserSession
+    private int GetCurrentUserId()
+    {
+        try
+        {
+            return UserSession?.UserID ?? 1;
+        }
+        catch
+        {
+            return 1;
+        }
+    }
+
+    // Helper method to generate reference number
+    private string GenerateReferenceNumber()
+    {
+        return $"REF-{DateTime.Now:yyyyMMddHHmmss}-{new Random().Next(1000, 9999)}";
+    }
+
     private async Task SaveGuest()
     {
-        if (SelectedRoom == null)
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(GuestFirstName))
+            errors.Add("First name is required");
+        else if (GuestFirstName.Length < 2)
+            errors.Add("First name must be at least 2 characters");
+
+        if (string.IsNullOrWhiteSpace(GuestLastName))
+            errors.Add("Last name is required");
+        else if (GuestLastName.Length < 2)
+            errors.Add("Last name must be at least 2 characters");
+
+        if (string.IsNullOrWhiteSpace(GuestContact))
+            errors.Add("Contact number is required");
+        else
         {
-            await JSRuntime.InvokeVoidAsync("alert", "No room selected");
-            return;
+            var digitsOnly = new string(GuestContact.Where(char.IsDigit).ToArray());
+            if (digitsOnly.Length < 10 || digitsOnly.Length > 15)
+                errors.Add("Contact number must be 10-15 digits");
         }
 
-        // validations
-        if (string.IsNullOrWhiteSpace(GuestFirstName) || string.IsNullOrWhiteSpace(GuestLastName) || string.IsNullOrWhiteSpace(GuestContact))
+        if (!string.IsNullOrWhiteSpace(GuestEmail))
         {
-            await JSRuntime.InvokeVoidAsync("alert", "Please fill required fields: First name, Last name, Contact number");
-            return;
+            try
+            {
+                var email = new System.Net.Mail.MailAddress(GuestEmail);
+                if (email.Address != GuestEmail.Trim())
+                    errors.Add("Invalid email format");
+            }
+            catch
+            {
+                errors.Add("Invalid email format");
+            }
+        }
+
+        if (GuestDOB.HasValue)
+        {
+            var age = DateTime.Today.Year - GuestDOB.Value.Year;
+            if (GuestDOB.Value.Date > DateTime.Today.AddYears(-age))
+                age--;
+
+            if (age < 18)
+                errors.Add("Guest must be at least 18 years old");
         }
 
         if (GuestCheckOut <= GuestCheckIn)
+            errors.Add("Check-out date must be after check-in date");
+
+        if (GuestCheckIn < DateTime.Today)
+            errors.Add("Check-in date cannot be in the past");
+
+        if (errors.Any())
         {
-            await JSRuntime.InvokeVoidAsync("alert", "Check-out date must be after check-in date");
+            await SafeJsInvoke("alert", string.Join("\n", errors));
             return;
         }
 
-        // find room entity
+        if (SelectedRoom == null)
+        {
+            await SafeJsInvoke("alert", "No room selected");
+            return;
+        }
+
         var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
         if (roomEntity == null)
         {
-            await JSRuntime.InvokeVoidAsync("alert", "Selected room not found in database");
+            await SafeJsInvoke("alert", "Selected room not found in database");
             return;
         }
 
         if (roomEntity.Status != "Available")
         {
-            await JSRuntime.InvokeVoidAsync("alert", "Room is not available");
+            await SafeJsInvoke("alert", "Room is not available");
             return;
         }
 
-        // check overlapping reservations
-        var overlap = await DbContext.Reservations
-            .Join(DbContext.ReservedRooms, res => res.ReservationID, rr => rr.ReservationID, (res, rr) => new { res, rr })
-            .Where(x => x.rr.RoomID == roomEntity.RoomID && x.res.Status == "Checked In")
+        var overlap = await DbContext.ReservedRooms
+            .Join(DbContext.Reservations, rr => rr.ReservationID, res => res.ReservationID, (rr, res) => new { rr, res })
+            .Where(x => x.rr.RoomID == roomEntity.RoomID &&
+                       x.res.Status == "Checked In" &&
+                       ((GuestCheckIn >= x.res.CheckInDate && GuestCheckIn < x.res.CheckOutDate) ||
+                        (GuestCheckOut > x.res.CheckInDate && GuestCheckOut <= x.res.CheckOutDate) ||
+                        (GuestCheckIn <= x.res.CheckInDate && GuestCheckOut >= x.res.CheckOutDate)))
             .AnyAsync();
 
         if (overlap)
         {
-            await JSRuntime.InvokeVoidAsync("alert", "Room is currently booked for the selected dates");
+            await SafeJsInvoke("alert", "Room is already booked for the selected dates");
             return;
         }
 
-        using var tx = await DbContext.Database.BeginTransactionAsync();
         try
         {
-            // duplicate email check
-            if (!string.IsNullOrWhiteSpace(GuestEmail))
-            {
-                var existing = await DbContext.Guests.FirstOrDefaultAsync(g => g.Email == GuestEmail);
-                if (existing != null)
-                {
-                    // quick warning but continue - attach to existing guest
-                    var proceed = await JSRuntime.InvokeAsync<bool>("confirm", "Email already exists for another guest. Continue and associate with existing record?");
-                    if (!proceed) return;
-                }
-            }
-
-            // create guest
             var guest = new Guest
             {
-                FirstName = GuestFirstName,
-                LastName = GuestLastName,
-                Email = string.IsNullOrWhiteSpace(GuestEmail) ? null : GuestEmail,
-                ContactNumber = GuestContact,
-                Address = GuestAddress,
+                FirstName = GuestFirstName.Trim(),
+                LastName = GuestLastName.Trim(),
+                Email = string.IsNullOrWhiteSpace(GuestEmail) ? null : GuestEmail.Trim(),
+                ContactNumber = GuestContact.Trim(),
+                Address = string.IsNullOrWhiteSpace(GuestAddress) ? null : GuestAddress.Trim(),
                 DateOfBirth = GuestDOB,
                 CreatedDate = DateTime.Now
             };
             DbContext.Guests.Add(guest);
             await DbContext.SaveChangesAsync();
 
-            // calculate charges
             var nights = (GuestCheckOut - GuestCheckIn).Days;
             if (nights <= 0) nights = 1;
+
             var roomCharge = await CalculateRoomCharge(roomEntity.RoomID, GuestCheckIn, GuestCheckOut);
             var serviceTotal = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
             var tax = Math.Round((roomCharge + serviceTotal) * 0.12m, 2);
             var grandTotal = roomCharge + serviceTotal + tax;
 
-            // create reservation
             var reservation = new Reservation
             {
                 GuestID = guest.GuestID,
                 CheckInDate = GuestCheckIn,
                 CheckOutDate = GuestCheckOut,
                 Status = "Checked In",
-                PaymentStatus = "Pending",
+                PaymentStatus = GuestPaymentStatus,
                 TotalPayment = grandTotal,
                 CreatedDate = DateTime.Now
             };
@@ -531,62 +1243,279 @@
             DbContext.Reservations.Add(reservation);
             await DbContext.SaveChangesAsync();
 
-            // reserved room
-            var rr = new ReservedRoom { ReservationID = reservation.ReservationID, RoomID = roomEntity.RoomID };
-            DbContext.ReservedRooms.Add(rr);
-            await DbContext.SaveChangesAsync();
+            var reservedRoom = new ReservedRoom
+            {
+                ReservationID = reservation.ReservationID,
+                RoomID = roomEntity.RoomID
+            };
+            DbContext.ReservedRooms.Add(reservedRoom);
 
-            // update room status
             roomEntity.Status = "Occupied";
             DbContext.Rooms.Update(roomEntity);
-            await DbContext.SaveChangesAsync();
 
-            // service transactions
             foreach (var svcId in SelectedServiceIds)
             {
                 var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
                 if (svc == null) continue;
-                var st = new ServiceTransaction
+
+                var serviceTransaction = new ServiceTransaction
                 {
                     ReservationID = reservation.ReservationID,
                     ServiceID = svc.ServiceID,
+                    TransactionDateTime = DateTime.Now,
                     Quantity = 1,
                     UnitPrice = svc.StandardPrice,
                     TotalAmount = svc.StandardPrice,
                     ServiceStatus = "Pending"
                 };
-                DbContext.ServiceTransactions.Add(st);
+                DbContext.ServiceTransactions.Add(serviceTransaction);
             }
+
+            var bill = new Bill
+            {
+                ReservationID = reservation.ReservationID,
+                BillDate = DateTime.Now,
+                SubtotalAmount = roomCharge + serviceTotal,
+                GrandTotal = grandTotal,
+                AmountPaid = GuestPaymentStatus == "Paid" ? grandTotal : 0,
+                BalanceDue = GuestPaymentStatus == "Paid" ? 0 : grandTotal,
+                BillStatus = GuestPaymentStatus == "Paid" ? "Paid" : "Pending"
+            };
+            DbContext.Bills.Add(bill);
             await DbContext.SaveChangesAsync();
 
-            // bill detail
-            var bill = new BillDetail
+            // ========== CREATE PAYMENT RECORD ==========
+            if (GuestPaymentStatus == "Paid" || GuestPaymentStatus == "Partial")
             {
-                Description = $"Room {roomEntity.RoomNumber} charge",
+                var currentUserId = GetCurrentUserId();
+                var amountPaid = GuestPaymentStatus == "Paid" ? grandTotal : (grandTotal / 2);
+
+                var payment = new Payment
+                {
+                    BillID = bill.BillID,
+                    PaymentDate = DateTime.Now,
+                    PaymentMethod = PaymentMethod,
+                    Amount = amountPaid,
+                    ReferenceNumber = GenerateReferenceNumber(),
+                    PaymentStatus = GuestPaymentStatus == "Paid" ? "Completed" : "Partial",
+                    ProcessedBy = currentUserId
+                };
+
+                DbContext.Payments.Add(payment);
+                await DbContext.SaveChangesAsync();
+            }
+            // ===========================================
+
+            var roomBillDetail = new BillDetail
+            {
+                BillID = bill.BillID,
+                Description = $"Room {roomEntity.RoomNumber} ({nights} nights)",
                 Quantity = nights,
                 UnitPrice = roomCharge / nights,
-                TotalAmount = roomCharge + serviceTotal + tax,
+                TotalAmount = roomCharge,
                 TransactionDate = DateTime.Now
             };
-            DbContext.BillDetails.Add(bill);
+            DbContext.BillDetails.Add(roomBillDetail);
+
+            foreach (var svcId in SelectedServiceIds)
+            {
+                var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
+                if (svc == null) continue;
+
+                var serviceBillDetail = new BillDetail
+                {
+                    BillID = bill.BillID,
+                    Description = svc.ServiceName,
+                    Quantity = 1,
+                    UnitPrice = svc.StandardPrice,
+                    TotalAmount = svc.StandardPrice,
+                    TransactionDate = DateTime.Now
+                };
+                DbContext.BillDetails.Add(serviceBillDetail);
+            }
+
             await DbContext.SaveChangesAsync();
 
-            // optional payment - none by default (Pending)
-
-            await tx.CommitAsync();
-
-            await JSRuntime.InvokeVoidAsync("alert", "Check-in successful");
+            await SafeJsInvoke("alert", "Check-in successful!");
             ShowGuestModal = false;
-            await LoadRoomsFromDb();
+            await LoadRoomsFromView();
         }
         catch (Exception ex)
         {
-            await tx.RollbackAsync();
-            await JSRuntime.InvokeVoidAsync("alert", $"Error during check-in: {ex.Message}");
+            await SafeJsInvoke("alert", $"Error during check-in: {ex.Message}");
+            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine($"StackTrace: {ex.StackTrace}");
         }
     }
 
-    private void OpenAddServiceModal(RoomCard? room)
+    private void OpenCheckOutModal(RoomCard room)
+    {
+        SelectedRoom = room;
+        SelectedRoom.TaxAmount = Math.Round((SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge) * 0.12m, 2);
+        SelectedRoom.TotalDue = SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge + SelectedRoom.TaxAmount;
+        ShowCheckOutModal = true;
+    }
+
+    private void CloseCheckOutModal()
+    {
+        ShowCheckOutModal = false;
+    }
+
+    private void OpenCleaningModal(RoomCard room)
+    {
+        SelectedRoom = room;
+        ShowCleaningModal = true;
+    }
+
+    private void CloseCleaningModal()
+    {
+        ShowCleaningModal = false;
+    }
+
+    private void MarkAsCleaned(RoomCard room)
+    {
+        SelectedRoom = room;
+        OpenCleaningModal(room);
+    }
+
+    private async Task ConfirmCleaning()
+    {
+        if (SelectedRoom == null) return;
+
+        try
+        {
+            var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
+            if (roomEntity != null)
+            {
+                roomEntity.Status = "Available";
+                DbContext.Rooms.Update(roomEntity);
+                await DbContext.SaveChangesAsync();
+            }
+
+            SelectedRoom.Status = "Available";
+            SelectedRoom.GuestName = null;
+            SelectedRoom.CheckInDate = null;
+            SelectedRoom.CheckOutDate = null;
+            SelectedRoom.ServiceCharge = 0;
+            SelectedRoom.TaxAmount = 0;
+            SelectedRoom.TotalDue = 0;
+
+            ShowCleaningModal = false;
+            await SafeJsInvoke("alert", $"Room {SelectedRoom.RoomNumber} marked as cleaned and available");
+
+            await LoadRoomsFromView();
+        }
+        catch (Exception ex)
+        {
+            await SafeJsInvoke("alert", "Error updating room status: " + ex.Message);
+        }
+    }
+
+    private async Task ProcessCheckOut()
+    {
+        if (SelectedRoom == null) return;
+
+        try
+        {
+            var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
+            if (roomEntity != null)
+            {
+                roomEntity.Status = "For Cleaning";
+                DbContext.Rooms.Update(roomEntity);
+                await DbContext.SaveChangesAsync();
+            }
+
+            var roomId = roomEntity?.RoomID ?? 0;
+            var reservationData = await DbContext.Reservations
+                .Join(DbContext.ReservedRooms, r => r.ReservationID, rr => rr.ReservationID, (r, rr) => new { r, rr })
+                .Where(x => x.rr.RoomID == roomId && x.r.Status == "Checked In")
+                .Select(x => new { Reservation = x.r, ReservedRoom = x.rr })
+                .FirstOrDefaultAsync();
+
+            if (reservationData != null)
+            {
+                var reservation = reservationData.Reservation;
+                reservation.Status = "Checked Out";
+                reservation.PaymentStatus = "Paid";
+                DbContext.Reservations.Update(reservation);
+                await DbContext.SaveChangesAsync();
+
+                var bill = await DbContext.Bills.FirstOrDefaultAsync(b => b.ReservationID == reservation.ReservationID);
+                if (bill != null)
+                {
+                    bill.BillStatus = "Paid";
+                    bill.AmountPaid = bill.GrandTotal;
+                    bill.BalanceDue = 0;
+                    DbContext.Bills.Update(bill);
+                    await DbContext.SaveChangesAsync();
+
+                    // ========== CREATE PAYMENT RECORD ON CHECK-OUT ==========
+                    var existingPayment = await DbContext.Payments
+                        .FirstOrDefaultAsync(p => p.BillID == bill.BillID && p.PaymentStatus == "Completed");
+
+                    if (existingPayment == null)
+                    {
+                        var currentUserId = GetCurrentUserId();
+
+                        var payment = new Payment
+                        {
+                            BillID = bill.BillID,
+                            PaymentDate = DateTime.Now,
+                            PaymentMethod = "Cash",
+                            Amount = bill.GrandTotal,
+                            ReferenceNumber = GenerateReferenceNumber(),
+                            PaymentStatus = "Completed",
+                            ProcessedBy = currentUserId
+                        };
+
+                        DbContext.Payments.Add(payment);
+                        await DbContext.SaveChangesAsync();
+                    }
+                    // =========================================================
+                }
+            }
+
+            SelectedRoom.Status = "For Cleaning";
+            SelectedRoom.ServiceCharge = 0;
+            SelectedRoom.TaxAmount = 0;
+            SelectedRoom.TotalDue = 0;
+
+            ShowCheckOutModal = false;
+            await SafeJsInvoke("alert", $"Check-out successful. Room {SelectedRoom.RoomNumber} marked for cleaning");
+
+            await LoadRoomsFromView();
+        }
+        catch (Exception ex)
+        {
+            await SafeJsInvoke("alert", "Error processing check-out: " + ex.Message);
+        }
+    }
+
+    private string GetOccupancyRate()
+    {
+        if (!Rooms.Any()) return "0";
+        var occ = Rooms.Count(r => r.Status == "Occupied");
+        return ((int)Math.Round(occ * 100.0 / Rooms.Count)).ToString();
+    }
+
+    private string GetAvatarInitials(string roomNumber)
+    {
+        if (string.IsNullOrWhiteSpace(roomNumber)) return "RM";
+        var trimmed = roomNumber.Trim();
+        return trimmed.Length <= 2 ? trimmed : trimmed.Substring(0, 2);
+    }
+
+    private async Task<decimal> CalculateRoomCharge(int roomId, DateTime checkIn, DateTime checkOut)
+    {
+        var room = await DbContext.Rooms.Include(r => r.RoomType).FirstOrDefaultAsync(r => r.RoomID == roomId);
+        if (room == null) return 0m;
+        var nights = (checkOut - checkIn).Days;
+        if (nights <= 0) nights = 1;
+        var basePrice = room.RoomType?.BasePrice ?? 0m;
+        return basePrice * nights;
+    }
+
+    private void OpenAddServiceModal(RoomCard room)
     {
         SelectedRoom = room;
         AddServiceSelection.Clear();
@@ -606,71 +1535,52 @@
     private async Task SaveAddedServices()
     {
         if (SelectedRoom == null) return;
-        var addedAmount = AvailableServices.Where(s => AddServiceSelection.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
-        SelectedRoom.ServiceCharge += addedAmount;
-        SelectedRoom.TaxAmount = Math.Round((SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge) * 0.12m, 2);
-        SelectedRoom.TotalDue = SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge + SelectedRoom.TaxAmount;
-        ShowAddServiceModal = false;
-        await JSRuntime.InvokeVoidAsync("alert", "Services added to room");
-    }
 
-    private void OpenCheckOutModal(RoomCard room)
-    {
-        SelectedRoom = room;
-        // compute totals
-        SelectedRoom.TaxAmount = Math.Round((SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge) * 0.12m, 2);
-        SelectedRoom.TotalDue = SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge + SelectedRoom.TaxAmount;
-        ShowCheckOutModal = true;
-    }
-
-    private void CloseCheckOutModal()
-    {
-        ShowCheckOutModal = false;
-    }
-
-    private async Task ProcessCheckOut()
-    {
-        if (SelectedRoom == null) return;
-        // mark room available
-        var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
-        if (roomEntity != null)
+        try
         {
-            roomEntity.Status = "Available";
-            DbContext.Rooms.Update(roomEntity);
+            var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
+            if (roomEntity == null) return;
+
+            var reservation = await DbContext.Reservations
+                .Join(DbContext.ReservedRooms, r => r.ReservationID, rr => rr.ReservationID, (r, rr) => new { r, rr })
+                .Where(x => x.rr.RoomID == roomEntity.RoomID && x.r.Status == "Checked In")
+                .Select(x => x.r)
+                .FirstOrDefaultAsync();
+
+            if (reservation == null) return;
+
+            foreach (var svcId in AddServiceSelection)
+            {
+                var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
+                if (svc == null) continue;
+
+                var serviceTransaction = new ServiceTransaction
+                {
+                    ReservationID = reservation.ReservationID,
+                    ServiceID = svc.ServiceID,
+                    TransactionDateTime = DateTime.Now,
+                    Quantity = 1,
+                    UnitPrice = svc.StandardPrice,
+                    TotalAmount = svc.StandardPrice,
+                    ServiceStatus = "Pending"
+                };
+                DbContext.ServiceTransactions.Add(serviceTransaction);
+            }
+
             await DbContext.SaveChangesAsync();
+
+            var addedAmount = AvailableServices.Where(s => AddServiceSelection.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
+            SelectedRoom.ServiceCharge += addedAmount;
+            SelectedRoom.TaxAmount = Math.Round((SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge) * 0.12m, 2);
+            SelectedRoom.TotalDue = SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge + SelectedRoom.TaxAmount;
+
+            ShowAddServiceModal = false;
+            await SafeJsInvoke("alert", "Services added successfully!");
         }
-
-        SelectedRoom.Status = "Available";
-        SelectedRoom.GuestName = null;
-        SelectedRoom.CheckInDate = null;
-        SelectedRoom.CheckOutDate = null;
-        SelectedRoom.ServiceCharge = 0;
-        SelectedRoom.TaxAmount = 0;
-        SelectedRoom.TotalDue = 0;
-        ShowCheckOutModal = false;
-        await JSRuntime.InvokeVoidAsync("alert", "Check-out processed");
-    }
-
-    private string GetAvatarInitials(string roomNumber)
-    {
-        return new string(roomNumber.Take(2).ToArray());
-    }
-
-    private async Task<decimal> CalculateRoomCharge(int roomId, DateTime checkIn, DateTime checkOut)
-    {
-        var room = await DbContext.Rooms.Include(r => r.RoomType).FirstOrDefaultAsync(r => r.RoomID == roomId);
-        if (room == null) return 0m;
-        var nights = (checkOut - checkIn).Days;
-        if (nights <= 0) nights = 1;
-        var basePrice = room.RoomType?.BasePrice ?? 0m;
-        return basePrice * nights;
-    }
-
-    private string GetOccupancyRate()
-    {
-        if (!Rooms.Any()) return "0";
-        var occ = Rooms.Count(r => r.Status == "Occupied");
-        return ((int)Math.Round(occ * 100.0 / Rooms.Count)).ToString();
+        catch (Exception ex)
+        {
+            await SafeJsInvoke("alert", $"Error adding services: {ex.Message}");
+        }
     }
 
     public class RoomCard

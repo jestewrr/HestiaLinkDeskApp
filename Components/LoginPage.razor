@@ -2,6 +2,7 @@
 @layout LoginLayout
 @inject NavigationManager Navigation
 @inject UserSession UserSession
+@inject AuthenticationService AuthService
 
 <div class="login-page-background">
     <div class="login-card-modern">
@@ -24,7 +25,8 @@
                            class="input-field" 
                            placeholder="Enter your username" 
                            @bind="Username" 
-                           @onkeydown="HandleKeyPress" />
+                           @onkeydown="HandleKeyPress"
+                           disabled="@IsLoading" />
                 </div>
             </div>
 
@@ -37,14 +39,27 @@
                            class="input-field" 
                            placeholder="Enter your password" 
                            @bind="Password"
-                           @onkeydown="HandleKeyPress" />
-                    <span class="eye-icon-modern" @onclick="TogglePasswordVisibility">
+                           @onkeydown="HandleKeyPress"
+                           disabled="@IsLoading" />
+                    <span class="eye-icon-modern" @onclick="TogglePasswordVisibility" style="cursor: pointer;">
                         @(ShowPassword ? "👁️" : "👁️")
                     </span>
                 </div>
             </div>
 
-            <button class="login-button-modern" @onclick="HandleLogin">Login</button>
+            <button class="login-button-modern" @onclick="HandleLogin" disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <span style="display: inline-flex; align-items: center; gap: 8px;">
+                        <span class="spinner"></span>
+                        Logging in...
+                    </span>
+                }
+                else
+                {
+                    <span>Login</span>
+                }
+            </button>
 
             @if (!string.IsNullOrEmpty(Message))
             {
@@ -59,51 +74,60 @@
     private string Password { get; set; } = "";
     private string Message { get; set; } = "";
     private bool ShowPassword { get; set; } = false;
+    private bool IsLoading { get; set; } = false;
 
     private void HandleKeyPress(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter")
+        if (e.Key == "Enter" && !IsLoading)
         {
             HandleLogin();
         }
     }
 
-    private void HandleLogin()
+    private async Task HandleLogin()
     {
-        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
-        {
-            Message = "Please enter credentials.";
-            return;
-        }
+        if (IsLoading) return;
 
-        if (Password == "1234")
+        try
         {
-            switch (Username.ToLower())
+            IsLoading = true;
+            Message = "";
+            StateHasChanged();
+
+            // Validate input
+            if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
             {
-                case "admin":
-                    UserSession.SetUser("Administrator", "Administrator");
-                    Navigation.NavigateTo("/dashboard");
-                    break;
-                case "hr":
-                    UserSession.SetUser("HR Manager", "HR");
-                    Navigation.NavigateTo("/hr/employee-management");
-                    break;
-                case "stock":
-                    UserSession.SetUser("Stock Clerk", "Inventory");
-                    Navigation.NavigateTo("/inventory/stock-management");
-                    break;
-                case "front":
-                    UserSession.SetUser("Front Desk", "FrontDesk");
-                    Navigation.NavigateTo("/reservations/booking-history");
-                    break;
-                default:
-                    Message = "Invalid username. Try admin, hr, stock, or front.";
-                    break;
+                Message = "Please enter both username and password.";
+                return;
             }
+
+            // Authenticate against database
+            var (isValid, user, errorMessage) = await AuthService.AuthenticateAsync(Username, Password);
+
+            if (!isValid || user == null)
+            {
+                Message = errorMessage;
+                return;
+            }
+
+            // Set user session
+            UserSession.Login(user.UserID, user.Username, user.Role);
+
+            // Get landing page based on role
+            var landingPage = AuthService.GetLandingPageForRole(user.Role);
+
+            // Navigate to appropriate page
+            Navigation.NavigateTo(landingPage);
         }
-        else
+        catch (Exception ex)
         {
-            Message = "Invalid password. (Use 1234)";
+            Message = "An error occurred during login. Please try again.";
+            Console.WriteLine($"Login error: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
         }
     }
 

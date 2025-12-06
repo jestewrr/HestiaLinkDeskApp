@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HestiaLink.Models
 {
@@ -24,5 +25,9 @@ namespace HestiaLink.Models
 
         // Use "Active" or "Archived"
         public string Status { get; set; } = "Active";
+
+        // Navigation property - Department is accessed through Position
+        [ForeignKey("PositionID")]
+        public Position? Position { get; set; }
     }
 }
