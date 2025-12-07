@@ -940,63 +940,47 @@ body {
     line-height: 1;
 }
 
-/* --- Table action icon buttons --- */
-.btn-icon {
-    background: var(--color-dark-teal);
-    border: 1px solid var(--color-dark-teal);
-    padding: 8px 11px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: all 0.2s;
-    color: var(--color-white);
+/* --- Table action icon buttons (Updated) --- */
+.btn-icon-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 36px;
-    min-height: 36px;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-.btn-icon:hover {
-    background-color: #00444b;
-    border-color: #00444b;
-    color: var(--color-white);
+.btn-icon-action svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
+.btn-icon-action:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 147, 160, 0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.btn-icon-edit {
-    color: var(--color-white);
-    border-color: var(--color-dark-teal);
+.btn-icon-action.edit {
+    background-color: #0e5e6f; /* Teal/dark greenish from image */
+    color: white;
 }
 
-.btn-icon-edit:hover {
-    background-color: #00444b;
-    border-color: #00444b;
-    color: var(--color-white);
+.btn-icon-action.edit:hover {
+    background-color: #0b4b59;
 }
 
-.btn-icon-edit::before {
-    content: "✎";
-    font-weight: 600;
-    filter: brightness(0) invert(1);
+.btn-icon-action.archive {
+    background-color: #0e5e6f; /* Same teal/dark greenish as requested "uniform" */
+    color: white;
 }
 
-.btn-icon-archive {
-    background-color: #dc2626;
-    color: var(--color-white);
-    border-color: #dc2626;
-}
-
-.btn-icon-archive:hover {
-    background-color: #b91c1c;
-    border-color: #b91c1c;
-    color: var(--color-white);
-}
-
-.btn-icon-archive::before {
-    content: "🗂️";
-    filter: brightness(0) invert(1);
+.btn-icon-action.archive:hover {
+    background-color: #0b4b59;
 }
 
 /* --- MODAL STYLES --- */

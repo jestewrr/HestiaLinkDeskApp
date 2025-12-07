@@ -635,7 +635,7 @@
         var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
         if (roomEntity != null)
         {
-            roomEntity.Status = "Available";
+            roomEntity.Status = "Dirty";
             DbContext.Rooms.Update(roomEntity);
             await DbContext.SaveChangesAsync();
         }
