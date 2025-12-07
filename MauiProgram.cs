@@ -21,6 +21,12 @@ namespace HestiaIT13Final
 
             // Add UserSession service for authentication
             builder.Services.AddScoped<UserSession>();
+            
+            // Add Authentication Service
+            builder.Services.AddScoped<AuthenticationService>();
+
+            // Add Attendance Service
+            builder.Services.AddScoped<AttendanceService>();
 
             // Add database context with connection string
             var connectionString = "Data Source=.\\SQLEXPRESS;Initial Catalog=IT13;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=true";

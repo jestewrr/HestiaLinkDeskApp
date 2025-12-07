@@ -25,10 +25,13 @@ namespace HestiaLink.Data
         public DbSet<Reservation> Reservations { get; set; }
         public DbSet<ReservedRoom> ReservedRooms { get; set; }
         public DbSet<ServiceTransaction> ServiceTransactions { get; set; }
+        public DbSet<Bill> Bills { get; set; }
         public DbSet<BillDetail> BillDetails { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<MaintenanceRequest> MaintenanceRequests { get; set; }
         public DbSet<CleaningTask> CleaningTasks { get; set; }
+        public DbSet<Attendance> Attendances { get; set; } // New DbSet for Attendance
+        public DbSet<Schedule> Schedules { get; set; } // New DbSet for Schedule
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -47,10 +50,13 @@ namespace HestiaLink.Data
             modelBuilder.Entity<Reservation>().ToTable("Reservation");
             modelBuilder.Entity<ReservedRoom>().ToTable("ReservedRoom");
             modelBuilder.Entity<ServiceTransaction>().ToTable("ServiceTransaction");
+            modelBuilder.Entity<Bill>().ToTable("Bill");
             modelBuilder.Entity<BillDetail>().ToTable("BillDetail");
             modelBuilder.Entity<Payment>().ToTable("Payment");
             modelBuilder.Entity<MaintenanceRequest>().ToTable("MaintenanceRequest");
             modelBuilder.Entity<CleaningTask>().ToTable("Task"); // Map CleaningTask model to Task table
+            modelBuilder.Entity<Attendance>().ToTable("Attendance"); // Mapping for Attendance table
+            modelBuilder.Entity<Schedule>().ToTable("Schedule"); // Mapping for Schedule table
         }
     }
 }

@@ -64,6 +64,7 @@
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                             @if (room.Status == "Dirty")
                             {
+<<<<<<< HEAD
                                 <button class="btn-primary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick='() => UpdateStatus(room, "Available")'>Mark Clean</button>
                                 <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick='() => UpdateStatus(room, "Maintenance")'>Maintenance</button>
                             }
@@ -75,6 +76,19 @@
                             else if (room.Status == "Maintenance")
                             {
                                 <button class="btn-primary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick='() => UpdateStatus(room, "Available")'>Finish Maint.</button>
+=======
+                                <button class="btn-primary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkAvailable(room)">Mark Clean</button>
+                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkMaintenance(room)">Maintenance</button>
+                            }
+                            else if (room.Status == "Available")
+                            {
+                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkDirty(room)">Mark Dirty</button>
+                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkMaintenance(room)">Maintenance</button>
+                            }
+                            else if (room.Status == "Maintenance")
+                            {
+                                <button class="btn-primary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkAvailable(room)">Finish Maint.</button>
+>>>>>>> origin/master
                             }
                             else if (room.Status == "Occupied")
                             {
@@ -114,6 +128,10 @@
         await DbContext.SaveChangesAsync();
         // Refresh local list if needed, or just let UI update since it's bound
     }
+
+    private async Task MarkAvailable(Room room) => await UpdateStatus(room, "Available");
+    private async Task MarkDirty(Room room) => await UpdateStatus(room, "Dirty");
+    private async Task MarkMaintenance(Room room) => await UpdateStatus(room, "Maintenance");
 
     private string GetStatusClass(string status)
     {

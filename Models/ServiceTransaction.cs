@@ -9,6 +9,7 @@ namespace HestiaLink.Models
         public int ServiceTransactionID { get; set; }
         public int ReservationID { get; set; }
         public int ServiceID { get; set; }
+        public DateTime TransactionDateTime { get; set; } = DateTime.Now;
         public int Quantity { get; set; } = 1;
         [Column(TypeName = "decimal(18,2)")]
         public decimal UnitPrice { get; set; }
