@@ -18,9 +18,7 @@ namespace HestiaLink.Models
         [Column(TypeName = "decimal(10,2)")]
         public decimal QuantityRequired { get; set; } = 1.0m;
 
-        public bool IsOptional { get; set; } = false;
-
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        public DateTime? CreatedDate { get; set; } = DateTime.Now;
 
         // Navigation Properties
         [ForeignKey("ServiceID")]

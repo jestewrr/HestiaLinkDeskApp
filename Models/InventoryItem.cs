@@ -16,9 +16,6 @@ namespace HestiaLink.Models
         [StringLength(255)]
         public string ItemName { get; set; } = string.Empty;
 
-        [StringLength(500)]
-        public string? Description { get; set; }
-
         [Required]
         [StringLength(50)]
         public string Category { get; set; } = string.Empty; // FOOD, BEVERAGE, AMENITY, CLEANING, MAINTENANCE
@@ -30,15 +27,18 @@ namespace HestiaLink.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal UnitCost { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal? SellingPrice { get; set; }
+        public int? CurrentStock { get; set; } = 0;
 
-        public int ReorderPoint { get; set; } = 10;
+        public int? ReorderPoint { get; set; } = 10;
 
-        public int CurrentStock { get; set; } = 0;
+        public bool? IsActive { get; set; } = true;
 
-        public bool IsActive { get; set; } = true;
+        public DateTime? CreatedDate { get; set; } = DateTime.Now;
 
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        // Supplier relationship
+        public int? SupplierID { get; set; }
+
+        [ForeignKey("SupplierID")]
+        public virtual Supplier? Supplier { get; set; }
     }
 }

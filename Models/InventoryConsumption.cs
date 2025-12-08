@@ -18,18 +18,10 @@ namespace HestiaLink.Models
         [Column(TypeName = "decimal(10,2)")]
         public decimal QuantityConsumed { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal? UnitCostAtTime { get; set; }
-
         public DateTime ConsumptionDate { get; set; } = DateTime.Now;
-
-        public int? ConsumedBy { get; set; } // EmployeeID
 
         [StringLength(10)]
         public string? RoomNumber { get; set; }
-
-        [StringLength(500)]
-        public string? Remarks { get; set; }
 
         // Navigation Properties
         [ForeignKey("ServiceTransactionID")]
@@ -38,4 +30,4 @@ namespace HestiaLink.Models
         [ForeignKey("InventoryItemID")]
         public InventoryItem? InventoryItem { get; set; }
     }
-}   
+}
