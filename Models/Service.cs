@@ -26,6 +26,13 @@ namespace HestiaLink.Models
         [StringLength(20)]
         public string Status { get; set; } = "Active";
 
+        [Display(Name = "Uses Inventory")]
+        public bool UsesInventory { get; set; } = false;
+
+        [Display(Name = "Inventory Notes")]
+        [StringLength(500)]
+        public string? InventoryNotes { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }

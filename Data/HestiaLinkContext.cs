@@ -41,6 +41,13 @@ namespace HestiaLink.Data
         // CHANGED FROM PaymentIncome TO Income
         public DbSet<Income> Incomes { get; set; }  // This is the replacement for PaymentIncome
 
+        // ============================================
+        // NEW INVENTORY TABLES
+        // ============================================
+        public DbSet<InventoryItem> InventoryItems { get; set; }
+        public DbSet<ServiceInventory> ServiceInventories { get; set; }
+        public DbSet<InventoryConsumption> InventoryConsumptions { get; set; }
+
         // Database Views (keyless entities)
         public DbSet<EmployeePayrollSummaryView> EmployeePayrollSummaryView { get; set; }
         public DbSet<EmployeeFullDetailsView> EmployeeFullDetailsView { get; set; }
@@ -77,6 +84,13 @@ namespace HestiaLink.Data
             // CHANGED FROM PaymentIncome TO Income
             modelBuilder.Entity<Income>().ToTable("Income");  // This is the replacement for PaymentIncome
 
+            // ============================================
+            // NEW INVENTORY TABLES MAPPING
+            // ============================================
+            modelBuilder.Entity<InventoryItem>().ToTable("InventoryItem");
+            modelBuilder.Entity<ServiceInventory>().ToTable("ServiceInventory");
+            modelBuilder.Entity<InventoryConsumption>().ToTable("InventoryConsumption");
+
             // Map database views (keyless entities)
             modelBuilder.Entity<EmployeePayrollSummaryView>()
                 .ToView("vw_EmployeePayrollSummary")
@@ -85,6 +99,33 @@ namespace HestiaLink.Data
             modelBuilder.Entity<EmployeeFullDetailsView>()
                 .ToView("vw_EmployeeFullDetails")
                 .HasNoKey();
+
+            // ============================================
+            // OPTIONAL: Configure Inventory Relationships
+            // ============================================
+            modelBuilder.Entity<ServiceInventory>()
+                .HasOne(si => si.Service)
+                .WithMany()
+                .HasForeignKey(si => si.ServiceID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ServiceInventory>()
+                .HasOne(si => si.InventoryItem)
+                .WithMany()
+                .HasForeignKey(si => si.InventoryItemID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InventoryConsumption>()
+                .HasOne(ic => ic.ServiceTransaction)
+                .WithMany()
+                .HasForeignKey(ic => ic.ServiceTransactionID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InventoryConsumption>()
+                .HasOne(ic => ic.InventoryItem)
+                .WithMany()
+                .HasForeignKey(ic => ic.InventoryItemID)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
