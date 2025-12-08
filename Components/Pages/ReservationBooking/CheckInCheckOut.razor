@@ -1566,7 +1566,6 @@
                 };
                 DbContext.ServiceTransactions.Add(serviceTransaction);
             }
-
             await DbContext.SaveChangesAsync();
 
             var addedAmount = AvailableServices.Where(s => AddServiceSelection.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
