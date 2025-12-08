@@ -1,4 +1,5 @@
 ﻿using HestiaLink.Models;
+using HestiaLink.Models.Views;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Reflection.Emit;
@@ -29,9 +30,20 @@ namespace HestiaLink.Data
         public DbSet<BillDetail> BillDetails { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<MaintenanceRequest> MaintenanceRequests { get; set; }
-        public DbSet<CleaningTask> CleaningTasks { get; set; }
-        public DbSet<Attendance> Attendances { get; set; } // New DbSet for Attendance
-        public DbSet<Schedule> Schedules { get; set; } // New DbSet for Schedule
+        public DbSet<Attendance> Attendances { get; set; }
+        public DbSet<Schedule> Schedules { get; set; }
+
+        // Payroll related tables
+        public DbSet<Tax> Taxes { get; set; }
+        public DbSet<Payroll> Payrolls { get; set; }
+        public DbSet<TotalIncome> TotalIncomes { get; set; }
+
+        // CHANGED FROM PaymentIncome TO Income
+        public DbSet<Income> Incomes { get; set; }  // This is the replacement for PaymentIncome
+
+        // Database Views (keyless entities)
+        public DbSet<EmployeePayrollSummaryView> EmployeePayrollSummaryView { get; set; }
+        public DbSet<EmployeeFullDetailsView> EmployeeFullDetailsView { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -54,9 +66,25 @@ namespace HestiaLink.Data
             modelBuilder.Entity<BillDetail>().ToTable("BillDetail");
             modelBuilder.Entity<Payment>().ToTable("Payment");
             modelBuilder.Entity<MaintenanceRequest>().ToTable("MaintenanceRequest");
-            modelBuilder.Entity<CleaningTask>().ToTable("Task"); // Map CleaningTask model to Task table
-            modelBuilder.Entity<Attendance>().ToTable("Attendance"); // Mapping for Attendance table
-            modelBuilder.Entity<Schedule>().ToTable("Schedule"); // Mapping for Schedule table
+            modelBuilder.Entity<Attendance>().ToTable("Attendance");
+            modelBuilder.Entity<Schedule>().ToTable("Schedule");
+
+            // Payroll related tables
+            modelBuilder.Entity<Tax>().ToTable("Tax");
+            modelBuilder.Entity<Payroll>().ToTable("Payroll");
+            modelBuilder.Entity<TotalIncome>().ToTable("TotalIncome");
+
+            // CHANGED FROM PaymentIncome TO Income
+            modelBuilder.Entity<Income>().ToTable("Income");  // This is the replacement for PaymentIncome
+
+            // Map database views (keyless entities)
+            modelBuilder.Entity<EmployeePayrollSummaryView>()
+                .ToView("vw_EmployeePayrollSummary")
+                .HasNoKey();
+
+            modelBuilder.Entity<EmployeeFullDetailsView>()
+                .ToView("vw_EmployeeFullDetails")
+                .HasNoKey();
         }
     }
 }

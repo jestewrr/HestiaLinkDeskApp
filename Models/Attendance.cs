@@ -9,9 +9,7 @@ namespace HestiaLink.Models
         public int AttendanceID { get; set; }
 
         [Required]
-        public int EmployeeID { get; set; }
-
-        public int? ScheduleID { get; set; }
+        public int ScheduleID { get; set; }
 
         [Required]
         public DateTime AttendanceDate { get; set; }
@@ -36,10 +34,7 @@ namespace HestiaLink.Models
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation properties
-        [ForeignKey("EmployeeID")]
-        public Employee? Employee { get; set; }
-
+        // Navigation property - Schedule contains EmployeeID
         [ForeignKey("ScheduleID")]
         public Schedule? Schedule { get; set; }
     }

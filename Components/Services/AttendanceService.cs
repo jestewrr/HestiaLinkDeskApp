@@ -15,6 +15,7 @@ namespace HestiaLink.Services
 
         /// <summary>
         /// Gets all active employees with their schedules and attendance for a specific date
+        /// Uses Employee -> Schedule -> Attendance flow
         /// </summary>
         public async Task<List<EmployeeWithScheduleDto>> GetAllEmployeesForDateAsync(DateTime date)
         {
@@ -28,17 +29,20 @@ namespace HestiaLink.Services
                     .AsNoTracking()
                     .ToListAsync();
 
-                // Get schedules for this date
+                // Get schedules for this date (keyed by EmployeeID)
                 var schedules = await _context.Schedules
                     .Where(s => s.ScheduleDate.Date == date.Date && s.IsActive)
                     .AsNoTracking()
                     .ToDictionaryAsync(s => s.EmployeeID);
 
-                // Get attendance for this date
+                // Get schedule IDs for the date
+                var scheduleIds = schedules.Values.Select(s => s.ScheduleID).ToList();
+
+                // Get attendance via ScheduleID (not EmployeeID)
                 var attendances = await _context.Attendances
-                    .Where(a => a.AttendanceDate.Date == date.Date)
+                    .Where(a => a.AttendanceDate.Date == date.Date && scheduleIds.Contains(a.ScheduleID))
                     .AsNoTracking()
-                    .ToDictionaryAsync(a => a.EmployeeID);
+                    .ToDictionaryAsync(a => a.ScheduleID);
 
                 var result = new List<EmployeeWithScheduleDto>();
 
@@ -47,7 +51,13 @@ namespace HestiaLink.Services
                     var position = emp.Position;
                     var department = position?.Department;
                     schedules.TryGetValue(emp.EmployeeID, out var schedule);
-                    attendances.TryGetValue(emp.EmployeeID, out var attendance);
+                    
+                    // Get attendance through schedule
+                    Attendance? attendance = null;
+                    if (schedule != null)
+                    {
+                        attendances.TryGetValue(schedule.ScheduleID, out attendance);
+                    }
 
                     // Calculate IsLate dynamically
                     var isLate = false;
@@ -91,19 +101,29 @@ namespace HestiaLink.Services
         }
 
         /// <summary>
-        /// Gets attendance records for a specific date
+        /// Gets attendance records for a specific date via Schedule connection
         /// </summary>
         public async Task<List<AttendanceRecordDto>> GetAttendanceByDateAsync(DateTime attendanceDate, int? departmentId = null)
         {
             try
             {
+                // Get schedules for the date
+                var schedules = await _context.Schedules
+                    .Where(s => s.ScheduleDate.Date == attendanceDate.Date && s.IsActive)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var scheduleIds = schedules.Select(s => s.ScheduleID).ToList();
+
+                // Get attendance records via ScheduleID
                 var records = await _context.Attendances
-                    .Where(a => a.AttendanceDate.Date == attendanceDate.Date)
+                    .Where(a => a.AttendanceDate.Date == attendanceDate.Date && scheduleIds.Contains(a.ScheduleID))
                     .Include(a => a.Schedule)
                     .AsNoTracking()
                     .ToListAsync();
 
-                var employeeIds = records.Select(r => r.EmployeeID).Distinct().ToList();
+                // Get employee IDs from schedules
+                var employeeIds = schedules.Select(s => s.EmployeeID).Distinct().ToList();
 
                 var employees = await _context.Employees
                     .Where(e => employeeIds.Contains(e.EmployeeID))
@@ -112,11 +132,18 @@ namespace HestiaLink.Services
                     .AsNoTracking()
                     .ToDictionaryAsync(e => e.EmployeeID);
 
+                // Create schedule lookup by ID
+                var scheduleLookup = schedules.ToDictionary(s => s.ScheduleID);
+
                 var attendanceList = new List<AttendanceRecordDto>();
 
                 foreach (var record in records)
                 {
-                    if (!employees.TryGetValue(record.EmployeeID, out var employee))
+                    // Get employee through schedule
+                    if (!scheduleLookup.TryGetValue(record.ScheduleID, out var schedule))
+                        continue;
+
+                    if (!employees.TryGetValue(schedule.EmployeeID, out var employee))
                         continue;
 
                     var position = employee.Position;
@@ -127,23 +154,23 @@ namespace HestiaLink.Services
 
                     // Calculate IsLate dynamically
                     var isLate = false;
-                    if (record.ActualCheckIn != null && record.Schedule != null)
+                    if (record.ActualCheckIn != null && schedule != null)
                     {
-                        var graceTime = record.Schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15));
+                        var graceTime = schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15));
                         isLate = record.ActualCheckIn.Value.TimeOfDay > graceTime;
                     }
 
                     attendanceList.Add(new AttendanceRecordDto
                     {
                         AttendanceID = record.AttendanceID,
-                        EmployeeID = record.EmployeeID,
+                        EmployeeID = schedule.EmployeeID,
                         FirstName = employee.FirstName,
                         LastName = employee.LastName,
                         Department = department?.DepartmentName ?? "-",
                         Position = position?.PositionTitle ?? "-",
                         AttendanceDate = record.AttendanceDate,
-                        ScheduleStart = record.Schedule?.ScheduledStart,
-                        ScheduleEnd = record.Schedule?.ScheduledEnd,
+                        ScheduleStart = schedule.ScheduledStart,
+                        ScheduleEnd = schedule.ScheduledEnd,
                         ActualCheckIn = record.ActualCheckIn,
                         ActualCheckOut = record.ActualCheckOut,
                         RegularHours = record.RegularHours,
@@ -167,14 +194,21 @@ namespace HestiaLink.Services
         }
 
         /// <summary>
-        /// Records employee check-in
+        /// Records employee check-in via Schedule connection
         /// </summary>
         public async Task<bool> RecordCheckInAsync(int employeeID, DateTime attendanceDate, int? scheduleId)
         {
             try
             {
+                if (!scheduleId.HasValue)
+                {
+                    Console.WriteLine("Cannot check in without a schedule");
+                    return false;
+                }
+
+                // Check if attendance already exists for this schedule
                 var attendance = await _context.Attendances
-                    .FirstOrDefaultAsync(a => a.EmployeeID == employeeID && a.AttendanceDate.Date == attendanceDate.Date);
+                    .FirstOrDefaultAsync(a => a.ScheduleID == scheduleId.Value);
 
                 var checkInTime = DateTime.Now;
 
@@ -182,8 +216,7 @@ namespace HestiaLink.Services
                 {
                     var newAttendance = new Attendance
                     {
-                        EmployeeID = employeeID,
-                        ScheduleID = scheduleId,
+                        ScheduleID = scheduleId.Value,
                         AttendanceDate = attendanceDate,
                         ActualCheckIn = checkInTime,
                         AttendanceStatus = "Present",
@@ -213,14 +246,25 @@ namespace HestiaLink.Services
         }
 
         /// <summary>
-        /// Records employee check-out and calculates hours
+        /// Records employee check-out via Schedule connection
         /// </summary>
         public async Task<bool> RecordCheckOutAsync(int employeeID, DateTime attendanceDate)
         {
             try
             {
+                // Find schedule for employee on this date
+                var schedule = await _context.Schedules
+                    .FirstOrDefaultAsync(s => s.EmployeeID == employeeID && s.ScheduleDate.Date == attendanceDate.Date && s.IsActive);
+
+                if (schedule == null)
+                {
+                    Console.WriteLine("No schedule found for employee");
+                    return false;
+                }
+
+                // Find attendance via schedule
                 var attendance = await _context.Attendances
-                    .FirstOrDefaultAsync(a => a.EmployeeID == employeeID && a.AttendanceDate.Date == attendanceDate.Date);
+                    .FirstOrDefaultAsync(a => a.ScheduleID == schedule.ScheduleID);
 
                 if (attendance == null || !attendance.ActualCheckIn.HasValue)
                 {
@@ -256,7 +300,7 @@ namespace HestiaLink.Services
         }
 
         /// <summary>
-        /// Gets attendance history for an employee
+        /// Gets attendance history for an employee via Schedule connection
         /// </summary>
         public async Task<List<AttendanceRecordDto>> GetEmployeeAttendanceHistoryAsync(int employeeID, DateTime? fromDate = null, DateTime? toDate = null)
         {
@@ -265,8 +309,15 @@ namespace HestiaLink.Services
                 fromDate ??= DateTime.Now.AddDays(-30);
                 toDate ??= DateTime.Now;
 
+                // Get all schedule IDs for this employee
+                var scheduleIds = await _context.Schedules
+                    .Where(s => s.EmployeeID == employeeID)
+                    .Select(s => s.ScheduleID)
+                    .ToListAsync();
+
+                // Get attendance records via schedule IDs
                 var records = await _context.Attendances
-                    .Where(a => a.EmployeeID == employeeID && a.AttendanceDate >= fromDate && a.AttendanceDate <= toDate)
+                    .Where(a => scheduleIds.Contains(a.ScheduleID) && a.AttendanceDate >= fromDate && a.AttendanceDate <= toDate)
                     .Include(a => a.Schedule)
                     .AsNoTracking()
                     .OrderByDescending(a => a.AttendanceDate)
@@ -284,7 +335,7 @@ namespace HestiaLink.Services
                     return new AttendanceRecordDto
                     {
                         AttendanceID = a.AttendanceID,
-                        EmployeeID = a.EmployeeID,
+                        EmployeeID = a.Schedule?.EmployeeID ?? 0,
                         AttendanceDate = a.AttendanceDate,
                         ScheduleStart = a.Schedule?.ScheduledStart,
                         ScheduleEnd = a.Schedule?.ScheduledEnd,
@@ -316,32 +367,46 @@ namespace HestiaLink.Services
             try
             {
                 var existingSchedule = await _context.Schedules
-                    .FirstOrDefaultAsync(s => s.EmployeeID == employeeId && s.ScheduleDate.Date == scheduleDate.Date);
+                    .FirstOrDefaultAsync(s => s.EmployeeID == employeeId && s.ScheduleDate.Date == scheduleDate.Date && s.IsActive);
 
                 if (existingSchedule != null)
                 {
-                    existingSchedule.ScheduledStart = startTime;
-                    existingSchedule.ScheduledEnd = endTime;
-                    existingSchedule.Notes = notes;
+                    // Deactivate old schedule
+                    existingSchedule.IsActive = false;
                     existingSchedule.UpdatedAt = DateTime.UtcNow;
-                }
-                else
-                {
-                    var newSchedule = new Schedule
-                    {
-                        EmployeeID = employeeId,
-                        ScheduleDate = scheduleDate.Date,
-                        ScheduledStart = startTime,
-                        ScheduledEnd = endTime,
-                        IsActive = true,
-                        Notes = notes,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    await _context.Schedules.AddAsync(newSchedule);
+                    _context.Schedules.Update(existingSchedule);
                 }
 
+                // Always create new schedule
+                var newSchedule = new Schedule
+                {
+                    EmployeeID = employeeId,
+                    ScheduleDate = scheduleDate.Date,
+                    ScheduledStart = startTime,
+                    ScheduledEnd = endTime,
+                    IsActive = true,
+                    Notes = notes,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _context.Schedules.AddAsync(newSchedule);
                 await _context.SaveChangesAsync();
+
+                // Update attendance records from old to new schedule
+                if (existingSchedule != null)
+                {
+                    var attendancesToUpdate = await _context.Attendances
+                        .Where(a => a.ScheduleID == existingSchedule.ScheduleID)
+                        .ToListAsync();
+
+                    foreach (var att in attendancesToUpdate)
+                    {
+                        att.ScheduleID = newSchedule.ScheduleID;
+                        att.UpdatedAt = DateTime.UtcNow;
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -358,8 +423,17 @@ namespace HestiaLink.Services
         {
             try
             {
+                // Get schedules for this date
+                var schedules = await _context.Schedules
+                    .Where(s => s.ScheduleDate.Date == attendanceDate.Date && s.IsActive)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var scheduleIds = schedules.Select(s => s.ScheduleID).ToList();
+
+                // Get attendance records via schedule
                 var records = await _context.Attendances
-                    .Where(a => a.AttendanceDate.Date == attendanceDate.Date)
+                    .Where(a => a.AttendanceDate.Date == attendanceDate.Date && scheduleIds.Contains(a.ScheduleID))
                     .Include(a => a.Schedule)
                     .AsNoTracking()
                     .ToListAsync();

@@ -273,6 +273,7 @@
                     <button class="btn-cancel" @onclick="CloseCheckOutModal">Cancel</button>
                 </div>
             }
+
         </div>
     </div>
 }
@@ -675,7 +676,7 @@
     private string FilterStatus = "All";
     private string FilterFloor = "All";
     private string GuestPaymentStatus = "Pending";
-    private string PaymentMethod = "Cash"; // Add payment method field
+    private string PaymentMethod = "Cash";
 
     private bool ShowGuestModal = false;
     private bool ShowCheckOutModal = false;
@@ -742,6 +743,9 @@
 
         try
         {
+            // Clear any tracked entities to prevent conflicts
+            DbContext.ChangeTracker.Clear();
+
             await LoadFromRoomStatusDisplayView();
 
             if (!Rooms.Any())
@@ -858,7 +862,9 @@
     {
         try
         {
+            // Use AsNoTracking to prevent entity tracking conflicts
             var rooms = await DbContext.Rooms
+                .AsNoTracking()
                 .Include(r => r.RoomType)
                 .Where(r => r.RoomType != null && r.RoomType.Status == "Active")
                 .OrderBy(r => r.RoomNumber)
@@ -871,11 +877,14 @@
             }
 
             var activeReservations = await DbContext.Reservations
+                .AsNoTracking()
                 .Where(r => r.Status == "Checked In")
                 .Include(r => r.Guest)
                 .ToListAsync();
 
-            var reservedRooms = await DbContext.ReservedRooms.ToListAsync();
+            var reservedRooms = await DbContext.ReservedRooms
+                .AsNoTracking()
+                .ToListAsync();
 
             foreach (var room in rooms)
             {
@@ -1178,7 +1187,10 @@
             return;
         }
 
-        var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
+        var roomEntity = await DbContext.Rooms
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
+
         if (roomEntity == null)
         {
             await SafeJsInvoke("alert", "Selected room not found in database");
@@ -1208,143 +1220,199 @@
 
         try
         {
-            var guest = new Guest
+            // Clear entity tracking to prevent conflicts
+            DbContext.ChangeTracker.Clear();
+
+            // Get the execution strategy for retry support
+            var executionStrategy = DbContext.Database.CreateExecutionStrategy();
+
+            // Execute all operations within the retry strategy
+            await executionStrategy.ExecuteAsync(async () =>
             {
-                FirstName = GuestFirstName.Trim(),
-                LastName = GuestLastName.Trim(),
-                Email = string.IsNullOrWhiteSpace(GuestEmail) ? null : GuestEmail.Trim(),
-                ContactNumber = GuestContact.Trim(),
-                Address = string.IsNullOrWhiteSpace(GuestAddress) ? null : GuestAddress.Trim(),
-                DateOfBirth = GuestDOB,
-                CreatedDate = DateTime.Now
-            };
-            DbContext.Guests.Add(guest);
-            await DbContext.SaveChangesAsync();
+                // Create the transaction inside the execution strategy
+                using var transaction = await DbContext.Database.BeginTransactionAsync();
 
-            var nights = (GuestCheckOut - GuestCheckIn).Days;
-            if (nights <= 0) nights = 1;
-
-            var roomCharge = await CalculateRoomCharge(roomEntity.RoomID, GuestCheckIn, GuestCheckOut);
-            var serviceTotal = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
-            var tax = Math.Round((roomCharge + serviceTotal) * 0.12m, 2);
-            var grandTotal = roomCharge + serviceTotal + tax;
-
-            var reservation = new Reservation
-            {
-                GuestID = guest.GuestID,
-                CheckInDate = GuestCheckIn,
-                CheckOutDate = GuestCheckOut,
-                Status = "Checked In",
-                PaymentStatus = GuestPaymentStatus,
-                TotalPayment = grandTotal,
-                CreatedDate = DateTime.Now
-            };
-
-            DbContext.Reservations.Add(reservation);
-            await DbContext.SaveChangesAsync();
-
-            var reservedRoom = new ReservedRoom
-            {
-                ReservationID = reservation.ReservationID,
-                RoomID = roomEntity.RoomID
-            };
-            DbContext.ReservedRooms.Add(reservedRoom);
-
-            roomEntity.Status = "Occupied";
-            DbContext.Rooms.Update(roomEntity);
-
-            foreach (var svcId in SelectedServiceIds)
-            {
-                var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
-                if (svc == null) continue;
-
-                var serviceTransaction = new ServiceTransaction
+                try
                 {
-                    ReservationID = reservation.ReservationID,
-                    ServiceID = svc.ServiceID,
-                    TransactionDateTime = DateTime.Now,
-                    Quantity = 1,
-                    UnitPrice = svc.StandardPrice,
-                    TotalAmount = svc.StandardPrice,
-                    ServiceStatus = "Pending"
-                };
-                DbContext.ServiceTransactions.Add(serviceTransaction);
-            }
+                    // Reload the room entity with tracking for update
+                    var roomForUpdate = await DbContext.Rooms
+                        .FirstOrDefaultAsync(r => r.RoomID == roomEntity.RoomID);
 
-            var bill = new Bill
-            {
-                ReservationID = reservation.ReservationID,
-                BillDate = DateTime.Now,
-                SubtotalAmount = roomCharge + serviceTotal,
-                GrandTotal = grandTotal,
-                AmountPaid = GuestPaymentStatus == "Paid" ? grandTotal : 0,
-                BalanceDue = GuestPaymentStatus == "Paid" ? 0 : grandTotal,
-                BillStatus = GuestPaymentStatus == "Paid" ? "Paid" : "Pending"
-            };
-            DbContext.Bills.Add(bill);
-            await DbContext.SaveChangesAsync();
+                    if (roomForUpdate == null)
+                    {
+                        await transaction.RollbackAsync();
+                        await SafeJsInvoke("alert", "Room not found");
+                        return;
+                    }
 
-            // ========== CREATE PAYMENT RECORD ==========
-            if (GuestPaymentStatus == "Paid" || GuestPaymentStatus == "Partial")
-            {
-                var currentUserId = GetCurrentUserId();
-                var amountPaid = GuestPaymentStatus == "Paid" ? grandTotal : (grandTotal / 2);
+                    var guest = new Guest
+                    {
+                        FirstName = GuestFirstName.Trim(),
+                        LastName = GuestLastName.Trim(),
+                        Email = string.IsNullOrWhiteSpace(GuestEmail) ? null : GuestEmail.Trim(),
+                        ContactNumber = GuestContact.Trim(),
+                        Address = string.IsNullOrWhiteSpace(GuestAddress) ? null : GuestAddress.Trim(),
+                        DateOfBirth = GuestDOB,
+                        CreatedDate = DateTime.Now
+                    };
+                    DbContext.Guests.Add(guest);
+                    await DbContext.SaveChangesAsync();
 
-                var payment = new Payment
+                    var nights = (GuestCheckOut - GuestCheckIn).Days;
+                    if (nights <= 0) nights = 1;
+
+                    var roomCharge = await CalculateRoomCharge(roomForUpdate.RoomID, GuestCheckIn, GuestCheckOut);
+                    var serviceTotal = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
+                    var tax = Math.Round((roomCharge + serviceTotal) * 0.12m, 2);
+                    var grandTotal = roomCharge + serviceTotal + tax;
+
+                    var reservation = new Reservation
+                    {
+                        GuestID = guest.GuestID,
+                        CheckInDate = GuestCheckIn,
+                        CheckOutDate = GuestCheckOut,
+                        Status = "Checked In",
+                        PaymentStatus = GuestPaymentStatus,
+                        TotalPayment = grandTotal,
+                        CreatedDate = DateTime.Now
+                    };
+
+                    DbContext.Reservations.Add(reservation);
+                    await DbContext.SaveChangesAsync();
+
+                    var reservedRoom = new ReservedRoom
+                    {
+                        ReservationID = reservation.ReservationID,
+                        RoomID = roomForUpdate.RoomID
+                    };
+                    DbContext.ReservedRooms.Add(reservedRoom);
+
+                    roomForUpdate.Status = "Occupied";
+                    await DbContext.SaveChangesAsync();
+
+                    foreach (var svcId in SelectedServiceIds)
+                    {
+                        var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
+                        if (svc == null) continue;
+
+                        var serviceTransaction = new ServiceTransaction
+                        {
+                            ReservationID = reservation.ReservationID,
+                            ServiceID = svc.ServiceID,
+                            TransactionDateTime = DateTime.Now,
+                            Quantity = 1,
+                            UnitPrice = svc.StandardPrice,
+                            TotalAmount = svc.StandardPrice,
+                            ServiceStatus = "Pending"
+                        };
+                        DbContext.ServiceTransactions.Add(serviceTransaction);
+                    }
+
+                    var bill = new Bill
+                    {
+                        ReservationID = reservation.ReservationID,
+                        BillDate = DateTime.Now,
+                        SubtotalAmount = roomCharge + serviceTotal,
+                        GrandTotal = grandTotal,
+                        AmountPaid = GuestPaymentStatus == "Paid" ? grandTotal : 0,
+                        BalanceDue = GuestPaymentStatus == "Paid" ? 0 : grandTotal,
+                        BillStatus = GuestPaymentStatus == "Paid" ? "Paid" : "Pending"
+                    };
+                    DbContext.Bills.Add(bill);
+                    await DbContext.SaveChangesAsync();
+
+                    // ========== CREATE PAYMENT RECORD ==========
+                    if (GuestPaymentStatus == "Paid" || GuestPaymentStatus == "Partial")
+                    {
+                        var currentUserId = GetCurrentUserId();
+                        var amountPaid = GuestPaymentStatus == "Paid" ? grandTotal : (grandTotal / 2);
+
+                        var payment = new Payment
+                        {
+                            BillID = bill.BillID,
+                            PaymentDate = DateTime.Now,
+                            PaymentMethod = PaymentMethod,
+                            Amount = amountPaid,
+                            ReferenceNumber = GenerateReferenceNumber(),
+                            PaymentStatus = GuestPaymentStatus == "Paid" ? "Completed" : "Partial",
+                            ProcessedBy = currentUserId
+                        };
+
+                        DbContext.Payments.Add(payment);
+                        await DbContext.SaveChangesAsync();
+
+                        // ========== CREATE INCOME RECORD AUTOMATICALLY ==========
+                        if (GuestPaymentStatus == "Paid") // Only create income for full payments
+                        {
+                            var income = new Income
+                            {
+                                PaymentID = payment.PaymentID,
+                                IncomeDate = DateTime.Today,
+                                Amount = payment.Amount,
+                                IncomeType = "Checkin",
+                                Description = "CheckInAndCheckout",
+                                CreatedDate = DateTime.Now
+                            };
+
+                            DbContext.Incomes.Add(income);
+                            await DbContext.SaveChangesAsync();
+                        }
+                        // =======================================================
+                    }
+                    // =======================================================
+
+                    var roomBillDetail = new BillDetail
+                    {
+                        BillID = bill.BillID,
+                        Description = $"Room {roomForUpdate.RoomNumber} ({nights} nights)",
+                        Quantity = nights,
+                        UnitPrice = roomCharge / nights,
+                        TotalAmount = roomCharge,
+                        TransactionDate = DateTime.Now
+                    };
+                    DbContext.BillDetails.Add(roomBillDetail);
+
+                    foreach (var svcId in SelectedServiceIds)
+                    {
+                        var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
+                        if (svc == null) continue;
+
+                        var serviceBillDetail = new BillDetail
+                        {
+                            BillID = bill.BillID,
+                            Description = svc.ServiceName,
+                            Quantity = 1,
+                            UnitPrice = svc.StandardPrice,
+                            TotalAmount = svc.StandardPrice,
+                            TransactionDate = DateTime.Now
+                        };
+                        DbContext.BillDetails.Add(serviceBillDetail);
+                    }
+
+                    await DbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    // Clear entity tracking to prevent conflicts
+                    DbContext.ChangeTracker.Clear();
+
+                    await SafeJsInvoke("alert", "Check-in successful!");
+                    ShowGuestModal = false;
+                    await LoadRoomsFromView();
+                }
+                catch (Exception ex)
                 {
-                    BillID = bill.BillID,
-                    PaymentDate = DateTime.Now,
-                    PaymentMethod = PaymentMethod,
-                    Amount = amountPaid,
-                    ReferenceNumber = GenerateReferenceNumber(),
-                    PaymentStatus = GuestPaymentStatus == "Paid" ? "Completed" : "Partial",
-                    ProcessedBy = currentUserId
-                };
-
-                DbContext.Payments.Add(payment);
-                await DbContext.SaveChangesAsync();
-            }
-            // ===========================================
-
-            var roomBillDetail = new BillDetail
-            {
-                BillID = bill.BillID,
-                Description = $"Room {roomEntity.RoomNumber} ({nights} nights)",
-                Quantity = nights,
-                UnitPrice = roomCharge / nights,
-                TotalAmount = roomCharge,
-                TransactionDate = DateTime.Now
-            };
-            DbContext.BillDetails.Add(roomBillDetail);
-
-            foreach (var svcId in SelectedServiceIds)
-            {
-                var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
-                if (svc == null) continue;
-
-                var serviceBillDetail = new BillDetail
-                {
-                    BillID = bill.BillID,
-                    Description = svc.ServiceName,
-                    Quantity = 1,
-                    UnitPrice = svc.StandardPrice,
-                    TotalAmount = svc.StandardPrice,
-                    TransactionDate = DateTime.Now
-                };
-                DbContext.BillDetails.Add(serviceBillDetail);
-            }
-
-            await DbContext.SaveChangesAsync();
-
-            await SafeJsInvoke("alert", "Check-in successful!");
-            ShowGuestModal = false;
-            await LoadRoomsFromView();
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
         }
         catch (Exception ex)
         {
-            await SafeJsInvoke("alert", $"Error during check-in: {ex.Message}");
-            Console.WriteLine($"Error: {ex.Message}");
-            Console.WriteLine($"StackTrace: {ex.StackTrace}");
+            Console.WriteLine($"Error during check-in: {ex.Message}");
+            Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+
+            await SafeJsInvoke("alert", $"Error during check-in: {ex.InnerException?.Message ?? ex.Message}");
         }
     }
 
@@ -1384,30 +1452,69 @@
 
         try
         {
-            var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
-            if (roomEntity != null)
+            // Use a transaction
+            using var transaction = await DbContext.Database.BeginTransactionAsync();
+
+            try
             {
-                roomEntity.Status = "Available";
-                DbContext.Rooms.Update(roomEntity);
-                await DbContext.SaveChangesAsync();
+                // Clear tracking first
+                DbContext.ChangeTracker.Clear();
+
+                // Reload the room entity
+                var roomEntity = await DbContext.Rooms
+                    .Where(r => r.RoomNumber == SelectedRoom.RoomNumber)
+                    .FirstOrDefaultAsync();
+
+                if (roomEntity != null)
+                {
+                    // Update the status
+                    roomEntity.Status = "Available";
+
+                    // Save changes
+                    await DbContext.SaveChangesAsync();
+
+                    // Commit transaction
+                    await transaction.CommitAsync();
+
+                    // Update the UI model
+                    SelectedRoom.Status = "Available";
+                    SelectedRoom.GuestName = null;
+                    SelectedRoom.CheckInDate = null;
+                    SelectedRoom.CheckOutDate = null;
+                    SelectedRoom.ServiceCharge = 0;
+                    SelectedRoom.TaxAmount = 0;
+                    SelectedRoom.TotalDue = 0;
+
+                    ShowCleaningModal = false;
+
+                    // Clear tracking
+                    DbContext.Entry(roomEntity).State = EntityState.Detached;
+
+                    await SafeJsInvoke("alert", $"Room {SelectedRoom.RoomNumber} marked as cleaned and available");
+                }
+                else
+                {
+                    await transaction.RollbackAsync();
+                    await SafeJsInvoke("alert", $"Room {SelectedRoom.RoomNumber} not found in database");
+                    return;
+                }
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
             }
 
-            SelectedRoom.Status = "Available";
-            SelectedRoom.GuestName = null;
-            SelectedRoom.CheckInDate = null;
-            SelectedRoom.CheckOutDate = null;
-            SelectedRoom.ServiceCharge = 0;
-            SelectedRoom.TaxAmount = 0;
-            SelectedRoom.TotalDue = 0;
-
-            ShowCleaningModal = false;
-            await SafeJsInvoke("alert", $"Room {SelectedRoom.RoomNumber} marked as cleaned and available");
-
+            // Reload rooms without tracking
             await LoadRoomsFromView();
         }
         catch (Exception ex)
         {
-            await SafeJsInvoke("alert", "Error updating room status: " + ex.Message);
+            Console.WriteLine($"Error updating room status: {ex.Message}");
+            Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+
+            await SafeJsInvoke("alert", $"Error updating room status: {ex.InnerException?.Message ?? ex.Message}");
         }
     }
 
@@ -1417,77 +1524,156 @@
 
         try
         {
-            var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
-            if (roomEntity != null)
+            // Clear entity tracking
+            DbContext.ChangeTracker.Clear();
+
+            // Get the execution strategy
+            var executionStrategy = DbContext.Database.CreateExecutionStrategy();
+
+            await executionStrategy.ExecuteAsync(async () =>
             {
-                roomEntity.Status = "For Cleaning";
-                DbContext.Rooms.Update(roomEntity);
-                await DbContext.SaveChangesAsync();
-            }
+                // Create transaction inside execution strategy
+                using var transaction = await DbContext.Database.BeginTransactionAsync();
 
-            var roomId = roomEntity?.RoomID ?? 0;
-            var reservationData = await DbContext.Reservations
-                .Join(DbContext.ReservedRooms, r => r.ReservationID, rr => rr.ReservationID, (r, rr) => new { r, rr })
-                .Where(x => x.rr.RoomID == roomId && x.r.Status == "Checked In")
-                .Select(x => new { Reservation = x.r, ReservedRoom = x.rr })
-                .FirstOrDefaultAsync();
-
-            if (reservationData != null)
-            {
-                var reservation = reservationData.Reservation;
-                reservation.Status = "Checked Out";
-                reservation.PaymentStatus = "Paid";
-                DbContext.Reservations.Update(reservation);
-                await DbContext.SaveChangesAsync();
-
-                var bill = await DbContext.Bills.FirstOrDefaultAsync(b => b.ReservationID == reservation.ReservationID);
-                if (bill != null)
+                try
                 {
-                    bill.BillStatus = "Paid";
-                    bill.AmountPaid = bill.GrandTotal;
-                    bill.BalanceDue = 0;
-                    DbContext.Bills.Update(bill);
+                    // Clear tracking first
+                    DbContext.ChangeTracker.Clear();
+
+                    // Find the room
+                    var roomEntity = await DbContext.Rooms
+                        .Where(r => r.RoomNumber == SelectedRoom.RoomNumber)
+                        .FirstOrDefaultAsync();
+
+                    if (roomEntity == null)
+                    {
+                        await transaction.RollbackAsync();
+                        await SafeJsInvoke("alert", $"Room {SelectedRoom.RoomNumber} not found");
+                        return;
+                    }
+
+                    // Update room status
+                    roomEntity.Status = "For Cleaning";
                     await DbContext.SaveChangesAsync();
 
-                    // ========== CREATE PAYMENT RECORD ON CHECK-OUT ==========
-                    var existingPayment = await DbContext.Payments
-                        .FirstOrDefaultAsync(p => p.BillID == bill.BillID && p.PaymentStatus == "Completed");
-
-                    if (existingPayment == null)
-                    {
-                        var currentUserId = GetCurrentUserId();
-
-                        var payment = new Payment
+                    // Find the active reservation for this room
+                    var reservationData = await DbContext.Reservations
+                        .Join(DbContext.ReservedRooms,
+                            r => r.ReservationID,
+                            rr => rr.ReservationID,
+                            (r, rr) => new { r, rr })
+                        .Where(x => x.rr.RoomID == roomEntity.RoomID && x.r.Status == "Checked In")
+                        .Select(x => new
                         {
-                            BillID = bill.BillID,
-                            PaymentDate = DateTime.Now,
-                            PaymentMethod = "Cash",
-                            Amount = bill.GrandTotal,
-                            ReferenceNumber = GenerateReferenceNumber(),
-                            PaymentStatus = "Completed",
-                            ProcessedBy = currentUserId
-                        };
+                            Reservation = x.r,
+                            ReservedRoom = x.rr
+                        })
+                        .FirstOrDefaultAsync();
 
-                        DbContext.Payments.Add(payment);
+                    if (reservationData != null)
+                    {
+                        // Update reservation status
+                        reservationData.Reservation.Status = "Checked Out";
+                        reservationData.Reservation.PaymentStatus = "Paid";
+
+                        // Save reservation changes
                         await DbContext.SaveChangesAsync();
+
+                        // Find and update the bill
+                        var bill = await DbContext.Bills
+                            .Where(b => b.ReservationID == reservationData.Reservation.ReservationID)
+                            .FirstOrDefaultAsync();
+
+                        if (bill != null)
+                        {
+                            bill.BillStatus = "Paid";
+                            bill.AmountPaid = bill.GrandTotal;
+                            bill.BalanceDue = 0;
+
+                            await DbContext.SaveChangesAsync();
+
+                            // Create payment record if it doesn't exist
+                            var existingPayment = await DbContext.Payments
+                                .Where(p => p.BillID == bill.BillID && p.PaymentStatus == "Completed")
+                                .FirstOrDefaultAsync();
+
+                            Payment payment = null;
+                            if (existingPayment == null)
+                            {
+                                var currentUserId = GetCurrentUserId();
+
+                                payment = new Payment
+                                {
+                                    BillID = bill.BillID,
+                                    PaymentDate = DateTime.Now,
+                                    PaymentMethod = "Cash",
+                                    Amount = bill.GrandTotal,
+                                    ReferenceNumber = GenerateReferenceNumber(),
+                                    PaymentStatus = "Completed",
+                                    ProcessedBy = currentUserId
+                                };
+
+                                DbContext.Payments.Add(payment);
+                                await DbContext.SaveChangesAsync();
+                            }
+                            else
+                            {
+                                payment = existingPayment;
+                            }
+
+                            // ========== CREATE INCOME RECORD AUTOMATICALLY ==========
+                            if (payment != null)
+                            {
+                                var income = new Income
+                                {
+                                    PaymentID = payment.PaymentID,
+                                    IncomeDate = DateTime.Today,
+                                    Amount = payment.Amount,
+                                    IncomeType = "Checkout",
+                                    Description = "CheckInAndCheckout",
+                                    CreatedDate = DateTime.Now
+                                };
+
+                                DbContext.Incomes.Add(income);
+                                await DbContext.SaveChangesAsync();
+                            }
+                            // ========================================================
+                        }
                     }
-                    // =========================================================
+
+                    // Commit all changes
+                    await transaction.CommitAsync();
+
+                    // Clear entity tracking
+                    DbContext.ChangeTracker.Clear();
+
+                    // Update UI
+                    SelectedRoom.Status = "For Cleaning";
+                    SelectedRoom.ServiceCharge = 0;
+                    SelectedRoom.TaxAmount = 0;
+                    SelectedRoom.TotalDue = 0;
+
+                    ShowCheckOutModal = false;
+
+                    await SafeJsInvoke("alert", $"Check-out successful. Room {SelectedRoom.RoomNumber} marked for cleaning");
                 }
-            }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
 
-            SelectedRoom.Status = "For Cleaning";
-            SelectedRoom.ServiceCharge = 0;
-            SelectedRoom.TaxAmount = 0;
-            SelectedRoom.TotalDue = 0;
-
-            ShowCheckOutModal = false;
-            await SafeJsInvoke("alert", $"Check-out successful. Room {SelectedRoom.RoomNumber} marked for cleaning");
-
+            // Reload rooms with fresh data
             await LoadRoomsFromView();
         }
         catch (Exception ex)
         {
-            await SafeJsInvoke("alert", "Error processing check-out: " + ex.Message);
+            Console.WriteLine($"Error processing check-out: {ex.Message}");
+            Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+
+            await SafeJsInvoke("alert", $"Error processing check-out: {ex.InnerException?.Message ?? ex.Message}");
         }
     }
 
@@ -1507,7 +1693,10 @@
 
     private async Task<decimal> CalculateRoomCharge(int roomId, DateTime checkIn, DateTime checkOut)
     {
-        var room = await DbContext.Rooms.Include(r => r.RoomType).FirstOrDefaultAsync(r => r.RoomID == roomId);
+        var room = await DbContext.Rooms
+            .AsNoTracking()
+            .Include(r => r.RoomType)
+            .FirstOrDefaultAsync(r => r.RoomID == roomId);
         if (room == null) return 0m;
         var nights = (checkOut - checkIn).Days;
         if (nights <= 0) nights = 1;
@@ -1538,7 +1727,9 @@
 
         try
         {
-            var roomEntity = await DbContext.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
+            var roomEntity = await DbContext.Rooms
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.RoomNumber == SelectedRoom.RoomNumber);
             if (roomEntity == null) return;
 
             var reservation = await DbContext.Reservations
