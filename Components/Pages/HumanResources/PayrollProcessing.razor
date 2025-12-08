@@ -126,7 +126,7 @@
                                             </span>
                                         </td>
                                         <td style="text-align:center;">
-                                            <button class="btn-secondary" style="padding: 6px 12px;" 
+                                            <button class="btn-secondary" style="padding: 6px 12px;"
                                                     @onclick:stopPropagation="true"
                                                     @onclick="@(() => OpenEmployeePaymentModal(employee))">
                                                 💰 Update
@@ -147,7 +147,6 @@
     </section>
 </div>
 
-<!-- Tax Management Modal -->
 <!-- Tax Management Modal -->
 @if (ShowTaxModal)
 {
@@ -362,15 +361,79 @@
 }
 
 <style>
-    .stat-card { padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .stat-title { font-size: 0.85rem; color: #1e293b; text-transform: uppercase; font-weight: 700; }
-    .stat-value { font-size: 1.8rem; font-weight: 900; color: #0f172a; margin-top: 8px; }
-    .status-active { background-color: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
-    .status-inactive { background-color: #f1f5f9; color: #64748b; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
-    .status-pending { background-color: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
-    .status-processing { background-color: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
-    .status-paid { background-color: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
-    .status-onhold { background-color: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+    .stat-card {
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .stat-title {
+        font-size: 0.85rem;
+        color: #1e293b;
+        text-transform: uppercase;
+        font-weight: 700;
+    }
+
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: 900;
+        color: #0f172a;
+        margin-top: 8px;
+    }
+
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-inactive {
+        background-color: #f1f5f9;
+        color: #64748b;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-pending {
+        background-color: #fef3c7;
+        color: #92400e;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-processing {
+        background-color: #dbeafe;
+        color: #1e40af;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-paid {
+        background-color: #d1fae5;
+        color: #065f46;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-onhold {
+        background-color: #fee2e2;
+        color: #991b1b;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
 </style>
 
 @code {
@@ -419,13 +482,13 @@
                 .OrderBy(d => d.DepartmentName)
                 .ToListAsync();
 
-            // Load tax rates - FIXED: Explicitly select and convert TaxPercentage
+            // Load tax rates
             TaxRates = await Context.Taxes
                 .Select(t => new Tax
                 {
                     TaxID = t.TaxID,
                     TaxName = t.TaxName,
-                    TaxPercentage = Convert.ToDecimal(t.TaxPercentage), // Explicit conversion here
+                    TaxPercentage = Convert.ToDecimal(t.TaxPercentage),
                     TaxDescription = t.TaxDescription,
                     Status = t.Status
                 })
@@ -433,11 +496,8 @@
                 .OrderBy(t => t.TaxName)
                 .ToListAsync();
 
-            // Load payroll summary from view
-            EmployeePayrollSummary = await Context.EmployeePayrollSummaryView
-                .AsNoTracking()
-                .OrderBy(e => e.EmployeeName)
-                .ToListAsync();
+            // CRITICAL FIX: Force refresh of the view with explicit query
+            await RefreshPayrollViewData();
 
             // Calculate summary totals
             await CalculateSummaryTotals();
@@ -456,34 +516,33 @@
     {
         try
         {
-            // Total Income from Payments - handle empty result
-            var payments = await Context.Payments
-                .Where(p => p.PaymentStatus == "Paid")
-                .Select(p => p.Amount)
-                .ToListAsync();
-            TotalIncome = payments.Count > 0 ? payments.Sum() : 0m;
+            // Get current month's start and end dates
+            var now = DateTime.Now;
+            var monthStart = new DateTime(now.Year, now.Month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+            // TOTAL INCOME: Get all income for current month
+            TotalIncome = await Context.Incomes
+                .Where(i => i.IncomeDate >= monthStart && i.IncomeDate <= monthEnd)
+                .SumAsync(i => i.Amount);
 
             // Total Active Employees
             TotalEmployees = await Context.Employees
                 .CountAsync(e => e.Status == "Active");
 
-            // Total Employee Payments (from payroll summary)
-            TotalEmployeePayments = EmployeePayrollSummary.Sum(e => e.TotalSalary);
+            // Total Employee Payments for current month
+            TotalEmployeePayments = await Context.Payrolls
+                .Where(p => p.PeriodStart >= monthStart && p.PeriodEnd <= monthEnd)
+                .SumAsync(p => p.GrossPay);
 
-            // Calculate Total Taxes - FIXED: Use Convert.ToDecimal for safety
-            decimal activeTaxPercentage = 0m;
-            foreach (var tax in TaxRates.Where(t => t.Status == "Active"))
-            {
-                // Ensure TaxPercentage is decimal by converting it
-                activeTaxPercentage += tax.TaxPercentage;
-            }
-
-            TotalTaxesDeducted = TotalEmployeePayments * (activeTaxPercentage / 100m);
+            // Total Taxes Deducted for current month
+            TotalTaxesDeducted = await Context.Payrolls
+                .Where(p => p.PeriodStart >= monthStart && p.PeriodEnd <= monthEnd)
+                .SumAsync(p => p.TaxAmount);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error in CalculateSummaryTotals: {ex.Message}");
-            // If calculations fail, use defaults
             TotalIncome = 0m;
             TotalEmployees = EmployeePayrollSummary.Count;
             TotalEmployeePayments = EmployeePayrollSummary.Sum(e => e.TotalSalary);
@@ -526,7 +585,7 @@
             var tax = new Tax
             {
                 TaxName = NewTax.TaxName.Trim(),
-                TaxPercentage = NewTax.TaxPercentage, // This is already decimal
+                TaxPercentage = NewTax.TaxPercentage,
                 TaxDescription = NewTax.TaxDescription?.Trim(),
                 Status = "Active"
             };
@@ -534,7 +593,6 @@
             Context.Taxes.Add(tax);
             await Context.SaveChangesAsync();
 
-            // Reload tax rates with conversion
             TaxRates = await Context.Taxes
                 .Select(t => new Tax
                 {
@@ -568,7 +626,6 @@
                 existingTax.Status = existingTax.Status == "Active" ? "Archived" : "Active";
                 await Context.SaveChangesAsync();
 
-                // Reload tax rates with conversion
                 TaxRates = await Context.Taxes
                     .Select(t => new Tax
                     {
@@ -592,7 +649,6 @@
         }
     }
 
-    // Rest of the methods remain the same...
     private void OpenEmployeePaymentModal(EmployeePayrollSummaryView employee)
     {
         SelectedEmployee = employee;
@@ -610,33 +666,64 @@
             decimal regularPay = SelectedEmployee.TotalRegularHours * SelectedEmployee.HourlyRate;
             decimal overtimePay = SelectedEmployee.TotalOvertimeHours * (SelectedEmployee.HourlyRate * 1.5m);
             decimal grossPay = regularPay + overtimePay;
-            
+
             // Calculate tax amount from active taxes
             decimal activeTaxPercentage = TaxRates
                 .Where(t => t.Status == "Active")
                 .Sum(t => t.TaxPercentage);
             decimal taxAmount = grossPay * (activeTaxPercentage / 100m);
             decimal netPay = grossPay - taxAmount;
-            
+
             var periodStart = DateTime.Parse(SelectedPeriod);
             var periodEnd = periodStart.AddDays(14);
 
-            // Get first active tax ID if available (nullable)
+            // Get first active tax ID if available
             int? taxId = TaxRates.FirstOrDefault(t => t.Status == "Active")?.TaxID;
 
-            // Find attendance by looking up through Schedule (which has EmployeeID)
+            // Find attendance
             var attendance = await Context.Attendances
                 .Include(a => a.Schedule)
                 .FirstOrDefaultAsync(a => a.Schedule != null && a.Schedule.EmployeeID == SelectedEmployee.EmployeeID);
 
             int? attendanceId = attendance?.AttendanceID;
 
+            // CRITICAL FIX: Get or create IncomeID for this payroll
+            var incomeStart = new DateTime(periodStart.Year, periodStart.Month, 1);
+            var incomeEnd = incomeStart.AddMonths(1).AddDays(-1);
+
+            var income = await Context.Incomes
+                .Where(i => i.IncomeDate >= incomeStart && i.IncomeDate <= incomeEnd)
+                .OrderByDescending(i => i.IncomeDate)
+                .FirstOrDefaultAsync();
+
+            int? incomeId = income?.IncomeID;
+
+            // If no income record exists for this month, create one
+            if (incomeId == null)
+            {
+                // Create a default income record for the month
+                var newIncome = new Income
+                {
+                    IncomeDate = incomeStart,
+                    Amount = 100000m, // Default starting amount
+                    Description = $"Monthly income for {incomeStart:MMMM yyyy}",
+                    CreatedDate = DateTime.Now
+                };
+                Context.Incomes.Add(newIncome);
+                await Context.SaveChangesAsync();
+                incomeId = newIncome.IncomeID;
+            }
+
             // Check if payroll already exists for this period
             var existingPayroll = await Context.Payrolls
-                .FirstOrDefaultAsync(p => p.PeriodStart == periodStart && p.PeriodEnd == periodEnd && p.AttendanceID == attendanceId);
+                .FirstOrDefaultAsync(p => p.PeriodStart == periodStart && p.PeriodEnd == periodEnd &&
+                                        p.AttendanceID == attendanceId);
 
             if (existingPayroll != null)
             {
+                // Store old status for comparison
+                var oldStatus = existingPayroll.Status;
+
                 // Update existing payroll
                 existingPayroll.Status = SelectedPaymentStatus;
                 existingPayroll.TotalHours = SelectedEmployee.TotalHours;
@@ -648,15 +735,42 @@
                 existingPayroll.TaxAmount = taxAmount;
                 existingPayroll.NetPay = netPay;
                 existingPayroll.TaxID = taxId;
+                existingPayroll.IncomeID = incomeId; // Always set IncomeID
+
+                // CRITICAL FIX: Handle income adjustment properly
+                var incomeRecord = await Context.Incomes.FindAsync(incomeId);
+                if (incomeRecord != null)
+                {
+                    // If changing from non-Paid to Paid, subtract
+                    if (oldStatus != "Paid" && SelectedPaymentStatus == "Paid")
+                    {
+                        incomeRecord.Amount -= grossPay;
+                        if (incomeRecord.Amount < 0) incomeRecord.Amount = 0;
+                    }
+                    // If changing from Paid to non-Paid, add back
+                    else if (oldStatus == "Paid" && SelectedPaymentStatus != "Paid")
+                    {
+                        incomeRecord.Amount += grossPay;
+                    }
+                    // If staying as Paid and amount changed, adjust
+                    else if (oldStatus == "Paid" && SelectedPaymentStatus == "Paid")
+                    {
+                        // Calculate the difference
+                        decimal difference = grossPay - existingPayroll.GrossPay;
+                        incomeRecord.Amount -= difference;
+                        if (incomeRecord.Amount < 0) incomeRecord.Amount = 0;
+                    }
+                }
+
                 await Context.SaveChangesAsync();
             }
             else
             {
-                // Create new payroll using entity (EF Core handles nulls properly)
+                // Create new payroll
                 var newPayroll = new Payroll
                 {
                     AttendanceID = attendanceId,
-                    IncomeID = null,
+                    IncomeID = incomeId, // Always set IncomeID
                     TaxID = taxId,
                     PeriodStart = periodStart,
                     PeriodEnd = periodEnd,
@@ -671,22 +785,36 @@
                     Status = SelectedPaymentStatus,
                     CreatedDate = DateTime.Now
                 };
-                
+
+                // CRITICAL FIX: Subtract from income only if status is Paid
+                if (SelectedPaymentStatus == "Paid" && incomeId.HasValue)
+                {
+                    var incomeRecord = await Context.Incomes.FindAsync(incomeId.Value);
+                    if (incomeRecord != null)
+                    {
+                        incomeRecord.Amount -= grossPay;
+                        if (incomeRecord.Amount < 0) incomeRecord.Amount = 0;
+                    }
+                }
+
                 Context.Payrolls.Add(newPayroll);
                 await Context.SaveChangesAsync();
             }
 
+            // CRITICAL FIX: Force refresh the view data
+            await RefreshPayrollViewData();
+
             await JSRuntime.InvokeVoidAsync("alert", $"Payment status updated to {SelectedPaymentStatus}");
             CloseModals();
-            await LoadData();
+
+            // Force UI refresh
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            // Detailed error logging
             Console.WriteLine($"Error in UpdateEmployeePayment: {ex.Message}");
             Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-            
+
             await JSRuntime.InvokeVoidAsync("alert", $"Error updating payment: {ex.Message}\n{ex.InnerException?.Message}");
         }
     }
@@ -708,5 +836,52 @@
             "On Hold" => "status-onhold",
             _ => "status-pending"
         };
+    }
+
+    private async Task RefreshIncomeData()
+    {
+        try
+        {
+            var now = DateTime.Now;
+            var monthStart = new DateTime(now.Year, now.Month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+            TotalIncome = await Context.Incomes
+                .Where(i => i.IncomeDate >= monthStart && i.IncomeDate <= monthEnd)
+                .SumAsync(i => i.Amount);
+
+            await CalculateSummaryTotals();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing income data: {ex.Message}");
+        }
+    }
+
+    // CRITICAL FIX: New method to properly refresh the view data
+    private async Task RefreshPayrollViewData()
+    {
+        try
+        {
+            // Clear the current list
+            EmployeePayrollSummary.Clear();
+
+            // Force a fresh query from the database
+            var freshData = await Context.EmployeePayrollSummaryView
+                .AsNoTracking()
+                .OrderBy(e => e.EmployeeName)
+                .ToListAsync();
+
+            // Update the list
+            EmployeePayrollSummary = freshData;
+
+            // Force UI update
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing payroll view: {ex.Message}");
+        }
     }
 }

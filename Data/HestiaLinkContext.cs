@@ -37,7 +37,9 @@ namespace HestiaLink.Data
         public DbSet<Tax> Taxes { get; set; }
         public DbSet<Payroll> Payrolls { get; set; }
         public DbSet<TotalIncome> TotalIncomes { get; set; }
-        public DbSet<PaymentIncome> PaymentIncomes { get; set; }
+
+        // CHANGED FROM PaymentIncome TO Income
+        public DbSet<Income> Incomes { get; set; }  // This is the replacement for PaymentIncome
 
         // Database Views (keyless entities)
         public DbSet<EmployeePayrollSummaryView> EmployeePayrollSummaryView { get; set; }
@@ -71,7 +73,9 @@ namespace HestiaLink.Data
             modelBuilder.Entity<Tax>().ToTable("Tax");
             modelBuilder.Entity<Payroll>().ToTable("Payroll");
             modelBuilder.Entity<TotalIncome>().ToTable("TotalIncome");
-            modelBuilder.Entity<PaymentIncome>().ToTable("PaymentIncome");
+
+            // CHANGED FROM PaymentIncome TO Income
+            modelBuilder.Entity<Income>().ToTable("Income");  // This is the replacement for PaymentIncome
 
             // Map database views (keyless entities)
             modelBuilder.Entity<EmployeePayrollSummaryView>()

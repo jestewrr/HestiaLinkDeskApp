@@ -1340,6 +1340,24 @@
 
                         DbContext.Payments.Add(payment);
                         await DbContext.SaveChangesAsync();
+
+                        // ========== CREATE INCOME RECORD AUTOMATICALLY ==========
+                        if (GuestPaymentStatus == "Paid") // Only create income for full payments
+                        {
+                            var income = new Income
+                            {
+                                PaymentID = payment.PaymentID,
+                                IncomeDate = DateTime.Today,
+                                Amount = payment.Amount,
+                                IncomeType = "Checkin",
+                                Description = "CheckInAndCheckout",
+                                CreatedDate = DateTime.Now
+                            };
+
+                            DbContext.Incomes.Add(income);
+                            await DbContext.SaveChangesAsync();
+                        }
+                        // =======================================================
                     }
                     // =======================================================
 
@@ -1579,11 +1597,12 @@
                                 .Where(p => p.BillID == bill.BillID && p.PaymentStatus == "Completed")
                                 .FirstOrDefaultAsync();
 
+                            Payment payment = null;
                             if (existingPayment == null)
                             {
                                 var currentUserId = GetCurrentUserId();
 
-                                var payment = new Payment
+                                payment = new Payment
                                 {
                                     BillID = bill.BillID,
                                     PaymentDate = DateTime.Now,
@@ -1597,6 +1616,28 @@
                                 DbContext.Payments.Add(payment);
                                 await DbContext.SaveChangesAsync();
                             }
+                            else
+                            {
+                                payment = existingPayment;
+                            }
+
+                            // ========== CREATE INCOME RECORD AUTOMATICALLY ==========
+                            if (payment != null)
+                            {
+                                var income = new Income
+                                {
+                                    PaymentID = payment.PaymentID,
+                                    IncomeDate = DateTime.Today,
+                                    Amount = payment.Amount,
+                                    IncomeType = "Checkout",
+                                    Description = "CheckInAndCheckout",
+                                    CreatedDate = DateTime.Now
+                                };
+
+                                DbContext.Incomes.Add(income);
+                                await DbContext.SaveChangesAsync();
+                            }
+                            // ========================================================
                         }
                     }
 
