@@ -83,8 +83,8 @@ namespace HestiaLink.Data
             modelBuilder.Entity<Attendance>().ToTable("Attendance");
             modelBuilder.Entity<Schedule>().ToTable("Schedule");
 
-            // Housekeeping
-            modelBuilder.Entity<CleaningTask>().ToTable("CleaningTask");
+            // Housekeeping - Map to Task table as specified
+            modelBuilder.Entity<CleaningTask>().ToTable("Task");
 
             // Payroll related tables
             modelBuilder.Entity<Tax>().ToTable("Tax");
@@ -171,6 +171,31 @@ namespace HestiaLink.Data
                 .WithMany()
                 .HasForeignKey(ic => ic.InventoryItemID)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // ============================================
+            // Configure CleaningTask (Task) Relationships
+            // ============================================
+            modelBuilder.Entity<CleaningTask>(entity =>
+            {
+                entity.HasOne(ct => ct.Room)
+                    .WithMany()
+                    .HasForeignKey(ct => ct.RoomID)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(ct => ct.AssignedUser)
+                    .WithMany()
+                    .HasForeignKey(ct => ct.UserID)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ============================================
+            // Configure SystemUser Properties
+            // ============================================
+            modelBuilder.Entity<SystemUser>(entity =>
+            {
+                entity.Property(u => u.IsAvailable)
+                    .HasDefaultValue(true);
+            });
         }
     }
 }

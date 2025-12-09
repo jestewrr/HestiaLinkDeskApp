@@ -14,5 +14,11 @@ namespace HestiaLink.Models
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public string Status { get; set; } = "Active"; // Active / Archived
+        
+        /// <summary>
+        /// Tracks if the user (especially housekeeping staff) is available for new task assignments.
+        /// When a task is assigned, this is set to false. When task is completed, it's set back to true.
+        /// </summary>
+        public bool IsAvailable { get; set; } = true;
     }
 }

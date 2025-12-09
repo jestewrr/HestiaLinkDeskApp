@@ -25,9 +25,61 @@ namespace HestiaLink.Services
                     return (false, null, "Username and password are required");
                 }
 
-                // Find the user by username (case-insensitive)
-                var user = await _context.SystemUsers
-                    .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower() && u.Status == "Active");
+                // Try to find the user - use raw SQL if EF query fails due to schema mismatch
+                SystemUser? user = null;
+                
+                try
+                {
+                    // First try with EF Core
+                    user = await _context.SystemUsers
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower() && u.Status == "Active");
+                }
+                catch (Exception efEx)
+                {
+                    // If EF fails (possibly due to missing IsAvailable column), try raw SQL
+                    Console.WriteLine($"EF Query failed: {efEx.Message}. Trying raw SQL...");
+                    
+                    try
+                    {
+                        var conn = _context.Database.GetDbConnection();
+                        if (conn.State != System.Data.ConnectionState.Open)
+                            await conn.OpenAsync();
+
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = @"
+                            SELECT UserID, EmployeeID, Username, Password, Role, CreatedAt, UpdatedAt, Status
+                            FROM SystemUser 
+                            WHERE LOWER(Username) = LOWER(@username) AND Status = 'Active'";
+                        
+                        var param = cmd.CreateParameter();
+                        param.ParameterName = "@username";
+                        param.Value = username;
+                        cmd.Parameters.Add(param);
+
+                        using var reader = await cmd.ExecuteReaderAsync();
+                        if (await reader.ReadAsync())
+                        {
+                            user = new SystemUser
+                            {
+                                UserID = reader.GetInt32(reader.GetOrdinal("UserID")),
+                                EmployeeID = reader.IsDBNull(reader.GetOrdinal("EmployeeID")) ? null : reader.GetInt32(reader.GetOrdinal("EmployeeID")),
+                                Username = reader.GetString(reader.GetOrdinal("Username")),
+                                Password = reader.GetString(reader.GetOrdinal("Password")),
+                                Role = reader.GetString(reader.GetOrdinal("Role")),
+                                CreatedAt = reader.IsDBNull(reader.GetOrdinal("CreatedAt")) ? null : reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                                UpdatedAt = reader.IsDBNull(reader.GetOrdinal("UpdatedAt")) ? null : reader.GetDateTime(reader.GetOrdinal("UpdatedAt")),
+                                Status = reader.GetString(reader.GetOrdinal("Status")),
+                                IsAvailable = true // Default value
+                            };
+                        }
+                    }
+                    catch (Exception sqlEx)
+                    {
+                        Console.WriteLine($"Raw SQL also failed: {sqlEx.Message}");
+                        return (false, null, $"Database connection error. Please check your connection.");
+                    }
+                }
 
                 if (user == null)
                 {
@@ -46,7 +98,12 @@ namespace HestiaLink.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Authentication error: {ex.Message}");
-                return (false, null, "An error occurred during authentication. Please try again.");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                }
+                return (false, null, $"An error occurred during authentication: {ex.Message}");
             }
         }
 
@@ -60,7 +117,7 @@ namespace HestiaLink.Services
                 "administrator" => "/dashboard",
                 "manager" => "/dashboard",
                 "frontdesk" => "/reservations/booking-history",
-                "housekeeping" => "/housekeeping/room-status",
+                "housekeeping" => "/housekeeping/dashboard",
                 "inventory" => "/inventory/stock-management",
                 "hr" => "/hr/employee-management",
                 _ => "/dashboard"

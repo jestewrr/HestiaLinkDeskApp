@@ -12,16 +12,29 @@ namespace HestiaLink.Models
 
         public int? UserID { get; set; } // Assigned Staff
 
-        [Required]
-        public string Description { get; set; } = string.Empty;
+        public DateTime AssignedDate { get; set; } = DateTime.Now;
 
-        public string Status { get; set; } = "Pending"; // Pending, In Progress, Completed
-
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        /// <summary>
+        /// Status values: 'Assigned', 'In Progress', 'Completed', 'Maintenance'
+        /// </summary>
+        public string Status { get; set; } = "Assigned";
 
         public DateTime? CompletedDate { get; set; }
 
-        // Navigation
+        /// <summary>
+        /// Additional notes for the task
+        /// </summary>
+        [MaxLength(500)]
+        public string? Notes { get; set; }
+
+        /// <summary>
+        /// Completion status values: 'Cleaned', 'Maintenance Required'
+        /// This helps categorize task history
+        /// </summary>
+        [MaxLength(20)]
+        public string? CompletionStatus { get; set; }
+
+        // Navigation properties
         [ForeignKey("RoomID")]
         public Room? Room { get; set; }
 

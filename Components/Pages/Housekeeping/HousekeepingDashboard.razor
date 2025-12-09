@@ -1,0 +1,767 @@
+@page "/housekeeping/dashboard"
+@using HestiaLink.Data
+@using HestiaLink.Models
+@using HestiaLink.Services
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext DbContext
+@inject HousekeepingService HousekeepingService
+@inject NavigationManager Navigation
+@inject UserSession UserSession
+@inject IJSRuntime JSRuntime
+@layout MainLayout
+
+<div class="page-wrapper">
+    <header class="page-topbar">
+        <h1>?? My Dashboard</h1>
+        <span class="page-topbar-subtitle">Welcome back, <strong>@UserSession.Username</strong></span>
+    </header>
+
+    <section class="page-content">
+        @if (HasError)
+        {
+            <div style="padding:12px; border-radius:8px; background:#fff4f8; color:#7f1d1d; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                <span>?? @ErrorMessage</span>
+                <button class="btn-create" @onclick="LoadData">Retry</button>
+            </div>
+        }
+        else if (!IsLoaded)
+        {
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Loading your tasks...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Stats - Same style as CheckInCheckOut -->
+            <div class="top-cards" style="display:flex; gap:14px; margin-bottom:18px; align-items:center; flex-wrap:wrap;">
+                <div class="stat-card" style="flex:1; min-width:140px; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                    <div style="font-weight:600; color:#6b7280;">?? Assigned</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#374151;">@ActiveTasks.Count(t => t.Status == "Assigned")</div>
+                </div>
+                <div class="stat-card" style="flex:1; min-width:140px; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                    <div style="font-weight:600; color:#6b7280;">?? In Progress</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#374151;">@ActiveTasks.Count(t => t.Status == "In Progress")</div>
+                </div>
+                <div class="stat-card" style="flex:1; min-width:140px; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                    <div style="font-weight:600; color:#6b7280;">? Today</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#374151;">@TaskHistory.Count(t => t.CompletedDate?.Date == DateTime.Today)</div>
+                </div>
+                <div class="stat-card" style="flex:1; min-width:140px; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                    <div style="font-weight:600; color:#6b7280;">?? Total</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#374151;">@TaskHistory.Count</div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px;">
+                <h3 style="margin:0; font-size:1.1rem; color:#333;">?? My Active Tasks (@ActiveTasks.Count)</h3>
+                <button class="btn-create" @onclick="LoadData">?? Refresh</button>
+            </div>
+
+            <!-- Active Tasks -->
+            @if (!ActiveTasks.Any())
+            {
+                <div style="text-align:center; padding:60px 20px; background:white; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.04); margin-bottom:20px;">
+                    <span style="font-size:3rem; display:block; margin-bottom:12px;">?</span>
+                    <p style="color:#6b7280; font-size:1rem; margin:0;">No active tasks</p>
+                </div>
+            }
+            else
+            {
+                <div class="cards-grid" style="margin-bottom:24px;">
+                    @foreach (var task in ActiveTasks)
+                    {
+                        <div class="user-card">
+                            <div class="card-top">
+                                <div class="avatar">@GetAvatarInitials(task.Room?.RoomNumber ?? "NA")</div>
+                                <div class="card-title">Room @(task.Room?.RoomNumber ?? "N/A") <span style="font-weight:600; font-size:0.9rem; color:#64748b; margin-left:8px;">(Floor @(task.Room?.Floor ?? 0))</span></div>
+                                <div class="status-badge @(task.Status == "In Progress" ? "badge-info" : "badge-warning")">
+                                    @task.Status
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div><strong>Type:</strong> @(task.Room?.RoomType?.TypeName ?? "Standard")</div>
+                                <div><strong>Assigned:</strong> @task.AssignedDate.ToString("MMM dd, HH:mm")</div>
+                                @if (!string.IsNullOrEmpty(task.Notes))
+                                {
+                                    <div class="notes-box">?? @task.Notes</div>
+                                }
+                            </div>
+                            <div class="card-actions">
+                                @if (task.Status == "Assigned")
+                                {
+                                    <button class="btn-primary" @onclick="() => StartTask(task)" disabled="@IsProcessing">
+                                        ?? Start
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn-success" @onclick="() => OpenCompletionModal(task)" disabled="@IsProcessing">
+                                        ? Complete
+                                    </button>
+                                    <button class="btn-warning" @onclick="() => OpenMaintenanceModal(task)" disabled="@IsProcessing">
+                                        ?? Issue
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Task History Section -->
+            <div style="margin-bottom:18px;">
+                <h3 style="margin:0 0 14px 0; font-size:1.1rem; color:#333;">?? Recent History (@TaskHistory.Count)</h3>
+            </div>
+
+            @if (!TaskHistory.Any())
+            {
+                <div style="text-align:center; padding:40px 20px; background:white; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                    <span style="font-size:2.5rem; display:block; margin-bottom:12px;">??</span>
+                    <p style="color:#6b7280; font-size:1rem; margin:0;">No history yet</p>
+                </div>
+            }
+            else
+            {
+                <div class="history-grid">
+                    @foreach (var task in TaskHistory.Take(10))
+                    {
+                        <div class="history-card">
+                            <div class="history-left">
+                                <div class="avatar avatar-small">@GetAvatarInitials(task.Room?.RoomNumber ?? "NA")</div>
+                                <div class="history-info">
+                                    <span class="history-room">Room @(task.Room?.RoomNumber ?? "N/A")</span>
+                                    <span class="history-date">@task.CompletedDate?.ToString("MMM dd, HH:mm")</span>
+                                </div>
+                            </div>
+                            <div class="status-badge @(task.CompletionStatus == "Cleaned" ? "badge-success" : "badge-warning")">
+                                @(task.CompletionStatus ?? "Completed")
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </section>
+</div>
+
+<!-- Complete Modal -->
+@if (ShowCompletionModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header" style="background:#10b981;">
+                <h2 style="margin:0; color:white;">? Complete Cleaning</h2>
+                <div style="font-size:0.9rem; color:#f8fafc;">Room @SelectedTask?.Room?.RoomNumber</div>
+            </div>
+            <div style="padding:30px 20px; text-align:center;">
+                <div style="font-size:4rem; color:#10b981; margin-bottom:20px;">?</div>
+                <p style="font-size:1.1rem; color:#1e293b; margin-bottom:10px;">
+                    Mark <strong>Room @SelectedTask?.Room?.RoomNumber</strong> as cleaned?
+                </p>
+                <p style="color:#64748b;">
+                    The room will be marked as "Available".
+                </p>
+            </div>
+            <div class="action-footer" style="justify-content:center;">
+                <button class="btn-secondary" @onclick="CloseModals" disabled="@IsProcessing">Cancel</button>
+                <button class="btn-confirm-clean" @onclick="ConfirmCompletion" disabled="@IsProcessing">
+                    @if (IsProcessing) { <span>Processing...</span> } else { <span>Confirm</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Maintenance Modal -->
+@if (ShowMaintenanceModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header" style="background:#f59e0b;">
+                <h2 style="margin:0; color:white;">?? Report Issue</h2>
+                <div style="font-size:0.9rem; color:#f8fafc;">Room @SelectedTask?.Room?.RoomNumber</div>
+            </div>
+            <div style="padding:30px 20px; text-align:center;">
+                <div style="font-size:4rem; color:#f59e0b; margin-bottom:20px;">??</div>
+                <p style="font-size:1.1rem; color:#1e293b; margin-bottom:20px;">
+                    Report issue for <strong>Room @SelectedTask?.Room?.RoomNumber</strong>?
+                </p>
+                <div class="form-group" style="text-align:left;">
+                    <label class="form-label">Description:</label>
+                    <textarea class="form-input" @bind="MaintenanceNotes" placeholder="Describe the issue..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="action-footer" style="justify-content:center;">
+                <button class="btn-secondary" @onclick="CloseModals" disabled="@IsProcessing">Cancel</button>
+                <button class="btn-warning-confirm" @onclick="ConfirmMaintenance" disabled="@IsProcessing">
+                    @if (IsProcessing) { <span>Processing...</span> } else { <span>Report Issue</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Cards Grid - Same as CheckInCheckOut */
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 18px;
+    }
+
+    .user-card {
+        background: white;
+        border-radius: 12px;
+        padding: 14px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .user-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+        transition: all 0.2s ease;
+    }
+
+    .card-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .card-title {
+        font-weight: 800;
+        font-size: 1.05rem;
+        flex: 1;
+    }
+
+    .status-badge {
+        margin-left: auto;
+        padding: 6px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+
+    .badge-info {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+
+    .card-body {
+        margin-top: 12px;
+        color: #334155;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .card-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .notes-box {
+        background: #f8fafc;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-style: italic;
+        font-size: 0.85rem;
+        color: #64748b;
+        margin-top: 4px;
+    }
+
+    /* Avatar - Same as CheckInCheckOut */
+    .avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #06b6d4, #0f766e);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+    }
+
+    .avatar-small {
+        width: 40px;
+        height: 40px;
+        font-size: 0.85rem;
+    }
+
+    /* History Grid */
+    .history-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 12px;
+    }
+
+    .history-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px;
+        background: white;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        transition: all 0.2s ease;
+    }
+
+    .history-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+    }
+
+    .history-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .history-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .history-room {
+        font-weight: 700;
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+    .history-date {
+        font-size: 0.8rem;
+        color: #888;
+    }
+
+    /* Buttons - Same as CheckInCheckOut */
+    .btn-primary {
+        background: #0f766e;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        flex: 1;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+        background: #0d9488;
+        transform: translateY(-1px);
+    }
+
+    .btn-success {
+        background: #10b981;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        flex: 1;
+        transition: all 0.2s ease;
+    }
+
+    .btn-success:hover {
+        background: #059669;
+    }
+
+    .btn-warning {
+        background: #f59e0b;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        flex: 1;
+        transition: all 0.2s ease;
+    }
+
+    .btn-warning:hover {
+        background: #d97706;
+    }
+
+    .btn-secondary {
+        background: #64748b;
+        color: white;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .btn-secondary:hover {
+        background: #475569;
+    }
+
+    .btn-create {
+        background: #0ea5a4;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-create:hover {
+        background: #0d9488;
+    }
+
+    .btn-confirm-clean {
+        background: #10b981;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .btn-confirm-clean:hover {
+        background: #059669;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(16,185,129,0.2);
+    }
+
+    .btn-warning-confirm {
+        background: #f59e0b;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .btn-warning-confirm:hover {
+        background: #d97706;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(245,158,11,0.2);
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Modal - Same as CheckInCheckOut */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(16, 47, 51, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 40;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 480px;
+        box-shadow: 0 10px 30px rgba(2, 6, 23, 0.4);
+    }
+
+    .modal-header {
+        background: #00535b;
+        color: white;
+        padding: 14px 18px;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .modal-header h2 {
+        color: #ffffff;
+        margin: 0;
+        font-weight: 700;
+    }
+
+    .action-footer {
+        padding: 12px 16px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #e6eef0;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        box-sizing: border-box;
+    }
+
+    textarea.form-input {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    /* Loading */
+    .loading-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e5e7eb;
+        border-top-color: #0f766e;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+    }
+
+    .loading-state p {
+        color: #6b7280;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .cards-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .history-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .card-actions {
+            flex-direction: column;
+        }
+    }
+</style>
+
+@code {
+    private List<CleaningTask> ActiveTasks = new();
+    private List<CleaningTask> TaskHistory = new();
+
+    private bool IsLoaded = false;
+    private bool HasError = false;
+    private bool IsProcessing = false;
+    private string ErrorMessage = string.Empty;
+
+    private bool ShowCompletionModal = false;
+    private bool ShowMaintenanceModal = false;
+    private CleaningTask? SelectedTask = null;
+    private string MaintenanceNotes = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/loginpage");
+            return;
+        }
+
+        await LoadData();
+    }
+
+    private string GetAvatarInitials(string roomNumber)
+    {
+        if (string.IsNullOrWhiteSpace(roomNumber)) return "RM";
+        var trimmed = roomNumber.Trim();
+        return trimmed.Length <= 2 ? trimmed : trimmed[..2];
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            HasError = false;
+            ErrorMessage = string.Empty;
+            IsLoaded = false;
+            StateHasChanged();
+
+            var userId = UserSession.UserID;
+
+            ActiveTasks = await HousekeepingService.GetUserTasksAsync(userId, activeOnly: true);
+            TaskHistory = await HousekeepingService.GetUserTaskHistoryAsync(userId);
+
+            IsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = ex.Message;
+            IsLoaded = true;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task StartTask(CleaningTask task)
+    {
+        if (IsProcessing) return;
+
+        try
+        {
+            IsProcessing = true;
+            StateHasChanged();
+
+            var result = await HousekeepingService.StartTaskAsync(task.TaskID, UserSession.UserID);
+
+            if (result.Success)
+            {
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Task started!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenCompletionModal(CleaningTask task)
+    {
+        SelectedTask = task;
+        ShowCompletionModal = true;
+    }
+
+    private void OpenMaintenanceModal(CleaningTask task)
+    {
+        SelectedTask = task;
+        MaintenanceNotes = string.Empty;
+        ShowMaintenanceModal = true;
+    }
+
+    private void CloseModals()
+    {
+        ShowCompletionModal = false;
+        ShowMaintenanceModal = false;
+        SelectedTask = null;
+        MaintenanceNotes = string.Empty;
+    }
+
+    private async Task ConfirmCompletion()
+    {
+        if (SelectedTask == null || IsProcessing) return;
+
+        try
+        {
+            IsProcessing = true;
+            StateHasChanged();
+
+            var result = await HousekeepingService.CompleteTaskAsync(
+                SelectedTask.TaskID,
+                UserSession.UserID,
+                "Cleaned");
+
+            CloseModals();
+
+            if (result.Success)
+            {
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Room cleaned!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConfirmMaintenance()
+    {
+        if (SelectedTask == null || IsProcessing) return;
+
+        try
+        {
+            IsProcessing = true;
+            StateHasChanged();
+
+            var result = await HousekeepingService.CompleteTaskAsync(
+                SelectedTask.TaskID,
+                UserSession.UserID,
+                "Maintenance Required");
+
+            CloseModals();
+
+            if (result.Success)
+            {
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Issue reported!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+}

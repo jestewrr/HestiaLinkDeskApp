@@ -1,5 +1,6 @@
 ﻿@page "/settings/user-management"
 @using Microsoft.EntityFrameworkCore
+@using System.Data
 @inject HestiaLinkContext Context
 @inject IJSRuntime JSRuntime
 @layout MainLayout
@@ -14,9 +15,9 @@
     @if (!string.IsNullOrEmpty(ErrorMessage))
     {
         <div class="error-banner">
-            <span class="error-icon"></span>
+            <span class="error-icon">⚠️</span>
             <span class="error-message">@ErrorMessage</span>
-            <button class="error-close" @onclick="ClearError">�</button>
+            <button class="error-close" @onclick="ClearError">×</button>
         </div>
     }
 
@@ -37,11 +38,11 @@
                            @bind="SearchText"
                            @oninput="OnSearchChanged"
                            @onkeydown="HandleKeyDown" />
-                    <span class="search-icon"></span>
+                    <span class="search-icon">🔍</span>
                     @if (!string.IsNullOrEmpty(SearchText))
                     {
                         <button class="clear-search" @onclick="ClearSearch" title="Clear search">
-                            �
+                            ×
                         </button>
                     }
                 </div>
@@ -51,6 +52,8 @@
                     <option value="Manager">Manager</option>
                     <option value="FrontDesk">FrontDesk</option>
                     <option value="Housekeeping">Housekeeping</option>
+                    <option value="Inventory">Inventory</option>
+                    <option value="HR">HR</option>
                 </select>
                 <select class="filter-select" @bind="SortBy">
                     <option value="Username">Sort by Name</option>
@@ -110,7 +113,7 @@
                             <div class="user-details">
                                 <div class="detail-item">
                                     <span class="detail-label">Employee ID:</span>
-                                    <span class="detail-value">@user.EmployeeID</span>
+                                    <span class="detail-value">@(user.EmployeeID?.ToString() ?? "N/A")</span>
                                 </div>
                                 <div class="detail-item">
                                     <span class="detail-label">Role:</span>
@@ -140,7 +143,7 @@
             else if (IsLoaded)
             {
                 <div class="no-users-message">
-                    <div class="no-users-icon"></div>
+                    <div class="no-users-icon">👤</div>
                     <h3>No users found</h3>
                     <p>
                         @if (!string.IsNullOrEmpty(SearchText))
@@ -174,7 +177,6 @@
     </section>
 </div>
 
-<!-- Rest of the modals remain the same as in the previous version -->
 <!-- Create/Edit User Modal -->
 @if (ShowCreateModal || ShowEditModal)
 {
@@ -219,10 +221,12 @@
                 <div class="form-group">
                     <label class="form-label">Role</label>
                     <select class="form-select" @bind="CurrentUser.Role" disabled="@IsProcessing">
-                        <option>Administrator</option>
-                        <option>Manager</option>
-                        <option>FrontDesk</option>
-                        <option>Housekeeping</option>
+                        <option value="Administrator">Administrator</option>
+                        <option value="Manager">Manager</option>
+                        <option value="FrontDesk">FrontDesk</option>
+                        <option value="Housekeeping">Housekeeping</option>
+                        <option value="Inventory">Inventory</option>
+                        <option value="HR">HR</option>
                     </select>
                 </div>
             </div>
@@ -247,8 +251,8 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;"> Archived Users</h2>
-                <div style="font-size: 0.9rem; color: #64748b;">@ArchivedUsers.Count archived users</div>
+                <h2 style="margin:0; font-size:1.4rem;">📦 Archived Users</h2>
+                <div style="font-size: 0.9rem; color: rgba(255,255,255,0.8); margin-top: 4px;">@ArchivedUsers.Count archived users</div>
             </div>
 
             <div class="panel-body" style="max-height:60vh; overflow-y:auto;">
@@ -269,13 +273,13 @@
                             {
                                 <tr>
                                     <td>@user.UserID</td>
-                                    <td>@user.EmployeeID</td>
+                                    <td>@(user.EmployeeID?.ToString() ?? "N/A")</td>
                                     <td style="font-weight:700;">@user.Username</td>
                                     <td>@user.Role</td>
                                     <td style="text-align:center;">
-                                        <button class="btn-secondary" style="background:#10b981;" 
+                                        <button class="btn-secondary" style="background:#10b981; color: white;" 
                                                 @onclick="() => RestoreUser(user)" disabled="@IsProcessing">
-                                             Restore
+                                            ✅ Restore
                                         </button>
                                     </td>
                                 </tr>
@@ -285,7 +289,7 @@
                 }
                 else
                 {
-                    <div class="no-data" style="padding:40px;">No archived users</div>
+                    <div class="no-data" style="padding:40px; text-align: center; color: #64748b;">No archived users</div>
                 }
             </div>
 
@@ -302,14 +306,14 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width:420px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.2rem;">Confirm Archive</h2>
+                <h2 style="margin:0; font-size:1.2rem;">⚠️ Confirm Archive</h2>
             </div>
             <div style="padding:20px;">
                 <p>Are you sure you want to archive user <strong>@(ArchiveTarget?.Username)</strong>?</p>
                 <p style="color:#f59e0b; font-size:0.9rem;">Archived users will not appear in active lists but can be restored later.</p>
             </div>
             <div class="action-footer" style="border:none; padding-bottom:0;">
-                <button class="btn-secondary" style="background:#f59e0b;" @onclick="ConfirmArchive" disabled="@IsProcessing">
+                <button class="btn-secondary" style="background:#f59e0b; color: white;" @onclick="ConfirmArchive" disabled="@IsProcessing">
                     @if (IsProcessing)
                     {
                         <span class="loading-spinner-small"></span>
@@ -357,7 +361,8 @@
             IsProcessing = true;
             StateHasChanged();
 
-            Users = await Context.SystemUsers.AsNoTracking().OrderBy(u => u.Username).ToListAsync();
+            // Try to load users - fall back to raw SQL if EF fails due to missing columns
+            Users = await LoadUsersAsync();
             Employees = await Context.Employees.AsNoTracking().OrderBy(e => e.LastName).ToListAsync();
             await LoadAvailableEmployeesAsync();
             
@@ -365,7 +370,7 @@
         }
         catch (Exception ex)
         {
-            HandleError("Failed to load user data. Please refresh the page.", ex);
+            HandleError($"Failed to load user data: {ex.Message}", ex);
         }
         finally
         {
@@ -374,27 +379,116 @@
         }
     }
 
+    /// <summary>
+    /// Loads users with fallback to raw SQL if EF query fails (e.g., missing IsAvailable column)
+    /// </summary>
+    private async Task<List<SystemUser>> LoadUsersAsync()
+    {
+        try
+        {
+            // Try EF Core first
+            return await Context.SystemUsers.AsNoTracking().OrderBy(u => u.Username).ToListAsync();
+        }
+        catch (Exception efEx)
+        {
+            Console.WriteLine($"EF query failed for SystemUsers: {efEx.Message}. Falling back to raw SQL.");
+            return await LoadUsersRawAsync();
+        }
+    }
+
+    /// <summary>
+    /// Fallback method to load users using raw SQL (avoids missing column issues)
+    /// </summary>
+    private async Task<List<SystemUser>> LoadUsersRawAsync()
+    {
+        var users = new List<SystemUser>();
+        try
+        {
+            var conn = Context.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+                await conn.OpenAsync();
+
+            // Check which columns exist
+            using var checkCmd = conn.CreateCommand();
+            checkCmd.CommandText = @"
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'SystemUser'";
+            
+            var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var reader = await checkCmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    existingColumns.Add(reader.GetString(0));
+                }
+            }
+
+            // Build SELECT with only existing columns
+            var selectColumns = new List<string> { "UserID", "Username", "Password", "Role", "Status" };
+            if (existingColumns.Contains("EmployeeID")) selectColumns.Add("EmployeeID");
+            if (existingColumns.Contains("CreatedAt")) selectColumns.Add("CreatedAt");
+            if (existingColumns.Contains("UpdatedAt")) selectColumns.Add("UpdatedAt");
+            if (existingColumns.Contains("IsAvailable")) selectColumns.Add("IsAvailable");
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT {string.Join(", ", selectColumns)} FROM SystemUser ORDER BY Username";
+
+            using var dataReader = await cmd.ExecuteReaderAsync();
+            while (await dataReader.ReadAsync())
+            {
+                var user = new SystemUser
+                {
+                    UserID = dataReader.GetInt32(dataReader.GetOrdinal("UserID")),
+                    Username = dataReader.GetString(dataReader.GetOrdinal("Username")),
+                    Password = dataReader.GetString(dataReader.GetOrdinal("Password")),
+                    Role = dataReader.GetString(dataReader.GetOrdinal("Role")),
+                    Status = dataReader.GetString(dataReader.GetOrdinal("Status")),
+                    IsAvailable = true // Default value
+                };
+
+                if (existingColumns.Contains("EmployeeID") && !dataReader.IsDBNull(dataReader.GetOrdinal("EmployeeID")))
+                    user.EmployeeID = dataReader.GetInt32(dataReader.GetOrdinal("EmployeeID"));
+
+                if (existingColumns.Contains("CreatedAt") && !dataReader.IsDBNull(dataReader.GetOrdinal("CreatedAt")))
+                    user.CreatedAt = dataReader.GetDateTime(dataReader.GetOrdinal("CreatedAt"));
+
+                if (existingColumns.Contains("UpdatedAt") && !dataReader.IsDBNull(dataReader.GetOrdinal("UpdatedAt")))
+                    user.UpdatedAt = dataReader.GetDateTime(dataReader.GetOrdinal("UpdatedAt"));
+
+                if (existingColumns.Contains("IsAvailable") && !dataReader.IsDBNull(dataReader.GetOrdinal("IsAvailable")))
+                    user.IsAvailable = dataReader.GetBoolean(dataReader.GetOrdinal("IsAvailable"));
+
+                users.Add(user);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Raw SQL query also failed: {ex.Message}");
+            throw;
+        }
+        return users;
+    }
+
     private async Task LoadAvailableEmployeesAsync()
     {
         try
         {
-            AvailableEmployees = await Context.Employees
-                .AsNoTracking()
-                .Where(e => e.Status == "Active")
-                .Where(e => !Context.SystemUsers.Any(s => s.EmployeeID == e.EmployeeID && s.Status == "Active"))
+            // Use in-memory filtering to avoid complex EF queries that might fail
+            var activeEmployeeIds = Users
+                .Where(u => u.Status == "Active" && u.EmployeeID != null)
+                .Select(u => u.EmployeeID)
+                .ToHashSet();
+
+            AvailableEmployees = Employees
+                .Where(emp => emp.Status == "Active" && !activeEmployeeIds.Contains(emp.EmployeeID))
                 .OrderBy(e => e.LastName)
-                .ToListAsync();
+                .ToList();
         }
         catch (Exception ex)
         {
-            // Fallback to in-memory filtering if database query fails
-            AvailableEmployees = Employees
-                .Where(emp => emp.Status == "Active" && 
-                             !Users.Any(u => u.EmployeeID == emp.EmployeeID && u.Status == "Active"))
-                .OrderBy(e => e.LastName)
-                .ToList();
-            
-            LogWarning("Using fallback method for available employees loading", ex);
+            LogWarning("Error loading available employees", ex);
+            AvailableEmployees = new List<Employee>();
         }
     }
 
@@ -402,13 +496,10 @@
     {
         try
         {
-            // Debounce UI updates to avoid excessive renders while typing.
-            // SearchText is already updated by @bind, so we only need to delay StateHasChanged.
             SearchTimer?.Dispose();
             SearchTimer = new System.Threading.Timer(async _ =>
             {
                 await InvokeAsync(() => StateHasChanged());
-                // dispose timer after firing once
                 SearchTimer?.Dispose();
             }, null, SearchDelay, System.Threading.Timeout.Infinite);
         }
@@ -428,7 +519,6 @@
             }
             else if (e.Key == "Enter")
             {
-                // Force immediate search on Enter: cancel debounce and render immediately
                 SearchTimer?.Dispose();
                 SearchTimer = null;
                 StateHasChanged();
@@ -455,32 +545,6 @@
         }
     }
 
-    private void OnFilterChanged(ChangeEventArgs e)
-    {
-        try
-        {
-            FilterRole = e.Value?.ToString() ?? "All";
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            HandleError("Error changing filter", ex);
-        }
-    }
-
-    private void OnSortChanged(ChangeEventArgs e)
-    {
-        try
-        {
-            SortBy = e.Value?.ToString() ?? "Username";
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            HandleError("Error changing sort", ex);
-        }
-    }
-
     private void ClearFilters()
     {
         try
@@ -504,31 +568,28 @@
             {
                 var query = Users.Where(u => u.Status == "Active");
 
-                // Apply search filter
                 if (!string.IsNullOrEmpty(SearchText))
                 {
                     var searchTerm = SearchText.Trim().ToLower();
                     query = query.Where(u => 
-                        u.Username.ToLower().Contains(searchTerm) ||
-                        u.Role.ToLower().Contains(searchTerm) ||
-                        (u.EmployeeID != null && u.EmployeeID.ToString().ToLower().Contains(searchTerm)) ||
-                        (u.UserID.ToString().ToLower().Contains(searchTerm))
+                        (u.Username?.ToLower().Contains(searchTerm) ?? false) ||
+                        (u.Role?.ToLower().Contains(searchTerm) ?? false) ||
+                        (u.EmployeeID != null && u.EmployeeID.ToString()!.ToLower().Contains(searchTerm)) ||
+                        u.UserID.ToString().ToLower().Contains(searchTerm)
                     );
                 }
 
-                // Apply role filter
                 if (FilterRole != "All")
                 {
                     query = query.Where(u => u.Role == FilterRole);
                 }
 
-                // Apply sorting
                 query = SortBy switch
                 {
                     "Role" => query.OrderBy(u => u.Role).ThenBy(u => u.Username),
                     "EmployeeID" => query.OrderBy(u => u.EmployeeID),
                     "UserID" => query.OrderBy(u => u.UserID),
-                    _ => query.OrderBy(u => u.Username) // Default sort by Username
+                    _ => query.OrderBy(u => u.Username)
                 };
 
                 return query.ToList();
@@ -557,20 +618,7 @@
         }
     }
     
-    private int ArchivedUsersCount 
-    {
-        get
-        {
-            try
-            {
-                return ArchivedUsers.Count;
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-    }
+    private int ArchivedUsersCount => ArchivedUsers.Count;
 
     private string GetInitials(string username)
     {
@@ -588,9 +636,6 @@
         }
     }
 
-    // The rest of the methods (SelectAndEdit, OpenCreateModal, CloseModals, SaveUser, etc.)
-    // remain the same as in the previous version with error handling
-
     private void SelectAndEdit(SystemUser user)
     {
         try
@@ -601,7 +646,7 @@
                 UserID = user.UserID,
                 EmployeeID = user.EmployeeID,
                 Username = user.Username,
-                Password = "", // Don't pre-fill password for security
+                Password = "",
                 Role = user.Role,
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt,
@@ -620,7 +665,7 @@
     {
         try
         {
-            CurrentUser = new SystemUser { Status = "Active", CreatedAt = DateTime.Now };
+            CurrentUser = new SystemUser { Status = "Active", CreatedAt = DateTime.Now, Role = "FrontDesk" };
             await LoadAvailableEmployeesAsync();
             ShowCreateModal = true;
             ShowEditModal = false;
@@ -633,16 +678,9 @@
 
     private void CloseModals()
     {
-        try
-        {
-            ShowCreateModal = false;
-            ShowEditModal = false;
-            ClearError();
-        }
-        catch (Exception ex)
-        {
-            HandleError("Error closing modal", ex);
-        }
+        ShowCreateModal = false;
+        ShowEditModal = false;
+        ClearError();
     }
 
     private async Task SaveUser()
@@ -652,7 +690,6 @@
             IsProcessing = true;
             StateHasChanged();
 
-            // Validation
             var validationError = ValidateUser(CurrentUser, ShowCreateModal);
             if (!string.IsNullOrEmpty(validationError))
             {
@@ -660,7 +697,6 @@
                 return;
             }
 
-            // Check for duplicates
             var duplicateError = await CheckForDuplicates(CurrentUser);
             if (!string.IsNullOrEmpty(duplicateError))
             {
@@ -670,22 +706,18 @@
 
             if (ShowCreateModal)
             {
-                await CreateUser();
+                await CreateUserAsync();
             }
             else if (ShowEditModal)
             {
-                await UpdateUser();
+                await UpdateUserAsync();
             }
 
             CloseModals();
         }
-        catch (DbUpdateException dbEx)
-        {
-            HandleError("Database error while saving user. Please try again.", dbEx);
-        }
         catch (Exception ex)
         {
-            HandleError("Unexpected error while saving user", ex);
+            HandleError($"Error saving user: {ex.Message}", ex);
         }
         finally
         {
@@ -718,15 +750,17 @@
     {
         try
         {
-            var usernameTaken = await Context.SystemUsers
-                .AsNoTracking()
-                .AnyAsync(u => u.Username == user.Username && u.UserID != user.UserID);
+            // Check in memory to avoid EF query issues
+            var usernameTaken = Users.Any(u => 
+                u.Username.Equals(user.Username, StringComparison.OrdinalIgnoreCase) && 
+                u.UserID != user.UserID);
             if (usernameTaken)
                 return "Username already exists. Choose a different username.";
 
-            var employeeAssigned = await Context.SystemUsers
-                .AsNoTracking()
-                .AnyAsync(u => u.EmployeeID == user.EmployeeID && u.UserID != user.UserID && u.Status == "Active");
+            var employeeAssigned = Users.Any(u => 
+                u.EmployeeID == user.EmployeeID && 
+                u.UserID != user.UserID && 
+                u.Status == "Active");
             if (employeeAssigned)
                 return "Selected employee already has an active user account.";
 
@@ -735,60 +769,155 @@
         catch (Exception ex)
         {
             LogWarning("Error checking for duplicates", ex);
-            // Allow proceeding if duplicate check fails, but log the issue
             return string.Empty;
         }
     }
 
-    private async Task CreateUser()
+    private async Task CreateUserAsync()
     {
         try
         {
-            CurrentUser.CreatedAt = DateTime.Now;
-            CurrentUser.Status = "Active";
-            Context.SystemUsers.Add(CurrentUser);
-            await Context.SaveChangesAsync();
+            // Use raw SQL to insert to avoid column issues
+            var conn = Context.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+                await conn.OpenAsync();
 
+            // Check if IsAvailable column exists
+            using var checkCmd = conn.CreateCommand();
+            checkCmd.CommandText = @"
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'SystemUser' AND COLUMN_NAME = 'IsAvailable'";
+            var hasIsAvailable = await checkCmd.ExecuteScalarAsync() != null;
+
+            using var cmd = conn.CreateCommand();
+            if (hasIsAvailable)
+            {
+                cmd.CommandText = @"
+                    INSERT INTO SystemUser (EmployeeID, Username, Password, Role, CreatedAt, Status, IsAvailable)
+                    VALUES (@EmployeeID, @Username, @Password, @Role, @CreatedAt, @Status, @IsAvailable)";
+            }
+            else
+            {
+                cmd.CommandText = @"
+                    INSERT INTO SystemUser (EmployeeID, Username, Password, Role, CreatedAt, Status)
+                    VALUES (@EmployeeID, @Username, @Password, @Role, @CreatedAt, @Status)";
+            }
+
+            var empParam = cmd.CreateParameter();
+            empParam.ParameterName = "@EmployeeID";
+            empParam.Value = CurrentUser.EmployeeID ?? (object)DBNull.Value;
+            cmd.Parameters.Add(empParam);
+
+            var userParam = cmd.CreateParameter();
+            userParam.ParameterName = "@Username";
+            userParam.Value = CurrentUser.Username;
+            cmd.Parameters.Add(userParam);
+
+            var passParam = cmd.CreateParameter();
+            passParam.ParameterName = "@Password";
+            passParam.Value = CurrentUser.Password;
+            cmd.Parameters.Add(passParam);
+
+            var roleParam = cmd.CreateParameter();
+            roleParam.ParameterName = "@Role";
+            roleParam.Value = CurrentUser.Role;
+            cmd.Parameters.Add(roleParam);
+
+            var createdParam = cmd.CreateParameter();
+            createdParam.ParameterName = "@CreatedAt";
+            createdParam.Value = DateTime.Now;
+            cmd.Parameters.Add(createdParam);
+
+            var statusParam = cmd.CreateParameter();
+            statusParam.ParameterName = "@Status";
+            statusParam.Value = "Active";
+            cmd.Parameters.Add(statusParam);
+
+            if (hasIsAvailable)
+            {
+                var availParam = cmd.CreateParameter();
+                availParam.ParameterName = "@IsAvailable";
+                availParam.Value = true;
+                cmd.Parameters.Add(availParam);
+            }
+
+            await cmd.ExecuteNonQueryAsync();
             await LoadData();
-            await ShowAlert("User created successfully");
+            await ShowAlert("User created successfully!");
         }
         catch (Exception ex)
         {
-            throw new Exception("Failed to create user", ex);
+            throw new Exception($"Failed to create user: {ex.Message}", ex);
         }
     }
 
-    private async Task UpdateUser()
+    private async Task UpdateUserAsync()
     {
         try
         {
-            var existing = await Context.SystemUsers.FindAsync(CurrentUser.UserID);
-            if (existing == null)
-            {
-                await ShowAlert("User not found. It may have been deleted.");
-                return;
-            }
+            var conn = Context.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+                await conn.OpenAsync();
 
-            existing.EmployeeID = CurrentUser.EmployeeID;
-            existing.Username = CurrentUser.Username;
+            using var cmd = conn.CreateCommand();
+            
+            // Build UPDATE dynamically - don't update password if blank
+            var setClauses = new List<string>
+            {
+                "EmployeeID = @EmployeeID",
+                "Username = @Username",
+                "Role = @Role",
+                "UpdatedAt = @UpdatedAt"
+            };
 
             if (!string.IsNullOrWhiteSpace(CurrentUser.Password))
             {
-                existing.Password = CurrentUser.Password;
+                setClauses.Add("Password = @Password");
             }
 
-            existing.Role = CurrentUser.Role;
-            existing.UpdatedAt = DateTime.Now;
+            cmd.CommandText = $"UPDATE SystemUser SET {string.Join(", ", setClauses)} WHERE UserID = @UserID";
 
-            Context.SystemUsers.Update(existing);
-            await Context.SaveChangesAsync();
+            var userIdParam = cmd.CreateParameter();
+            userIdParam.ParameterName = "@UserID";
+            userIdParam.Value = CurrentUser.UserID;
+            cmd.Parameters.Add(userIdParam);
 
+            var empParam = cmd.CreateParameter();
+            empParam.ParameterName = "@EmployeeID";
+            empParam.Value = CurrentUser.EmployeeID ?? (object)DBNull.Value;
+            cmd.Parameters.Add(empParam);
+
+            var userParam = cmd.CreateParameter();
+            userParam.ParameterName = "@Username";
+            userParam.Value = CurrentUser.Username;
+            cmd.Parameters.Add(userParam);
+
+            var roleParam = cmd.CreateParameter();
+            roleParam.ParameterName = "@Role";
+            roleParam.Value = CurrentUser.Role;
+            cmd.Parameters.Add(roleParam);
+
+            var updatedParam = cmd.CreateParameter();
+            updatedParam.ParameterName = "@UpdatedAt";
+            updatedParam.Value = DateTime.Now;
+            cmd.Parameters.Add(updatedParam);
+
+            if (!string.IsNullOrWhiteSpace(CurrentUser.Password))
+            {
+                var passParam = cmd.CreateParameter();
+                passParam.ParameterName = "@Password";
+                passParam.Value = CurrentUser.Password;
+                cmd.Parameters.Add(passParam);
+            }
+
+            await cmd.ExecuteNonQueryAsync();
             await LoadData();
-            await ShowAlert("User updated successfully");
+            await ShowAlert("User updated successfully!");
         }
         catch (Exception ex)
         {
-            throw new Exception("Failed to update user", ex);
+            throw new Exception($"Failed to update user: {ex.Message}", ex);
         }
     }
 
@@ -798,28 +927,14 @@
 
     private void PromptArchive(SystemUser user)
     {
-        try
-        {
-            ArchiveTarget = user;
-            ShowArchiveConfirm = true;
-        }
-        catch (Exception ex)
-        {
-            HandleError("Error preparing archive confirmation", ex);
-        }
+        ArchiveTarget = user;
+        ShowArchiveConfirm = true;
     }
 
     private void CancelArchive()
     {
-        try
-        {
-            ShowArchiveConfirm = false;
-            ArchiveTarget = null;
-        }
-        catch (Exception ex)
-        {
-            HandleError("Error canceling archive", ex);
-        }
+        ShowArchiveConfirm = false;
+        ArchiveTarget = null;
     }
 
     private async Task ConfirmArchive()
@@ -831,26 +946,31 @@
 
             if (ArchiveTarget != null)
             {
-                var user = await Context.SystemUsers.FindAsync(ArchiveTarget.UserID);
-                if (user != null)
-                {
-                    user.Status = "Archived";
-                    user.UpdatedAt = DateTime.Now;
-                    Context.SystemUsers.Update(user);
-                    await Context.SaveChangesAsync();
+                var conn = Context.Database.GetDbConnection();
+                if (conn.State != ConnectionState.Open)
+                    await conn.OpenAsync();
 
-                    await LoadData();
-                    await ShowAlert("User archived successfully");
-                }
-                else
-                {
-                    await ShowAlert("User not found. It may have been already deleted.");
-                }
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "UPDATE SystemUser SET Status = 'Archived', UpdatedAt = @UpdatedAt WHERE UserID = @UserID";
+                
+                var userIdParam = cmd.CreateParameter();
+                userIdParam.ParameterName = "@UserID";
+                userIdParam.Value = ArchiveTarget.UserID;
+                cmd.Parameters.Add(userIdParam);
+
+                var updatedParam = cmd.CreateParameter();
+                updatedParam.ParameterName = "@UpdatedAt";
+                updatedParam.Value = DateTime.Now;
+                cmd.Parameters.Add(updatedParam);
+
+                await cmd.ExecuteNonQueryAsync();
+                await LoadData();
+                await ShowAlert("User archived successfully!");
             }
         }
         catch (Exception ex)
         {
-            HandleError("Error archiving user", ex);
+            HandleError($"Error archiving user: {ex.Message}", ex);
         }
         finally
         {
@@ -863,26 +983,12 @@
 
     private void OpenArchivedModal()
     {
-        try
-        {
-            ShowArchivedModal = true;
-        }
-        catch (Exception ex)
-        {
-            HandleError("Error opening archived users modal", ex);
-        }
+        ShowArchivedModal = true;
     }
 
     private void CloseArchivedModal()
     {
-        try
-        {
-            ShowArchivedModal = false;
-        }
-        catch (Exception ex)
-        {
-            HandleError("Error closing archived users modal", ex);
-        }
+        ShowArchivedModal = false;
     }
 
     private async Task RestoreUser(SystemUser user)
@@ -892,35 +998,38 @@
             IsProcessing = true;
             StateHasChanged();
 
-            var existingUser = await Context.SystemUsers.FindAsync(user.UserID);
-            if (existingUser != null)
+            // Check if employee is still available
+            var employee = Employees.FirstOrDefault(e => e.EmployeeID == user.EmployeeID);
+            if (employee == null || employee.Status != "Active")
             {
-                // Check if employee is still available
-                var employeeAvailable = await Context.Employees
-                    .AnyAsync(e => e.EmployeeID == existingUser.EmployeeID && e.Status == "Active");
-                    
-                if (!employeeAvailable)
-                {
-                    await ShowAlert("Cannot restore user: Associated employee is no longer active.");
-                    return;
-                }
-
-                existingUser.Status = "Active";
-                existingUser.UpdatedAt = DateTime.Now;
-                Context.SystemUsers.Update(existingUser);
-                await Context.SaveChangesAsync();
-
-                await LoadData();
-                await ShowAlert("User restored successfully");
+                await ShowAlert("Cannot restore user: Associated employee is no longer active.");
+                return;
             }
-            else
-            {
-                await ShowAlert("User not found. It may have been permanently deleted.");
-            }
+
+            var conn = Context.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+                await conn.OpenAsync();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE SystemUser SET Status = 'Active', UpdatedAt = @UpdatedAt WHERE UserID = @UserID";
+            
+            var userIdParam = cmd.CreateParameter();
+            userIdParam.ParameterName = "@UserID";
+            userIdParam.Value = user.UserID;
+            cmd.Parameters.Add(userIdParam);
+
+            var updatedParam = cmd.CreateParameter();
+            updatedParam.ParameterName = "@UpdatedAt";
+            updatedParam.Value = DateTime.Now;
+            cmd.Parameters.Add(updatedParam);
+
+            await cmd.ExecuteNonQueryAsync();
+            await LoadData();
+            await ShowAlert("User restored successfully!");
         }
         catch (Exception ex)
         {
-            HandleError("Error restoring user", ex);
+            HandleError($"Error restoring user: {ex.Message}", ex);
         }
         finally
         {
@@ -929,28 +1038,23 @@
         }
     }
 
-    // Error handling methods
-    private void HandleError(string userMessage, Exception ex = null)
+    private void HandleError(string userMessage, Exception? ex = null)
     {
         ErrorMessage = userMessage;
-        
-        // Log the detailed error for debugging
         if (ex != null)
         {
             Console.WriteLine($"User Management Error: {ex.Message}");
             Console.WriteLine($"Stack Trace: {ex.StackTrace}");
         }
-        
         StateHasChanged();
     }
 
     private void ClearError()
     {
         ErrorMessage = string.Empty;
-        StateHasChanged();
     }
 
-    private void LogWarning(string message, Exception ex = null)
+    private void LogWarning(string message, Exception? ex = null)
     {
         Console.WriteLine($"User Management Warning: {message}");
         if (ex != null)
@@ -965,10 +1069,10 @@
         {
             await JSRuntime.InvokeVoidAsync("alert", message);
         }
-        catch (Exception ex)
+        catch
         {
-            // If JS interop fails, show the message in the error banner
-            HandleError(message, ex);
+            ErrorMessage = message;
+            StateHasChanged();
         }
     }
 
@@ -979,26 +1083,42 @@
 }
 
 <style>
+    /* ... existing styles ... */
+    .page-wrapper {
+        padding: 20px;
+        background: #f8fafc;
+        min-height: 100vh;
+    }
+
+    .page-topbar {
+        margin-bottom: 24px;
+    }
+
+    .page-topbar h1 {
+        margin: 0;
+        color: #0f766e;
+        font-size: 1.8rem;
+    }
+
+    .page-topbar-subtitle {
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+
     .error-banner {
         background: #fef2f2;
         border: 1px solid #fecaca;
         color: #dc2626;
         padding: 12px 16px;
         border-radius: 6px;
-        margin: 16px;
+        margin: 0 0 16px 0;
         display: flex;
         align-items: center;
         gap: 8px;
     }
 
-    .error-icon {
-        font-size: 1.2em;
-    }
-
-    .error-message {
-        flex: 1;
-    }
-
+    .error-icon { font-size: 1.2em; }
+    .error-message { flex: 1; }
     .error-close {
         background: none;
         border: none;
@@ -1008,18 +1128,12 @@
         padding: 0;
         width: 24px;
         height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
     }
 
     .loading-overlay {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(255, 255, 255, 0.8);
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1031,7 +1145,7 @@
         width: 40px;
         height: 40px;
         border: 4px solid #e2e8f0;
-        border-top: 4px solid #3b82f6;
+        border-top: 4px solid #0f766e;
         border-radius: 50%;
         animation: spin 1s linear infinite;
         margin-bottom: 16px;
@@ -1040,7 +1154,7 @@
     .loading-spinner-small {
         width: 16px;
         height: 16px;
-        border: 2px solid #e2e8f0;
+        border: 2px solid rgba(255,255,255,0.3);
         border-top: 2px solid #ffffff;
         border-radius: 50%;
         animation: spin 1s linear infinite;
@@ -1048,10 +1162,40 @@
         margin-right: 8px;
     }
 
+    .user-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .toolbar-left {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
     .toolbar-search {
         position: relative;
         display: flex;
         align-items: center;
+    }
+
+    .toolbar-search input {
+        padding: 10px 40px 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        width: 320px;
+        font-size: 0.9rem;
+    }
+
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        color: #64748b;
     }
 
     .clear-search {
@@ -1066,14 +1210,48 @@
         border-radius: 50%;
         width: 24px;
         height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
     }
 
-    .clear-search:hover {
-        background: #f1f5f9;
+    .filter-select {
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        background: white;
+    }
+
+    .btn-create {
+        background: #0f766e;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .btn-create:hover:not(:disabled) {
+        background: #0d9488;
+    }
+
+    .btn-secondary {
+        background: white;
         color: #475569;
+        border: 1px solid #e5e7eb;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: #0f766e;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
     }
 
     .search-results-info {
@@ -1081,7 +1259,7 @@
         border: 1px solid #e2e8f0;
         border-radius: 6px;
         padding: 12px 16px;
-        margin: 16px 0;
+        margin-bottom: 16px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -1092,40 +1270,267 @@
     .btn-link {
         background: none;
         border: none;
-        color: #3b82f6;
+        color: #0f766e;
         cursor: pointer;
         text-decoration: underline;
         font-size: 0.9em;
-        padding: 4px 8px;
     }
 
-    .btn-link:hover {
+    .user-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 20px;
+    }
+
+    .user-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        transition: all 0.2s ease;
+    }
+
+    .user-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
+    }
+
+    .user-card.selected-card {
+        border-color: #0f766e;
+        box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
+    }
+
+    .user-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .user-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0f766e, #06b6d4);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .user-info {
+        flex: 1;
+    }
+
+    .username {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #1e293b;
+    }
+
+    .user-id {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+
+    .badge-active {
+        background: #d1fae5;
+        color: #065f46;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-inactive {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .user-details {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.9rem;
+    }
+
+    .detail-label {
+        color: #64748b;
+    }
+
+    .detail-value {
+        color: #1e293b;
+        font-weight: 500;
+    }
+
+    .user-role {
+        font-weight: 600;
+    }
+
+    .user-role.administrator { color: #dc2626; }
+    .user-role.manager { color: #ea580c; }
+    .user-role.frontdesk { color: #16a34a; }
+    .user-role.housekeeping { color: #9333ea; }
+    .user-role.inventory { color: #0ea5e9; }
+    .user-role.hr { color: #f59e0b; }
+
+    .user-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .btn-icon-action {
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .btn-icon-action svg {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+    }
+
+    .btn-icon-action.edit {
+        background: #dbeafe;
         color: #2563eb;
     }
 
-    .user-role.administrator {
-        color: #dc2626;
-        font-weight: 600;
+    .btn-icon-action.edit:hover:not(:disabled) {
+        background: #bfdbfe;
     }
 
-    .user-role.manager {
-        color: #ea580c;
-        font-weight: 600;
+    .btn-icon-action.archive {
+        background: #fef3c7;
+        color: #d97706;
     }
 
-    .user-role.frontdesk {
-        color: #16a34a;
-        font-weight: 600;
+    .btn-icon-action.archive:hover:not(:disabled) {
+        background: #fde68a;
     }
 
-    .user-role.housekeeping {
-        color: #9333ea;
-        font-weight: 600;
+    .no-users-message {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
     }
 
-    @@keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    .no-users-icon {
+        font-size: 4rem;
+        margin-bottom: 16px;
+    }
+
+    .no-users-message h3 {
+        color: #1e293b;
+        margin: 0 0 8px 0;
+    }
+
+    .no-users-message p {
+        color: #64748b;
+        margin: 0 0 20px 0;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header-teal {
+        background: linear-gradient(135deg, #0f766e, #064e3b);
+        color: white;
+        padding: 20px 24px;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .form-grid {
+        padding: 24px;
+        display: grid;
+        gap: 16px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.9rem;
+    }
+
+    .form-input, .form-select {
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.95rem;
+    }
+
+    .action-footer {
+        padding: 16px 24px;
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .user-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .user-table th, .user-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .user-table th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: #475569;
     }
 
     button:disabled {
@@ -1133,9 +1538,27 @@
         cursor: not-allowed;
     }
 
-    input:disabled, select:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        background-color: #f8fafc;
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @@media (max-width: 768px) {
+        .toolbar-search input {
+            width: 100%;
+        }
+        
+        .user-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .toolbar-left {
+            flex-direction: column;
+        }
+        
+        .user-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
