@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using HestiaLink.Models;
+using HestiaLink.Models.Views;
 using Microsoft.EntityFrameworkCore;
 
 namespace HestiaLink.Data;
@@ -67,9 +68,9 @@ public partial class HestiaLinkContext : DbContext
 
     public virtual DbSet<InventoryPurchase> InventoryPurchases { get; set; }
 
-    public virtual DbSet<EmployeePayrollSummaryView> EmployeePayrollSummaryView { get; set; }
+
     
-    public virtual DbSet<EmployeeFullDetailsView> EmployeeFullDetailsView { get; set; }
+
 
     public virtual DbSet<CleaningTask> Tasks { get; set; }
 
@@ -147,13 +148,9 @@ public partial class HestiaLinkContext : DbContext
         });
 
         // Map database views (keyless entities)
-        modelBuilder.Entity<EmployeePayrollSummaryView>()
-            .ToView("vw_EmployeePayrollSummary")
-            .HasNoKey();
 
-        modelBuilder.Entity<EmployeeFullDetailsView>()
-            .ToView("vw_EmployeeFullDetails")
-            .HasNoKey();
+
+
 
         // ============================================
         // Configure Inventory Relationships
@@ -161,25 +158,25 @@ public partial class HestiaLinkContext : DbContext
         modelBuilder.Entity<ServiceInventory>()
             .HasOne(si => si.Service)
             .WithMany()
-            .HasForeignKey(si => si.ServiceID)
+            .HasForeignKey(si => si.ServiceId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ServiceInventory>()
             .HasOne(si => si.InventoryItem)
             .WithMany()
-            .HasForeignKey(si => si.InventoryItemID)
+            .HasForeignKey(si => si.InventoryItemId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<InventoryConsumption>()
             .HasOne(ic => ic.ServiceTransaction)
             .WithMany()
-            .HasForeignKey(ic => ic.ServiceTransactionID)
+            .HasForeignKey(ic => ic.ServiceTransactionId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<InventoryConsumption>()
             .HasOne(ic => ic.InventoryItem)
             .WithMany()
-            .HasForeignKey(ic => ic.InventoryItemID)
+            .HasForeignKey(ic => ic.InventoryItemId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Attendance>(entity =>

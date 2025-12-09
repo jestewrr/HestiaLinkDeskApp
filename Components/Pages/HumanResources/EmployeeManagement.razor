@@ -10,7 +10,7 @@
         <span class="page-topbar-subtitle">Staff Directory</span>
     </header>
 
-    
+    <div class="page-content">
     <div class="user-toolbar">
         <div class="toolbar-left">
             <div class="toolbar-search">
@@ -25,7 +25,7 @@
         </div>
         <div>
             <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenArchivedModal"> View Archived (@ArchivedEmployeesCount)</button>
-            <button class="btn-create" @onclick="OpenModal">+ Create New Employee</button>
+            <button class="btn-create" @onclick="OpenModal">Create New Employee</button>
         </div>
     </div>
 
@@ -98,6 +98,7 @@
             </div>
         </div>
     }
+    </div>
 </div>
 
 @if (ShowModal)

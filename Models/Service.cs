@@ -1,42 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HestiaLink.Models;
-
-public partial class Service
+namespace HestiaLink.Models
 {
-    public int ServiceId { get; set; }
+    public partial class Service
+    {
+        [Key]
+        public int ServiceId { get; set; }
 
-    public string ServiceName { get; set; } = null!;
+        [Required]
+        [StringLength(100)]
+        public string ServiceName { get; set; } = string.Empty;
 
-<<<<<<< HEAD
-    public int? ServiceCategoryId { get; set; }
-=======
-        public int? ServiceCategoryID { get; set; }
->>>>>>> origin/master
+        public int? ServiceCategoryId { get; set; }
 
-    public decimal StandardPrice { get; set; }
+        [Column(TypeName = "decimal(10,2)")]
+        public decimal StandardPrice { get; set; }
 
-    public bool? IsActive { get; set; }
-
-<<<<<<< HEAD
-    public string? Status { get; set; }
-
-    public DateTime? CreatedAt { get; set; }
-
-    public DateTime? UpdatedAt { get; set; }
-
-    public bool? UsesInventory { get; set; }
-
-    public string? InventoryNotes { get; set; }
-
-    public virtual ServiceCategory? ServiceCategory { get; set; }
-
-    public virtual ICollection<ServiceInventory> ServiceInventories { get; set; } = new List<ServiceInventory>();
-
-    public virtual ICollection<ServiceTransaction> ServiceTransactions { get; set; } = new List<ServiceTransaction>();
-}
-=======
         public bool? IsActive { get; set; } = true;
 
         [StringLength(50)]
@@ -50,7 +32,15 @@ public partial class Service
         public string? InventoryNotes { get; set; }
 
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // Navigation Properties
+        [ForeignKey("ServiceCategoryId")]
+        public virtual ServiceCategory? ServiceCategory { get; set; }
+
+        public virtual ICollection<ServiceInventory> ServiceInventories { get; set; } = new List<ServiceInventory>();
+
+        public virtual ICollection<ServiceTransaction> ServiceTransactions { get; set; } = new List<ServiceTransaction>();
     }
 }
->>>>>>> origin/master

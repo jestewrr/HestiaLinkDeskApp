@@ -6,13 +6,13 @@ namespace HestiaLink.Models
     public class ServiceInventory
     {
         [Key]
-        public int ServiceInventoryID { get; set; }
+        public int ServiceInventoryId { get; set; }
 
         [Required]
-        public int ServiceID { get; set; }
+        public int ServiceId { get; set; }
 
         [Required]
-        public int InventoryItemID { get; set; }
+        public int InventoryItemId { get; set; }
 
         [Required]
         [Column(TypeName = "decimal(10,2)")]
@@ -21,10 +21,10 @@ namespace HestiaLink.Models
         public DateTime? CreatedDate { get; set; } = DateTime.Now;
 
         // Navigation Properties
-        [ForeignKey("ServiceID")]
+        [ForeignKey("ServiceId")]
         public Service? Service { get; set; }
 
-        [ForeignKey("InventoryItemID")]
+        [ForeignKey("InventoryItemId")]
         public InventoryItem? InventoryItem { get; set; }
     }
 }
