@@ -1,4 +1,11 @@
 ﻿@page "/inventory/purchase-orders"
+@using Microsoft.EntityFrameworkCore
+@using HestiaLink.Models
+@using HestiaLink.Data
+@using HestiaLink.Services
+@inject HestiaLinkContext DbContext
+@inject InventoryService InventoryService
+@inject IJSRuntime JSRuntime
 @layout MainLayout
 
 <div class="page-wrapper">
@@ -7,172 +14,1053 @@
         <span class="page-topbar-subtitle">Restocking & Logistics</span>
     </header>
 
-    <section class="page-content">
-
-    <div class="user-toolbar">
-        <div class="toolbar-left">
-            <div class="toolbar-search">
-                <input type="text" placeholder="Search PO #..." @bind="SearchText" />
-                <span class="search-icon"></span>
+    @* ===== SUMMARY CARDS ===== *@
+    @if (IsLoaded && !HasError)
+    {
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="summary-label">TOTAL ORDERS</div>
+                <div class="summary-value">@Purchases.Count</div>
             </div>
-            <select class="filter-select">
-                <option>All Status</option>
-                <option>Pending</option>
-                <option>In Stock</option>
-            </select>
-        </div>
-        <button class="btn-primary" style="max-width: 220px;" @onclick="OpenCreateModal">+ New Purchase Order</button>
-    </div>
 
-    <div class="panel-card">
-        <div class="panel-body user-list-container">
-            <table class="user-table">
-                <thead>
-                    <tr>
-                        <th>Purchase ID</th>
-                        <th>Date</th>
-                        <th>Supplier</th>
-                        <th>Expected Delivery</th>
-                        <th>Total Amount</th>
-                        <th>Status</th>
-                        <th>Created By</th>
-                        <th style="text-align:center;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var po in FilteredPOs)
+            <div class="summary-card">
+                <div class="summary-label">PENDING</div>
+                <div class="summary-value" style="color: #f59e0b;">@Purchases.Count(p => p.PurchaseStatus == "PENDING")</div>
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-label">RECEIVED</div>
+                <div class="summary-value" style="color: #10b981;">@Purchases.Count(p => p.PurchaseStatus == "RECEIVED")</div>
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-label">TOTAL VALUE</div>
+                <div class="summary-value">₱@Purchases.Where(p => p.PurchaseStatus == "RECEIVED").Sum(p => p.TotalAmount ?? 0).ToString("N0")</div>
+            </div>
+        </div>
+    }
+
+    <section class="page-content">
+        <div class="user-toolbar">
+            <div class="toolbar-left">
+                <div class="toolbar-search">
+                    <input type="text" placeholder="Search by PO #, Item, or Supplier..." @bind="SearchText" @oninput="OnSearchChanged" />
+                    <span class="search-icon"></span>
+                </div>
+                <select class="filter-select" @bind="FilterStatus">
+                    <option value="">All Status</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="RECEIVED">Received</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+            </div>
+            <div>
+                <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenLowStockModal">Low Stock Items (@LowStockCount)</button>
+                <button class="btn-create" @onclick="OpenCreateModal">+ New Purchase Order</button>
+            </div>
+        </div>
+
+        @if (!IsLoaded)
+        {
+            <div class="loading">Loading purchase orders...</div>
+        }
+        else if (HasError)
+        {
+            <div class="error-message">
+                <h4>⚠️ Database Error</h4>
+                <p>@ErrorMessage</p>
+                <button class="btn-primary" @onclick="LoadData">Retry</button>
+            </div>
+        }
+        else
+        {
+            <div class="panel-card">
+                <div class="panel-body user-list-container">
+                    @if (FilteredPurchases.Any())
                     {
-                        <tr>
-                            <td style="font-family:monospace; font-weight:700;">@po.Id</td>
-                            <td>@po.Date.ToString("MM/dd/yyyy")</td>
-                            <td style="font-weight:600;">@po.Supplier</td>
-                            <td>@po.ExpectedDelivery.ToString("MM/dd/yyyy")</td>
-                            <td style="font-weight:700;">?@po.TotalAmount.ToString("N2")</td>
-                            <td>
-                                @if (po.Status == "In Stock")
+                        <table class="user-table">
+                            <thead>
+                                <tr>
+                                    <th>Purchase #</th>
+                                    <th>Date</th>
+                                    <th>Item</th>
+                                    <th>Supplier</th>
+                                    <th>Qty</th>
+                                    <th>Unit Price</th>
+                                    <th>Total Amount</th>
+                                    <th>Status</th>
+                                    <th>Received</th>
+                                    <th style="text-align:center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var po in FilteredPurchases)
                                 {
-                                    <span class="status-badge status-confirmed">In Stock</span>
+                                    <tr>
+                                        <td style="font-family:monospace; font-weight:700;">@po.PurchaseNumber</td>
+                                        <td>@po.PurchaseDate?.ToString("MM/dd/yyyy")</td>
+                                        <td style="font-weight:600;">@(po.InventoryItem?.ItemName ?? "N/A")</td>
+                                        <td>@(po.Supplier?.SupplierName ?? "-")</td>
+                                        <td>@po.Quantity @(po.InventoryItem?.UnitOfMeasure ?? "")</td>
+                                        <td>₱@po.UnitPrice.ToString("N2")</td>
+                                        <td style="font-weight:700;">₱@((po.TotalAmount ?? 0).ToString("N2"))</td>
+                                        <td>
+                                            @if (po.PurchaseStatus == "RECEIVED")
+                                            {
+                                                <span class="status-badge status-received">Received</span>
+                                            }
+                                            else if (po.PurchaseStatus == "PENDING")
+                                            {
+                                                <span class="status-badge status-pending">Pending</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="status-badge status-cancelled">Cancelled</span>
+                                            }
+                                        </td>
+                                        <td>@(po.ReceivedDate?.ToString("MM/dd/yyyy") ?? "-")</td>
+                                        <td style="text-align:center;">
+                                            <div style="display:flex; justify-content:center; gap:8px; align-items:center;">
+                                                @if (po.PurchaseStatus == "PENDING")
+                                                {
+                                                    <button class="btn-icon-action receive" @onclick="() => ReceivePurchase(po)" title="Mark as Received">
+                                                        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                                    </button>
+                                                    <button class="btn-icon-action edit" @onclick="() => OpenEditModal(po)" title="Edit">
+                                                        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                                    </button>
+                                                    <button class="btn-icon-action cancel" @onclick="() => CancelPurchaseConfirm(po)" title="Cancel Order">
+                                                        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                                                    </button>
+                                                }
+                                                <button class="btn-icon-action view" @onclick="() => OpenViewModal(po)" title="View Details">
+                                                    <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 }
-                                else if (po.Status == "Pending")
-                                {
-
-                                    <span class="status-badge status-checked-in">Pending</span>
-                                }
-                                else
-                                {
-
-                                    <span class="status-badge status-cancelled">Cancelled</span>
-                                }
-                            </td>
-                            <td>@po.CreatedBy</td>
-                            <td style="text-align:center;">
-                                <button class="btn-icon-action edit" @onclick="() => OpenEditModal(po)" title="Edit">
-                                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                                </button>
-                            </td>
-                        </tr>
+                            </tbody>
+                        </table>
                     }
-                </tbody>
-            </table>
-        </div>
-    </div>
+                    else
+                    {
+                        <div class="no-data">No purchase orders found</div>
+                    }
+                </div>
+            </div>
+        }
     </section>
 </div>
 
+@* ===== CREATE/EDIT MODAL ===== *@
 @if (ShowModal)
 {
     <div class="modal-overlay">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Order" : "New Purchase Order")</h2>
+                <h2 style="margin:0; font-size:1.4rem;">@(IsEditMode ? "Edit Purchase Order" : "New Purchase Order")</h2>
             </div>
 
             <div class="form-grid">
-                <div class="form-group full-width">
-                    <label class="form-label">Purchase ID</label>
-                    <input type="text" class="form-input" @bind="CurrentPO.Id" disabled />
+                <div class="form-group">
+                    <label class="form-label">Purchase Number</label>
+                    <input type="text" class="form-input" @bind="CurrentPurchase.PurchaseNumber" disabled style="background:#f1f5f9;" />
                 </div>
+
+                <div class="form-group">
+                    <label class="form-label">Purchase Date</label>
+                    <input type="date" class="form-input" @bind="PurchaseDateInput" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Inventory Item *</label>
+                    <select class="form-select" @bind="CurrentPurchase.ItemID" @bind:after="OnItemSelected">
+                        <option value="0">Select Item</option>
+                        @foreach (var item in InventoryItems)
+                        {
+                            <option value="@item.ItemID">@item.ItemCode - @item.ItemName</option>
+                        }
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label class="form-label">Supplier</label>
-                    <select class="form-select" @bind="CurrentPO.Supplier">
-                        <option>Textile Supply Co</option>
-                        <option>F&B Wholesale</option>
+                    <select class="form-select" @bind="SelectedSupplierID">
+                        <option value="0">Select Supplier (Optional)</option>
+                        @foreach (var supplier in Suppliers)
+                        {
+                            <option value="@supplier.SupplierID">@supplier.SupplierCode - @supplier.SupplierName</option>
+                        }
                     </select>
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label">Created By</label>
-                    <input type="text" class="form-input" @bind="CurrentPO.CreatedBy" />
+                    <label class="form-label">Quantity *</label>
+                    <input type="number" class="form-input" @bind="CurrentPurchase.Quantity" min="1" @bind:after="CalculateTotal" />
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label">Date</label>
-                    <input type="date" class="form-input" @bind="CurrentPO.Date" />
+                    <label class="form-label">Unit Price (₱) *</label>
+                    <input type="number" step="0.01" class="form-input" @bind="CurrentPurchase.UnitPrice" @bind:after="CalculateTotal" />
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Exp. Delivery</label>
-                    <input type="date" class="form-input" @bind="CurrentPO.ExpectedDelivery" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Total Amount (?)</label>
-                    <input type="number" class="form-input" @bind="CurrentPO.TotalAmount" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Status</label>
-                    <select class="form-select" @bind="CurrentPO.Status">
-                        <option>Pending</option>
-                        <option>In Stock</option>
-                        <option>Cancelled</option>
-                    </select>
+
+                <div class="form-group full-width">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-input" rows="2" @bind="CurrentPurchase.Notes" placeholder="Additional notes..."></textarea>
                 </div>
             </div>
 
-            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
-                <button class="btn-primary" @onclick="SavePO">@(IsEditMode ? "Save Changes" : "Create Order")</button>
-                @if (IsEditMode)
-                {
-                    <button class="btn-secondary" style="background:#b91c1c;" @onclick="DeletePO">Delete</button>
-                }
+            <div class="total-preview">
+                <span>Total Amount:</span>
+                <span class="total-value">₱@((CurrentPurchase.Quantity * CurrentPurchase.UnitPrice).ToString("N2"))</span>
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
+                <button class="btn-primary" @onclick="SavePurchase">@(IsEditMode ? "Update Order" : "Create Order")</button>
                 <button class="btn-secondary" @onclick="CloseModal">Cancel</button>
             </div>
         </div>
     </div>
 }
 
+@* ===== VIEW DETAILS MODAL ===== *@
+@if (ShowViewModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">Purchase Order Details</h2>
+            </div>
+
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Purchase Number</span>
+                    <span class="detail-value" style="font-family:monospace; font-weight:700;">@ViewPurchase?.PurchaseNumber</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Status</span>
+                    <span class="detail-value">
+                        @if (ViewPurchase?.PurchaseStatus == "RECEIVED")
+                        {
+                            <span class="status-badge status-received">Received</span>
+                        }
+                        else if (ViewPurchase?.PurchaseStatus == "PENDING")
+                        {
+                            <span class="status-badge status-pending">Pending</span>
+                        }
+                        else
+                        {
+                            <span class="status-badge status-cancelled">Cancelled</span>
+                        }
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Item</span>
+                    <span class="detail-value" style="font-weight:700;">@ViewPurchase?.InventoryItem?.ItemName</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Item Code</span>
+                    <span class="detail-value" style="font-family:monospace;">@ViewPurchase?.InventoryItem?.ItemCode</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Supplier</span>
+                    <span class="detail-value">@(ViewPurchase?.Supplier?.SupplierName ?? "-")</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Quantity</span>
+                    <span class="detail-value">@ViewPurchase?.Quantity @ViewPurchase?.InventoryItem?.UnitOfMeasure</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Unit Price</span>
+                    <span class="detail-value">₱@ViewPurchase?.UnitPrice.ToString("N2")</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Total Amount</span>
+                    <span class="detail-value" style="font-weight:700; color:#0f766e; font-size:1.1rem;">₱@((ViewPurchase?.TotalAmount ?? 0).ToString("N2"))</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Purchase Date</span>
+                    <span class="detail-value">@ViewPurchase?.PurchaseDate?.ToString("MMMM dd, yyyy")</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Received Date</span>
+                    <span class="detail-value">@(ViewPurchase?.ReceivedDate?.ToString("MMMM dd, yyyy") ?? "-")</span>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(ViewPurchase?.Notes))
+                {
+                    <div class="detail-item full-width">
+                        <span class="detail-label">Notes</span>
+                        <span class="detail-value">@ViewPurchase.Notes</span>
+                    </div>
+                }
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:20px;">
+                @if (ViewPurchase?.PurchaseStatus == "PENDING")
+                {
+                    <button class="btn-primary" style="background:#10b981;" @onclick="() => { ShowViewModal = false; ReceivePurchase(ViewPurchase!); }">Mark Received</button>
+                }
+                <button class="btn-secondary" @onclick="CloseViewModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ===== LOW STOCK ITEMS MODAL ===== *@
+@if (ShowLowStockModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.4rem;">Low Stock Items - Quick Order</h2>
+                <div style="font-size: 0.9rem; color: #94a3b8;">Items at or below reorder point</div>
+            </div>
+
+            <div class="panel-body" style="max-height:60vh; overflow-y:auto;">
+                @if (LowStockItems.Any())
+                {
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Item Name</th>
+                                <th>Current Stock</th>
+                                <th>Reorder Point</th>
+                                <th>Supplier</th>
+                                <th style="text-align:center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in LowStockItems)
+                            {
+                                <tr>
+                                    <td style="font-family:monospace;">@item.ItemCode</td>
+                                    <td style="font-weight:700;">@item.ItemName</td>
+                                    <td><span class="stock-badge critical">@(item.CurrentStock ?? 0)</span></td>
+                                    <td>@(item.ReorderPoint ?? 0)</td>
+                                    <td>@(item.Supplier?.SupplierName ?? "-")</td>
+                                    <td style="text-align:center;">
+                                        <button class="btn-secondary" style="background:#0f766e;" @onclick="() => CreateQuickOrder(item)">Create PO</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data" style="padding:40px;">No low stock items! All items are adequately stocked.</div>
+                }
+            </div>
+
+            <div class="action-footer" style="border:none; padding-bottom:0; margin-top:10px;">
+                <button class="btn-secondary" @onclick="CloseLowStockModal">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ===== CONFIRM CANCEL MODAL ===== *@
+@if (ShowCancelConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.2rem;">Cancel Purchase Order</h2>
+            </div>
+            <div style="padding: 20px;">
+                <p>Are you sure you want to cancel purchase order <strong>@CancelTarget?.PurchaseNumber</strong>?</p>
+                <p style="color: #b91c1c; font-size: 0.9rem;">This action cannot be undone.</p>
+            </div>
+            <div class="action-footer" style="border:none; padding-bottom:0;">
+                <button type="button" class="btn-secondary" style="background:#b91c1c;" @onclick="ConfirmCancelPurchase">Cancel Order</button>
+                <button type="button" class="btn-secondary" @onclick="() => { ShowCancelConfirm = false; CancelTarget = null; }">Keep Order</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ===== CONFIRM RECEIVE MODAL ===== *@
+@if (ShowReceiveConfirm)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header-teal">
+                <h2 style="margin:0; font-size:1.2rem;">Confirm Receipt</h2>
+            </div>
+            <div style="padding: 20px;">
+                <p>Mark purchase order <strong>@ReceiveTarget?.PurchaseNumber</strong> as received?</p>
+                <div class="receive-preview">
+                    <div class="receive-item">
+                        <span>Item:</span>
+                        <span style="font-weight:700;">@ReceiveTarget?.InventoryItem?.ItemName</span>
+                    </div>
+                    <div class="receive-item">
+                        <span>Quantity:</span>
+                        <span style="font-weight:700;">@ReceiveTarget?.Quantity @ReceiveTarget?.InventoryItem?.UnitOfMeasure</span>
+                    </div>
+                    <div class="receive-item">
+                        <span>Current Stock:</span>
+                        <span>@(ReceiveTarget?.InventoryItem?.CurrentStock ?? 0)</span>
+                    </div>
+                    <div class="receive-item" style="background:#d1fae5; padding:8px; border-radius:8px; margin-top:8px;">
+                        <span>New Stock After Receipt:</span>
+                        <span style="font-weight:700; color:#065f46;">@((ReceiveTarget?.InventoryItem?.CurrentStock ?? 0) + (ReceiveTarget?.Quantity ?? 0))</span>
+                    </div>
+                </div>
+            </div>
+            <div class="action-footer" style="border:none; padding-bottom:0;">
+                <button type="button" class="btn-primary" style="background:#10b981;" @onclick="ConfirmReceivePurchase">Confirm Receipt</button>
+                <button type="button" class="btn-secondary" @onclick="() => { ShowReceiveConfirm = false; ReceiveTarget = null; }">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    private string SearchText { get; set; } = "";
+    // State
+    private string SearchText = "";
+    private string FilterStatus = "";
     private bool ShowModal = false;
+    private bool ShowViewModal = false;
+    private bool ShowLowStockModal = false;
+    private bool ShowCancelConfirm = false;
+    private bool ShowReceiveConfirm = false;
     private bool IsEditMode = false;
-    private PurchaseOrder CurrentPO = new();
+    private bool IsLoaded = false;
+    private bool HasError = false;
+    private string ErrorMessage = string.Empty;
 
-    private List<PurchaseOrder> POs = new()
+    // Data
+    private InventoryPurchase CurrentPurchase = new();
+    private InventoryPurchase? ViewPurchase;
+    private InventoryPurchase? CancelTarget;
+    private InventoryPurchase? ReceiveTarget;
+    private List<InventoryPurchase> Purchases = new();
+    private List<InventoryItem> InventoryItems = new();
+    private List<Supplier> Suppliers = new();
+    private List<InventoryItem> LowStockItems = new();
+
+    // Form helpers
+    private DateTime PurchaseDateInput = DateTime.Today;
+    private int SelectedSupplierID = 0;
+
+    private int LowStockCount => LowStockItems.Count;
+
+    protected override async Task OnInitializedAsync()
     {
-        new() { Id = "192617", Date = new DateOnly(2025, 10, 7), Supplier = "Textile Supply Co", ExpectedDelivery = new DateOnly(2025, 10, 10), TotalAmount = 308.28m, Status = "In Stock", CreatedBy = "Marie" },
-    };
+        await LoadData();
+    }
 
-    private List<PurchaseOrder> FilteredPOs => POs
-        .Where(p => string.IsNullOrEmpty(SearchText) || p.Id.Contains(SearchText) || p.Supplier.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
-        .ToList();
-
-    private void OpenCreateModal() { CurrentPO = new PurchaseOrder { Id = new Random().Next(100000, 999999).ToString(), Date = DateOnly.FromDateTime(DateTime.Now) }; IsEditMode = false; ShowModal = true; }
-
-    private void OpenEditModal(PurchaseOrder po)
+    private async Task LoadData()
     {
-        CurrentPO = new PurchaseOrder { Id = po.Id, Date = po.Date, Supplier = po.Supplier, ExpectedDelivery = po.ExpectedDelivery, TotalAmount = po.TotalAmount, Status = po.Status, CreatedBy = po.CreatedBy };
+        try
+        {
+            HasError = false;
+            ErrorMessage = string.Empty;
+
+            Purchases = await InventoryService.GetAllPurchasesAsync();
+            InventoryItems = await InventoryService.GetActiveItemsAsync();
+            Suppliers = await InventoryService.GetActiveSuppliersAsync();
+            LowStockItems = await InventoryService.GetItemsNeedingPurchaseAsync();
+
+            IsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = ex.Message;
+            IsLoaded = true;
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        SearchText = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private List<InventoryPurchase> FilteredPurchases
+    {
+        get
+        {
+            var items = Purchases.AsEnumerable();
+
+            // Search filter
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                var searchLower = SearchText.ToLowerInvariant();
+                items = items.Where(p =>
+                    p.PurchaseNumber.ToLowerInvariant().Contains(searchLower) ||
+                    (p.InventoryItem != null && p.InventoryItem.ItemName.ToLowerInvariant().Contains(searchLower)) ||
+                    (p.Supplier != null && p.Supplier.SupplierName.ToLowerInvariant().Contains(searchLower)));
+            }
+
+            // Status filter
+            if (!string.IsNullOrEmpty(FilterStatus))
+            {
+                items = items.Where(p => p.PurchaseStatus == FilterStatus);
+            }
+
+            return items.OrderByDescending(p => p.PurchaseDate).ToList();
+        }
+    }
+
+    // Modal handlers
+    private async Task OpenCreateModal()
+    {
+        var newNumber = await InventoryService.GeneratePurchaseNumberAsync();
+        CurrentPurchase = new InventoryPurchase
+        {
+            PurchaseNumber = newNumber,
+            PurchaseStatus = "PENDING",
+            Quantity = 1,
+            UnitPrice = 0
+        };
+        PurchaseDateInput = DateTime.Today;
+        SelectedSupplierID = 0;
+        IsEditMode = false;
+        ShowModal = true;
+    }
+
+    private void OpenEditModal(InventoryPurchase po)
+    {
+        CurrentPurchase = new InventoryPurchase
+        {
+            PurchaseID = po.PurchaseID,
+            PurchaseNumber = po.PurchaseNumber,
+            ItemID = po.ItemID,
+            SupplierID = po.SupplierID,
+            Quantity = po.Quantity,
+            UnitPrice = po.UnitPrice,
+            Notes = po.Notes,
+            PurchaseStatus = po.PurchaseStatus
+        };
+        PurchaseDateInput = po.PurchaseDate ?? DateTime.Today;
+        SelectedSupplierID = po.SupplierID ?? 0;
         IsEditMode = true;
         ShowModal = true;
     }
 
     private void CloseModal() => ShowModal = false;
-    private void SavePO() { if (!IsEditMode) POs.Add(CurrentPO); CloseModal(); }
-    private void DeletePO() { CloseModal(); }
 
-    public class PurchaseOrder
+    private void OpenViewModal(InventoryPurchase po)
     {
-        public string Id { get; set; } = "";
-        public DateOnly Date { get; set; }
-        public string Supplier { get; set; } = "";
-        public DateOnly ExpectedDelivery { get; set; }
-        public decimal TotalAmount { get; set; }
-        public string Status { get; set; } = "Pending";
-        public string CreatedBy { get; set; } = "";
+        ViewPurchase = po;
+        ShowViewModal = true;
+    }
+
+    private void CloseViewModal() => ShowViewModal = false;
+
+    private void OpenLowStockModal() => ShowLowStockModal = true;
+    private void CloseLowStockModal() => ShowLowStockModal = false;
+
+    private void OnItemSelected()
+    {
+        // Auto-populate supplier if item has one
+        var selectedItem = InventoryItems.FirstOrDefault(i => i.ItemID == CurrentPurchase.ItemID);
+        if (selectedItem?.SupplierID != null)
+        {
+            SelectedSupplierID = selectedItem.SupplierID.Value;
+        }
+
+        // Auto-populate unit price from item cost
+        if (selectedItem != null && CurrentPurchase.UnitPrice == 0)
+        {
+            CurrentPurchase.UnitPrice = selectedItem.UnitCost;
+        }
+    }
+
+    private void CalculateTotal()
+    {
+        CurrentPurchase.TotalAmount = CurrentPurchase.Quantity * CurrentPurchase.UnitPrice;
+    }
+
+    private async Task CreateQuickOrder(InventoryItem item)
+    {
+        CloseLowStockModal();
+
+        var newNumber = await InventoryService.GeneratePurchaseNumberAsync();
+        CurrentPurchase = new InventoryPurchase
+        {
+            PurchaseNumber = newNumber,
+            PurchaseStatus = "PENDING",
+            ItemID = item.ItemID,
+            Quantity = Math.Max(1, (item.ReorderPoint ?? 10) * 2 - (item.CurrentStock ?? 0)), // Order to double the reorder point
+            UnitPrice = item.UnitCost
+        };
+        PurchaseDateInput = DateTime.Today;
+        SelectedSupplierID = item.SupplierID ?? 0;
+        IsEditMode = false;
+        ShowModal = true;
+    }
+
+    // Save operations
+    private async Task SavePurchase()
+    {
+        try
+        {
+            // Validation
+            if (CurrentPurchase.ItemID == 0)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Please select an inventory item");
+                return;
+            }
+
+            if (CurrentPurchase.Quantity < 1)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Quantity must be at least 1");
+                return;
+            }
+
+            if (CurrentPurchase.UnitPrice <= 0)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Unit price must be greater than 0");
+                return;
+            }
+
+            CurrentPurchase.PurchaseDate = PurchaseDateInput;
+            CurrentPurchase.SupplierID = SelectedSupplierID > 0 ? SelectedSupplierID : null;
+
+            if (IsEditMode)
+            {
+                await InventoryService.UpdatePurchaseAsync(CurrentPurchase);
+            }
+            else
+            {
+                await InventoryService.CreatePurchaseAsync(CurrentPurchase);
+            }
+
+            await LoadData();
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert", IsEditMode ? "Purchase order updated" : "Purchase order created");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+
+    private void ReceivePurchase(InventoryPurchase po)
+    {
+        ReceiveTarget = po;
+        ShowReceiveConfirm = true;
+    }
+
+    private async Task ConfirmReceivePurchase()
+    {
+        try
+        {
+            if (ReceiveTarget == null) return;
+
+            var success = await InventoryService.ReceivePurchaseAsync(ReceiveTarget.PurchaseID);
+            if (success)
+            {
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Purchase order received! Stock has been updated.");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to receive purchase order");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            ShowReceiveConfirm = false;
+            ReceiveTarget = null;
+        }
+    }
+
+    private void CancelPurchaseConfirm(InventoryPurchase po)
+    {
+        CancelTarget = po;
+        ShowCancelConfirm = true;
+    }
+
+    private async Task ConfirmCancelPurchase()
+    {
+        try
+        {
+            if (CancelTarget == null) return;
+
+            var success = await InventoryService.CancelPurchaseAsync(CancelTarget.PurchaseID);
+            if (success)
+            {
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Purchase order cancelled");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to cancel purchase order");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            ShowCancelConfirm = false;
+            CancelTarget = null;
+        }
     }
 }
+
+<style>
+    /* Summary Cards */
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+        margin: 18px 0;
+    }
+
+    .summary-card {
+        background: #ffffff;
+        padding: 18px 22px;
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+        border-left: 6px solid #0f766e;
+    }
+
+    .summary-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        font-weight: 700;
+    }
+
+    .summary-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin-top: 6px;
+        color: #065f46;
+    }
+
+    /* Toolbar */
+    .user-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .toolbar-search input {
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid #e6e6e6;
+        width: 340px;
+    }
+
+    .filter-select {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #e6e6e6;
+    }
+
+    .btn-create {
+        background: #0d9488;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-secondary {
+        background: #475569;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: #0f766e;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    /* Panel */
+    .panel-card {
+        background: #ffffff;
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+
+    .panel-body {
+        padding: 16px;
+    }
+
+    /* Table */
+    .user-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .user-table th,
+    .user-table td {
+        padding: 14px 12px;
+        text-align: left;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .user-table th {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #6b7280;
+        text-transform: uppercase;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.8rem;
+    }
+
+    .status-received {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-pending {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .status-cancelled {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .stock-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+
+    .stock-badge.critical {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    /* Action Buttons */
+    .btn-icon-action {
+        background: #f1f5f9;
+        border: none;
+        padding: 8px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-icon-action svg {
+        width: 18px;
+        height: 18px;
+        fill: #64748b;
+    }
+
+    .btn-icon-action.receive:hover {
+        background: #10b981;
+    }
+
+    .btn-icon-action.receive:hover svg {
+        fill: white;
+    }
+
+    .btn-icon-action.edit:hover {
+        background: #0f766e;
+    }
+
+    .btn-icon-action.edit:hover svg {
+        fill: white;
+    }
+
+    .btn-icon-action.view:hover {
+        background: #2563eb;
+    }
+
+    .btn-icon-action.view:hover svg {
+        fill: white;
+    }
+
+    .btn-icon-action.cancel:hover {
+        background: #b91c1c;
+    }
+
+    .btn-icon-action.cancel:hover svg {
+        fill: white;
+    }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 8px 24px rgba(2,6,23,0.15);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header-teal {
+        background: linear-gradient(90deg,#064e49,#0f766e);
+        color: white;
+        padding: 12px 16px;
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+        margin: -16px -16px 16px -16px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .form-group.full-width {
+        grid-column: span 2;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 6px;
+    }
+
+    .form-input,
+    .form-select {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #e6e6e6;
+        width: 100%;
+        font-size: 0.95rem;
+    }
+
+    textarea.form-input {
+        resize: vertical;
+    }
+
+    .action-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding-top: 16px;
+    }
+
+    /* Total Preview */
+    .total-preview {
+        background: #f0fdfa;
+        padding: 16px;
+        border-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 16px;
+        border: 2px solid #0f766e;
+    }
+
+    .total-value {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #065f46;
+    }
+
+    /* Detail view */
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .detail-item.full-width {
+        grid-column: span 2;
+    }
+
+    .detail-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        font-weight: 700;
+    }
+
+    .detail-value {
+        font-size: 0.95rem;
+        color: #1e293b;
+    }
+
+    /* Receive Preview */
+    .receive-preview {
+        background: #f8fafc;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 12px;
+    }
+
+    .receive-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+    }
+
+    /* No data */
+    .no-data {
+        padding: 40px;
+        text-align: center;
+        color: #6b7280;
+    }
+
+    .loading {
+        padding: 40px;
+        text-align: center;
+        color: #0f766e;
+        font-weight: 600;
+    }
+
+    .error-message {
+        background: #fef2f2;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        color: #991b1b;
+    }
+</style>

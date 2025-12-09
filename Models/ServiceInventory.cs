@@ -1,21 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HestiaLink.Models;
-
-public partial class ServiceInventory
+namespace HestiaLink.Models
 {
-    public int ServiceInventoryId { get; set; }
+    public class ServiceInventory
+    {
+        [Key]
+        public int ServiceInventoryID { get; set; }
 
-    public int ServiceId { get; set; }
+        [Required]
+        public int ServiceID { get; set; }
 
-    public int InventoryItemId { get; set; }
+        [Required]
+        public int InventoryItemID { get; set; }
 
-    public decimal QuantityRequired { get; set; }
+        [Required]
+        [Column(TypeName = "decimal(10,2)")]
+        public decimal QuantityRequired { get; set; } = 1.0m;
 
-    public DateTime? CreatedDate { get; set; }
+        public DateTime? CreatedDate { get; set; } = DateTime.Now;
 
-    public virtual InventoryItem InventoryItem { get; set; } = null!;
+        // Navigation Properties
+        [ForeignKey("ServiceID")]
+        public Service? Service { get; set; }
 
-    public virtual Service Service { get; set; } = null!;
+        [ForeignKey("InventoryItemID")]
+        public InventoryItem? InventoryItem { get; set; }
+    }
 }
