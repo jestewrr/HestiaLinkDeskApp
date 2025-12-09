@@ -70,7 +70,7 @@
                             @foreach (var dept in FilteredDepartments)
                             {
                                 <tr>
-                                    <td>@dept.DepartmentID</td>
+                                    <td>@dept.DepartmentId</td>
                                     <td>
                                         <div style="font-weight: 700; color: #102f33;">@dept.DepartmentName</div>
                                     </td>
@@ -182,7 +182,7 @@
                             @foreach (var dept in ArchivedDepartments)
                             {
                                 <tr>
-                                    <td>@dept.DepartmentID</td>
+                                    <td>@dept.DepartmentId</td>
                                     <td>
                                         <div style="font-weight: 700; color: #102f33;">@dept.DepartmentName</div>
                                     </td>
@@ -371,7 +371,7 @@
     {
         CurrentDept = new Department
         {
-            DepartmentID = dept.DepartmentID,
+            DepartmentId = dept.DepartmentId,
             DepartmentName = dept.DepartmentName,
             Description = dept.Description,
             Status = dept.Status
@@ -408,14 +408,14 @@
     {
         try
         {
-            var department = await Context.Departments.FindAsync(CurrentDept.DepartmentID);
+            var department = await Context.Departments.FindAsync(CurrentDept.DepartmentId);
             if (department != null)
             {
                 Context.Departments.Remove(department);
                 await Context.SaveChangesAsync();
 
                 // Remove from local list
-                Departments.RemoveAll(d => d.DepartmentID == CurrentDept.DepartmentID);
+                Departments.RemoveAll(d => d.DepartmentId == CurrentDept.DepartmentId);
                 StateHasChanged();
 
                 await JSRuntime.InvokeVoidAsync("alert", "Department deleted successfully!");
@@ -444,7 +444,7 @@
     {
         try
         {
-            var department = await Context.Departments.FindAsync(dept.DepartmentID);
+            var department = await Context.Departments.FindAsync(dept.DepartmentId);
             if (department != null)
             {
                 department.Status = "Active";
@@ -452,7 +452,7 @@
                 await Context.SaveChangesAsync();
 
                 // Update local list
-                var localDept = Departments.FirstOrDefault(d => d.DepartmentID == dept.DepartmentID);
+                var localDept = Departments.FirstOrDefault(d => d.DepartmentId == dept.DepartmentId);
                 if (localDept != null)
                 {
                     localDept.Status = "Active";
@@ -478,7 +478,7 @@
     {
         try
         {
-            var department = await Context.Departments.FindAsync(ArchiveDept.DepartmentID);
+            var department = await Context.Departments.FindAsync(ArchiveDept.DepartmentId);
             if (department != null)
             {
                 department.Status = "Archived";
@@ -486,7 +486,7 @@
                 await Context.SaveChangesAsync();
 
                 // Update local list
-                var localDept = Departments.FirstOrDefault(d => d.DepartmentID == ArchiveDept.DepartmentID);
+                var localDept = Departments.FirstOrDefault(d => d.DepartmentId == ArchiveDept.DepartmentId);
                 if (localDept != null)
                 {
                     localDept.Status = "Archived";
@@ -515,7 +515,7 @@
         {
             if (IsEditMode)
             {
-                var existingDept = await Context.Departments.FindAsync(CurrentDept.DepartmentID);
+                var existingDept = await Context.Departments.FindAsync(CurrentDept.DepartmentId);
                 if (existingDept != null)
                 {
                     existingDept.DepartmentName = CurrentDept.DepartmentName;
@@ -525,7 +525,7 @@
                     await Context.SaveChangesAsync();
 
                     // Update local list
-                    var localDept = Departments.FirstOrDefault(d => d.DepartmentID == CurrentDept.DepartmentID);
+                    var localDept = Departments.FirstOrDefault(d => d.DepartmentId == CurrentDept.DepartmentId);
                     if (localDept != null)
                     {
                         localDept.DepartmentName = CurrentDept.DepartmentName;

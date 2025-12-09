@@ -1,5 +1,9 @@
 ﻿@page "/finance/tax-management"
 @layout MainLayout
+@using HestiaLink.Data
+@using HestiaLink.Models
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext _context
 
 <div class="page-wrapper">
     <header class="page-topbar">
@@ -62,17 +66,26 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var bill in GuestBills)
+                            @if (GuestBills.Any())
+                            {
+                                @foreach (var bill in GuestBills)
+                                {
+                                    <tr>
+                                        <td style="font-weight: 700; color: var(--color-teal);">INV-@bill.Id.ToString("D5")</td>
+                                        <td>@bill.GuestName</td>
+                                        <td>@bill.BillDate.ToString("MMM dd, yyyy")</td>
+                                        <td>₱@bill.Subtotal.ToString("N2")</td>
+                                        <td style="color: var(--color-teal);">₱@bill.VAT.ToString("N2")</td>
+                                        <td style="color: var(--color-teal);">₱@bill.ServiceCharge.ToString("N2")</td>
+                                        <td style="font-weight: 700;">₱@(bill.VAT + bill.ServiceCharge).ToString("N2")</td>
+                                        <td style="font-weight: 900; color: var(--color-dark-teal);">₱@bill.GrandTotal.ToString("N2")</td>
+                                    </tr>
+                                }
+                            }
+                            else
                             {
                                 <tr>
-                                    <td style="font-weight: 700; color: var(--color-teal);">INV-@bill.Id.ToString("D5")</td>
-                                    <td>@bill.GuestName</td>
-                                    <td>@bill.BillDate.ToString("MMM dd, yyyy")</td>
-                                    <td>₱@bill.Subtotal.ToString("N2")</td>
-                                    <td style="color: var(--color-teal);">₱@bill.VAT.ToString("N2")</td>
-                                    <td style="color: var(--color-teal);">₱@bill.ServiceCharge.ToString("N2")</td>
-                                    <td style="font-weight: 700;">₱@(bill.VAT + bill.ServiceCharge).ToString("N2")</td>
-                                    <td style="font-weight: 900; color: var(--color-dark-teal);">₱@bill.GrandTotal.ToString("N2")</td>
+                                    <td colspan="8" style="text-align:center; padding: 20px;">No paid bills found.</td>
                                 </tr>
                             }
                         </tbody>
@@ -94,9 +107,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div style="margin-top: 12px; padding: 12px; background: var(--color-white); border-radius: 6px; font-weight: 700;">
-                            Grand Total = Subtotal + VAT + Service Charge
-                        </div>
                     </div>
                 </div>
             </div>
@@ -107,7 +117,7 @@
         {
             <div class="panel-card" style="margin-bottom: 30px;">
                 <div style="background: var(--color-dark-teal); color: var(--color-white); padding: 16px 24px; font-weight: 900; border-radius: 12px 12px 0 0;">
-                    Employee Income Tax (2025 Graduated Tax Table)
+                    Employee Income Tax (Estimated based on Salary)
                 </div>
                 <div class="panel-body">
                     <table class="user-table">
@@ -119,75 +129,42 @@
                                 <th>Annual Income</th>
                                 <th>Tax Bracket</th>
                                 <th>Monthly Tax</th>
-                                <th>Tax Rate</th>
-                                <th>SC Eligible</th>
+                                <th>Role Type</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var emp in EmployeeTaxRecords)
+                            @if (EmployeeTaxRecords.Any())
+                            {
+                                @foreach (var emp in EmployeeTaxRecords)
+                                {
+                                    <tr>
+                                        <td style="font-weight: 700;">@emp.Name</td>
+                                        <td>@emp.Position</td>
+                                        <td>₱@emp.MonthlySalary.ToString("N2")</td>
+                                        <td style="color: var(--color-teal);">₱@emp.AnnualIncome.ToString("N2")</td>
+                                        <td style="font-weight: 700;">@emp.TaxBracket</td>
+                                        <td style="font-weight: 900; color: var(--color-dark-teal);">₱@emp.MonthlyTax.ToString("N2")</td>
+                                        <td>
+                                            @if (emp.ServiceChargeEligible)
+                                            {
+                                                <span class="status-badge" style="background:#d1fae5; color:#065f46;">Rank & File</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="status-badge" style="background:#fee2e2; color:#991b1b;">Managerial</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
                             {
                                 <tr>
-                                    <td style="font-weight: 700;">@emp.Name</td>
-                                    <td>@emp.Position</td>
-                                    <td>₱@emp.MonthlySalary.ToString("N2")</td>
-                                    <td style="color: var(--color-teal);">₱@emp.AnnualIncome.ToString("N2")</td>
-                                    <td style="font-weight: 700;">@emp.TaxBracket</td>
-                                    <td style="font-weight: 900; color: var(--color-dark-teal);">₱@emp.MonthlyTax.ToString("N2")</td>
-                                    <td>@emp.EffectiveTaxRate%</td>
-                                    <td>
-                                        @if (emp.ServiceChargeEligible)
-                                        {
-                                            <span style="color: #047857; font-weight: 700;">✓ YES</span>
-                                        }
-                                        else
-                                        {
-                                            <span style="color: #991b1b; font-weight: 700;">✗ NO</span>
-                                        }
-                                    </td>
+                                    <td colspan="7" style="text-align:center; padding: 20px;">No employee records found.</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
-
-                    <div style="background: var(--color-cream); padding: 20px; border-radius: 8px; margin-top: 20px;">
-                        <h4 style="margin-top: 0; color: var(--color-dark-teal); font-weight: 900;">2025 Philippine Income Tax Table</h4>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: var(--color-dark-teal); color: var(--color-white);">
-                                    <th style="padding: 12px; text-align: left; font-weight: 900;">Annual Taxable Income</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 900;">Tax Rate</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 900;">Tax Computation</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr style="background: var(--color-white);">
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray);">₱250,000 and below</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-weight: 700;">0%</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-family: monospace;">₱0</td>
-                                </tr>
-                                <tr style="background: var(--color-cream);">
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray);">Over ₱250,000 to ₱400,000</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-weight: 700;">15%</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-family: monospace;">₱0 + 15% of excess over ₱250,000</td>
-                                </tr>
-                                <tr style="background: var(--color-white);">
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray);">Over ₱400,000 to ₱800,000</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-weight: 700;">20%</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-family: monospace;">₱22,500 + 20% of excess over ₱400,000</td>
-                                </tr>
-                                <tr style="background: var(--color-cream);">
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray);">Over ₱800,000 to ₱2,000,000</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-weight: 700;">25%</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-family: monospace;">₱102,500 + 25% of excess over ₱800,000</td>
-                                </tr>
-                                <tr style="background: var(--color-white);">
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray);">Over ₱2,000,000</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-weight: 700;">30%</td>
-                                    <td style="padding: 10px; border: 1px solid var(--color-light-gray); font-family: monospace;">₱402,500 + 30% of excess over ₱2,000,000</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
                 </div>
             </div>
         }
@@ -225,52 +202,71 @@
                                 <th>Role Type</th>
                                 <th>Basic Salary</th>
                                 <th>SC Share</th>
-                                <th>Total Earnings</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var emp in ServiceChargeDistribution)
+                            @if (ServiceChargeDistribution.Any())
+                            {
+                                @foreach (var emp in ServiceChargeDistribution)
+                                {
+                                    <tr>
+                                        <td style="font-weight: 700;">@emp.Name</td>
+                                        <td>@emp.Position</td>
+                                        <td>
+                                            <span class="status-badge" style="background: @(emp.IsRankAndFile ? "#d1fae5" : "#fee2e2"); color: @(emp.IsRankAndFile ? "#065f46" : "#991b1b");">
+                                                @(emp.IsRankAndFile ? "Rank & File" : "Managerial")
+                                            </span>
+                                        </td>
+                                        <td>₱@emp.BasicSalary.ToString("N2")</td>
+                                        <td style="font-weight: 900; color: var(--color-teal);">
+                                            @if (emp.IsRankAndFile)
+                                            {
+                                                <span>₱@emp.ServiceChargeShare.ToString("N2")</span>
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #991b1b;">Not Eligible</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
                             {
                                 <tr>
-                                    <td style="font-weight: 700;">@emp.Name</td>
-                                    <td>@emp.Position</td>
-                                    <td>
-                                        <span class="status-badge" style="background: @(emp.IsRankAndFile ? "#d1fae5" : "#fee2e2"); color: @(emp.IsRankAndFile ? "#065f46" : "#991b1b");">
-                                            @(emp.IsRankAndFile ? "Rank & File" : "Managerial")
-                                        </span>
-                                    </td>
-                                    <td>₱@emp.BasicSalary.ToString("N2")</td>
-                                    <td style="font-weight: 900; color: var(--color-teal);">
-                                        @if (emp.IsRankAndFile)
-                                        {
-                                            <span>₱@emp.ServiceChargeShare.ToString("N2")</span>
-                                        }
-                                        else
-                                        {
-                                            <span style="color: #991b1b;">Not Eligible</span>
-                                        }
-                                    </td>
-                                    <td style="font-weight: 900; color: var(--color-dark-teal);">₱@emp.TotalEarnings.ToString("N2")</td>
+                                    <td colspan="5" style="text-align:center; padding: 20px;">No eligible employees found.</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
-
-                    <div style="background: var(--color-cream); padding: 20px; border-radius: 8px; margin-top: 20px;">
-                        <h4 style="margin-top: 0; color: var(--color-dark-teal); font-weight: 900;">Service Charge Distribution Rules</h4>
-                        <ul style="margin: 0; padding-left: 20px; line-height: 1.8;">
-                            <li><strong>Eligible Employees:</strong> Rank-and-File staff only (Room Attendants, Housekeepers, Front Desk Staff, etc.)</li>
-                            <li><strong>Excluded Employees:</strong> Managerial and supervisory positions are not eligible per Philippine Labor Law</li>
-                            <li><strong>Distribution Method:</strong> Equal share among all eligible employees</li>
-                            <li><strong>Payment Frequency:</strong> Distributed monthly along with regular salary</li>
-                            <li><strong>Taxable Income:</strong> Service charge share is added to taxable income for BIR reporting</li>
-                        </ul>
-                    </div>
                 </div>
             </div>
         }
     </section>
 </div>
+
+<style>
+    .stat-card {
+        background: var(--color-white);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        height: auto;
+        min-height: 120px;
+    }
+    
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+</style>
 
 @code {
     private string ActiveTab = "guest";
@@ -284,105 +280,92 @@
     private int EligibleEmployeesCount => ServiceChargeDistribution.Count(e => e.IsRankAndFile);
     private decimal PerEmployeeShare => EligibleEmployeesCount > 0 ? TotalServiceChargeCollected / EligibleEmployeesCount : 0;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Sample Guest Bills
-        GuestBills.Add(new GuestBill { Id = 1, GuestName = "John Doe", BillDate = DateTime.Now.AddDays(-2), Subtotal = 9000 });
-        GuestBills.Add(new GuestBill { Id = 2, GuestName = "Jane Smith", BillDate = DateTime.Now.AddDays(-1), Subtotal = 12000 });
-        GuestBills.Add(new GuestBill { Id = 3, GuestName = "Bob Johnson", BillDate = DateTime.Now, Subtotal = 7500 });
+        await LoadData();
+    }
 
-        foreach (var bill in GuestBills)
+    private async Task LoadData()
+    {
+        try 
         {
-            bill.VAT = bill.Subtotal * 0.12m;
-            bill.ServiceCharge = bill.Subtotal * 0.10m;
-            bill.GrandTotal = bill.Subtotal + bill.VAT + bill.ServiceCharge;
+            // 1. Load Paid Bills for VAT/SC
+            var bills = await _context.Bills
+                .Include(b => b.Reservation)
+                .ThenInclude(r => r.Guest)
+                .Where(b => b.BillStatus == "Paid")
+                .ToListAsync();
+
+            GuestBills = bills.Select(b => new GuestBill
+            {
+                Id = b.BillId,
+                GuestName = b.Reservation?.Guest != null ? $"{b.Reservation.Guest.FirstName} {b.Reservation.Guest.LastName}" : "Unknown",
+                BillDate = b.BillDate ?? DateTime.Now,
+                Subtotal = b.SubtotalAmount ?? 0,
+                GrandTotal = b.GrandTotal ?? 0,
+                VAT = (b.SubtotalAmount ?? 0) * 0.12m,
+                ServiceCharge = (b.SubtotalAmount ?? 0) * 0.10m
+            }).ToList();
+
+
+            // 2. Load Employees for Income Tax & SC Distribution
+            var employees = await _context.Employees
+                .Include(e => e.Position)
+                .Where(e => e.Status == "Active")
+                .ToListAsync();
+
+            EmployeeTaxRecords = employees.Select(e => {
+                var salary = e.Position?.Salary ?? 0;
+                var annual = salary * 13;
+                return new EmployeeTaxRecord
+                {
+                    Name = $"{e.FirstName} {e.LastName}",
+                    Position = e.Position?.PositionTitle ?? "N/A",
+                    MonthlySalary = salary,
+                    AnnualIncome = annual,
+                    MonthlyTax = CalculateMonthlyIncomeTax(annual),
+                    TaxBracket = GetTaxBracket(annual),
+                    ServiceChargeEligible = IsRankAndFile(e.Position?.PositionTitle)
+                };
+            }).ToList();
+
+            ServiceChargeDistribution = employees.Select(e => new ServiceChargeEmployee
+            {
+                Name = $"{e.FirstName} {e.LastName}",
+                Position = e.Position?.PositionTitle ?? "N/A",
+                BasicSalary = e.Position?.Salary ?? 0,
+                IsRankAndFile = IsRankAndFile(e.Position?.PositionTitle)
+            }).ToList();
+
+            // Calculate SC Share
+            foreach (var emp in ServiceChargeDistribution)
+            {
+                emp.ServiceChargeShare = emp.IsRankAndFile ? PerEmployeeShare : 0;
+            }
+
         }
-
-        // Sample Employee Tax Records
-        EmployeeTaxRecords.Add(new EmployeeTaxRecord 
-        { 
-            Name = "Maria Santos", 
-            Position = "Room Attendant", 
-            MonthlySalary = 18000,
-            ServiceChargeEligible = true
-        });
-        EmployeeTaxRecords.Add(new EmployeeTaxRecord 
-        { 
-            Name = "Pedro Cruz", 
-            Position = "Front Desk Staff", 
-            MonthlySalary = 20000,
-            ServiceChargeEligible = true
-        });
-        EmployeeTaxRecords.Add(new EmployeeTaxRecord 
-        { 
-            Name = "Ana Reyes", 
-            Position = "Front Desk Manager", 
-            MonthlySalary = 45000,
-            ServiceChargeEligible = false
-        });
-
-        foreach (var emp in EmployeeTaxRecords)
+        catch (Exception ex)
         {
-            emp.AnnualIncome = emp.MonthlySalary * 13; // Including 13th month
-            emp.MonthlyTax = CalculateMonthlyIncomeTax(emp.AnnualIncome);
-            emp.TaxBracket = GetTaxBracket(emp.AnnualIncome);
-            emp.EffectiveTaxRate = emp.AnnualIncome > 0 ? Math.Round((emp.MonthlyTax * 12 / emp.AnnualIncome) * 100, 2) : 0;
+            Console.WriteLine($"Error loading tax management data: {ex.Message}");
         }
+    }
 
-        // Service Charge Distribution
-        ServiceChargeDistribution.Add(new ServiceChargeEmployee 
-        { 
-            Name = "Maria Santos", 
-            Position = "Room Attendant", 
-            BasicSalary = 18000, 
-            IsRankAndFile = true 
-        });
-        ServiceChargeDistribution.Add(new ServiceChargeEmployee 
-        { 
-            Name = "Pedro Cruz", 
-            Position = "Front Desk Staff", 
-            BasicSalary = 20000, 
-            IsRankAndFile = true 
-        });
-        ServiceChargeDistribution.Add(new ServiceChargeEmployee 
-        { 
-            Name = "Ana Reyes", 
-            Position = "Front Desk Manager", 
-            BasicSalary = 45000, 
-            IsRankAndFile = false 
-        });
-
-        foreach (var emp in ServiceChargeDistribution)
-        {
-            emp.ServiceChargeShare = emp.IsRankAndFile ? PerEmployeeShare : 0;
-            emp.TotalEarnings = emp.BasicSalary + emp.ServiceChargeShare;
-        }
+    private bool IsRankAndFile(string? positionTitle)
+    {
+        if (string.IsNullOrEmpty(positionTitle)) return false;
+        var title = positionTitle.ToLower();
+        // Simple logic for checking Rank & File vs Managerial
+        return !title.Contains("manager") && !title.Contains("supervisor") && !title.Contains("head") && !title.Contains("chief");
     }
 
     private decimal CalculateMonthlyIncomeTax(decimal annualIncome)
     {
         decimal annualTax = 0;
-
-        if (annualIncome <= 250000)
-        {
-            annualTax = 0;
-        }
-        else if (annualIncome <= 400000)
-        {
-            annualTax = (annualIncome - 250000) * 0.15m;
-        }
-        else if (annualIncome <= 800000)
-        {
-            annualTax = 22500 + (annualIncome - 400000) * 0.20m;
-        }
-        else if (annualIncome <= 2000000)
-        {
-            annualTax = 102500 + (annualIncome - 800000) * 0.25m;
-        }
-        else
-        {
-            annualTax = 402500 + (annualIncome - 2000000) * 0.30m;
-        }
+        if (annualIncome <= 250000) annualTax = 0;
+        else if (annualIncome <= 400000) annualTax = (annualIncome - 250000) * 0.15m;
+        else if (annualIncome <= 800000) annualTax = 22500 + (annualIncome - 400000) * 0.20m;
+        else if (annualIncome <= 2000000) annualTax = 102500 + (annualIncome - 800000) * 0.25m;
+        else annualTax = 402500 + (annualIncome - 2000000) * 0.30m;
 
         return annualTax / 12;
     }
@@ -415,7 +398,6 @@
         public decimal AnnualIncome { get; set; }
         public decimal MonthlyTax { get; set; }
         public string TaxBracket { get; set; } = "";
-        public decimal EffectiveTaxRate { get; set; }
         public bool ServiceChargeEligible { get; set; }
     }
 
@@ -426,6 +408,5 @@
         public decimal BasicSalary { get; set; }
         public bool IsRankAndFile { get; set; }
         public decimal ServiceChargeShare { get; set; }
-        public decimal TotalEarnings { get; set; }
     }
 }

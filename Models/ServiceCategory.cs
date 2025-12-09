@@ -1,26 +1,23 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class ServiceCategory
 {
-    public class ServiceCategory
-    {
-        [Key]
-        public int ServiceCategoryID { get; set; }
+    public int ServiceCategoryId { get; set; }
 
-        [Required]
-        [StringLength(100)]
-        public string ServiceCategoryName { get; set; } = string.Empty;
+    public string ServiceCategoryName { get; set; } = null!;
 
-        [StringLength(200)]
-        public string? Function { get; set; }
+    public string? Description { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? CreatedAt { get; set; }
 
-        [StringLength(20)]
-        public string Status { get; set; } = "Active";
+    public DateTime? UpdatedAt { get; set; }
 
-        // Navigation property
-        public ICollection<Service>? Services { get; set; }
-    }
+    public string? Status { get; set; }
+
+    public string? Function { get; set; }
+
+    public virtual ICollection<Service> Services { get; set; } = new List<Service>();
 }

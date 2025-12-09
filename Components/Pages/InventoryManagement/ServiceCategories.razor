@@ -10,11 +10,43 @@
         <span class="page-topbar-subtitle">Manage Service Types</span>
     </header>
 
+    <section class="page-content">
+
+    @* ===== SUMMARY CARDS (show only when loaded and no error) ===== *@
+    @if (IsLoaded && !HasError)
+    {
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div class="stat-card">
+                <div class="stat-title">TOTAL CATEGORIES</div>
+                <div class="stat-value">@Categories.Count</div>
+                <div class="stat-desc">Total defined categories</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">ACTIVE</div>
+                <div class="stat-value">@Categories.Count(c => c.Status == "Active")</div>
+                <div class="stat-desc">Currently active</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">INACTIVE</div>
+                <div class="stat-value">@InactiveCategoriesCount</div>
+                <div class="stat-desc">Archived categories</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">SERVICES LINKED</div>
+                <div class="stat-value">@Categories.Sum(c => c.Services?.Count ?? 0)</div>
+                <div class="stat-desc">Total services assigned</div>
+            </div>
+        </div>
+    }
+
     <div class="user-toolbar">
         <div class="toolbar-left">
             <div class="toolbar-search">
-                <input type="text" placeholder="Search by name or ID..." @bind="SearchText" @oninput="OnSearchChanged" />
                 <span class="search-icon">🔍</span>
+                <input type="text" placeholder="Search by name or ID..." @bind="SearchText" @oninput="OnSearchChanged" />
             </div>
             <select class="filter-select" @bind="FilterStatus">
                 <option value="All">All</option>
@@ -23,8 +55,8 @@
             </select>
         </div>
         <div>
-            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenInactiveModal">📁 View Inactive (@InactiveCategoriesCount)</button>
-            <button class="btn-create" @onclick="OpenModal">+ Create New Category</button>
+            <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenInactiveModal">View Inactive (@InactiveCategoriesCount)</button>
+            <button class="btn-create" @onclick="OpenModal">Create New Category</button>
         </div>
     </div>
 
@@ -60,7 +92,7 @@
                             @foreach (var category in FilteredCategories)
                             {
                                 <tr>
-                                    <td style="font-family:monospace; font-weight:700;">@category.ServiceCategoryID</td>
+                                    <td style="font-family:monospace; font-weight:700;">@category.ServiceCategoryId</td>
                                     <td style="font-weight:600;">@category.ServiceCategoryName</td>
                                     <td>@(string.IsNullOrEmpty(category.Function) ? "-" : category.Function)</td>
                                     <td><span class="badge-@(category.Status == "Active" ? "active" : "inactive")">@category.Status</span></td>
@@ -89,6 +121,7 @@
             </div>
         </div>
     }
+    </section>
 </div>
 
 @if (ShowModal)
@@ -135,7 +168,7 @@
     <div class="modal-overlay">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header-teal">
-                <h2 style="margin:0; font-size:1.4rem;">📁 Inactive Categories</h2>
+                <h2 style="margin:0; font-size:1.4rem;">Inactive Categories</h2>
                 <div style="font-size: 0.9rem; color: #64748b;">@InactiveCategories.Count inactive categories</div>
             </div>
 
@@ -155,11 +188,11 @@
                             @foreach (var category in InactiveCategories)
                             {
                                 <tr>
-                                    <td>@category.ServiceCategoryID</td>
+                                    <td>@category.ServiceCategoryId</td>
                                     <td style="font-weight:700;">@category.ServiceCategoryName</td>
                                     <td>@(string.IsNullOrEmpty(category.Function) ? "-" : category.Function)</td>
                                     <td style="text-align:center;">
-                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreCategory(category)">🔄 Activate</button>
+                                        <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreCategory(category)">Activate</button>
                                     </td>
                                 </tr>
                             }
@@ -227,7 +260,10 @@
             HasError = false;
             ErrorMessage = string.Empty;
 
-            Categories = await DbContext.ServiceCategories.OrderBy(c => c.ServiceCategoryName).ToListAsync();
+            Categories = await DbContext.ServiceCategories
+                .Include(c => c.Services)
+                .OrderBy(c => c.ServiceCategoryName)
+                .ToListAsync();
 
             IsLoaded = true;
         }
@@ -261,7 +297,7 @@
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
                 query = query.Where(c => c.ServiceCategoryName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                                         c.ServiceCategoryID.ToString().Contains(SearchText));
+                                         c.ServiceCategoryId.ToString().Contains(SearchText));
             }
 
             if (FilterStatus == "Active")
@@ -289,7 +325,7 @@
     {
         CurrentCategory = new ServiceCategory
         {
-            ServiceCategoryID = category.ServiceCategoryID,
+            ServiceCategoryId = category.ServiceCategoryId,
             ServiceCategoryName = category.ServiceCategoryName,
             Function = category.Function,
             Status = category.Status,
@@ -312,7 +348,7 @@
 
             if (IsEditMode)
             {
-                var existing = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryID == CurrentCategory.ServiceCategoryID);
+                var existing = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryId == CurrentCategory.ServiceCategoryId);
                 if (existing != null)
                 {
                     existing.ServiceCategoryName = CurrentCategory.ServiceCategoryName;
@@ -357,7 +393,7 @@
     {
         try
         {
-            var category = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryID == SetInactiveTarget.ServiceCategoryID);
+            var category = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryId == SetInactiveTarget.ServiceCategoryId);
             if (category != null)
             {
                 category.Status = "Inactive";
@@ -393,7 +429,7 @@
     {
         try
         {
-            var existing = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryID == category.ServiceCategoryID);
+            var existing = await DbContext.ServiceCategories.FirstOrDefaultAsync(c => c.ServiceCategoryId == category.ServiceCategoryId);
             if (existing != null)
             {
                 existing.Status = "Active";
@@ -410,3 +446,182 @@
         }
     }
 }
+
+<style>
+    /* Local style for stat cards to match inventory theme (StockManagement) */
+    .stat-card {
+        background-color: #e0f2f1; /* Light Teal Background */
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: auto;
+        min-height: 120px;
+    }
+
+    .stat-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #004f59;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-desc {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 4px;
+        font-weight: 500;
+    }
+
+    .stat-value {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #102f33;
+        align-self: flex-end;
+    }
+
+    /* existing tool styles... */
+    .toolbar-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 14px;
+        font-size: 1.1rem;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+
+    .toolbar-search input {
+        padding: 12px 14px 12px 42px;
+        border-radius: 10px;
+        border: 1px solid #e6e6e6;
+        width: 340px;
+        transition: all 0.2s;
+    }
+    
+    .toolbar-search input:focus {
+        border-color: #0d9488;
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+        outline: none;
+    }
+
+    .filter-select {
+        margin-left: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #e6e6e6;
+    }
+
+    .user-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .btn-create {
+        background: #0d9488;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 10px;
+        border: none;
+    }
+
+    .btn-secondary {
+        background: #475569;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: none;
+    }
+
+    .panel-card {
+        background: transparent;
+    }
+
+    .user-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .user-table th, .user-table td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+    .no-data {
+        padding: 28px;
+        background: #fff;
+        border-radius: 12px;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 8px 24px rgba(2,6,23,0.15);
+    }
+
+    .modal-header-teal {
+        background: linear-gradient(90deg,#064e49,#0f766e);
+        color: white;
+        padding: 12px 16px;
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+        margin-bottom: 12px;
+    }
+
+    .form-grid {
+        display: grid;
+        gap: 12px;
+    }
+
+    .form-input, .form-select {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #e6e6e6;
+        width: 100%;
+    }
+
+    .action-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding-top: 8px;
+    }
+
+    .badge-active {
+        background: #d1fae5;
+        color: #065f46;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+    }
+
+    .badge-inactive {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+    }
+</style>

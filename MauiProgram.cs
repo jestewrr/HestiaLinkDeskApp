@@ -32,7 +32,7 @@ namespace HestiaIT13Final
             builder.Services.AddScoped<InventoryService>();
 
             // Add database context with connection string
-            var connectionString = "Data Source=.\\SQLEXPRESS;Initial Catalog=IT13;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+            var connectionString = "Data Source=JESTER-PC\\SQLEXPRESS;Initial Catalog=\"IT13 (1)\";Integrated Security=True;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True;Application Intent=ReadWrite;Multi Subnet Failover=False";
             
             builder.Services.AddDbContext<HestiaLinkContext>(options =>
                 options.UseSqlServer(connectionString,
@@ -42,12 +42,26 @@ namespace HestiaIT13Final
                     errorNumbersToAdd: null
                 )));
 
+            builder.Services.AddScoped<DbSeeder>();
+
 #if DEBUG
     		builder.Services.AddBlazorWebViewDeveloperTools();
     		builder.Logging.AddDebug();
 #endif
 
-            return builder.Build();
+            var app = builder.Build();
+
+            // Seed Database
+            // Task.Run(async () =>
+            // {
+            //     using (var scope = app.Services.CreateScope())
+            //     {
+            //         var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
+            //         await seeder.SeedAsync();
+            //     }
+            // });
+
+            return app;
         }
     }
 }
