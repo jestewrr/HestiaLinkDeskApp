@@ -33,13 +33,27 @@ namespace HestiaLink.Data
         public DbSet<Attendance> Attendances { get; set; }
         public DbSet<Schedule> Schedules { get; set; }
 
+        // Housekeeping
+        public DbSet<CleaningTask> CleaningTasks { get; set; }
+
         // Payroll related tables
         public DbSet<Tax> Taxes { get; set; }
         public DbSet<Payroll> Payrolls { get; set; }
         public DbSet<TotalIncome> TotalIncomes { get; set; }
+        public DbSet<Income> Incomes { get; set; }
 
-        // CHANGED FROM PaymentIncome TO Income
-        public DbSet<Income> Incomes { get; set; }  // This is the replacement for PaymentIncome
+        // ============================================
+        // INVENTORY TABLES
+        // ============================================
+        public DbSet<InventoryItem> InventoryItems { get; set; }
+        public DbSet<ServiceInventory> ServiceInventories { get; set; }
+        public DbSet<InventoryConsumption> InventoryConsumptions { get; set; }
+
+        // ============================================
+        // SUPPLIER & PURCHASE TABLES
+        // ============================================
+        public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<InventoryPurchase> InventoryPurchases { get; set; }
 
         // Database Views (keyless entities)
         public DbSet<EmployeePayrollSummaryView> EmployeePayrollSummaryView { get; set; }
@@ -57,7 +71,7 @@ namespace HestiaLink.Data
             modelBuilder.Entity<ServiceCategory>().ToTable("ServiceCategory");
             modelBuilder.Entity<Service>().ToTable("Service");
 
-            // New tables - assume names
+            // New tables
             modelBuilder.Entity<Guest>().ToTable("Guest");
             modelBuilder.Entity<Reservation>().ToTable("Reservation");
             modelBuilder.Entity<ReservedRoom>().ToTable("ReservedRoom");
@@ -69,13 +83,58 @@ namespace HestiaLink.Data
             modelBuilder.Entity<Attendance>().ToTable("Attendance");
             modelBuilder.Entity<Schedule>().ToTable("Schedule");
 
+            // Housekeeping
+            modelBuilder.Entity<CleaningTask>().ToTable("CleaningTask");
+
             // Payroll related tables
             modelBuilder.Entity<Tax>().ToTable("Tax");
             modelBuilder.Entity<Payroll>().ToTable("Payroll");
             modelBuilder.Entity<TotalIncome>().ToTable("TotalIncome");
+            modelBuilder.Entity<Income>().ToTable("Income");
 
-            // CHANGED FROM PaymentIncome TO Income
-            modelBuilder.Entity<Income>().ToTable("Income");  // This is the replacement for PaymentIncome
+            // ============================================
+            // INVENTORY TABLES MAPPING
+            // ============================================
+            modelBuilder.Entity<InventoryItem>().ToTable("InventoryItem");
+            modelBuilder.Entity<ServiceInventory>().ToTable("ServiceInventory");
+            modelBuilder.Entity<InventoryConsumption>().ToTable("InventoryConsumption");
+
+            // ============================================
+            // SUPPLIER & PURCHASE TABLES MAPPING
+            // ============================================
+            modelBuilder.Entity<Supplier>().ToTable("Supplier");
+            modelBuilder.Entity<InventoryPurchase>().ToTable("InventoryPurchase");
+
+            // Supplier configuration
+            modelBuilder.Entity<Supplier>(entity =>
+            {
+                entity.HasIndex(s => s.SupplierCode).IsUnique();
+            });
+
+            // InventoryPurchase configuration
+            modelBuilder.Entity<InventoryPurchase>(entity =>
+            {
+                entity.HasIndex(p => p.PurchaseNumber).IsUnique();
+
+                entity.HasOne(p => p.InventoryItem)
+                    .WithMany()
+                    .HasForeignKey(p => p.ItemID)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(p => p.Supplier)
+                    .WithMany(s => s.InventoryPurchases)
+                    .HasForeignKey(p => p.SupplierID)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // InventoryItem-Supplier relationship
+            modelBuilder.Entity<InventoryItem>(entity =>
+            {
+                entity.HasOne(i => i.Supplier)
+                    .WithMany(s => s.InventoryItems)
+                    .HasForeignKey(i => i.SupplierID)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
 
             // Map database views (keyless entities)
             modelBuilder.Entity<EmployeePayrollSummaryView>()
@@ -85,6 +144,33 @@ namespace HestiaLink.Data
             modelBuilder.Entity<EmployeeFullDetailsView>()
                 .ToView("vw_EmployeeFullDetails")
                 .HasNoKey();
+
+            // ============================================
+            // Configure Inventory Relationships
+            // ============================================
+            modelBuilder.Entity<ServiceInventory>()
+                .HasOne(si => si.Service)
+                .WithMany()
+                .HasForeignKey(si => si.ServiceID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ServiceInventory>()
+                .HasOne(si => si.InventoryItem)
+                .WithMany()
+                .HasForeignKey(si => si.InventoryItemID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InventoryConsumption>()
+                .HasOne(ic => ic.ServiceTransaction)
+                .WithMany()
+                .HasForeignKey(ic => ic.ServiceTransactionID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InventoryConsumption>()
+                .HasOne(ic => ic.InventoryItem)
+                .WithMany()
+                .HasForeignKey(ic => ic.InventoryItemID)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

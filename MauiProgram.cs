@@ -28,6 +28,9 @@ namespace HestiaIT13Final
             // Add Attendance Service
             builder.Services.AddScoped<AttendanceService>();
 
+            // Add Inventory Service
+            builder.Services.AddScoped<InventoryService>();
+
             // Add database context with connection string
             var connectionString = "Data Source=.\\SQLEXPRESS;Initial Catalog=IT13;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
             
