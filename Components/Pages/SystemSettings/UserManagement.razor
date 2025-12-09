@@ -1,4 +1,4 @@
-﻿@page "/settings/user-management"
+@page "/settings/user-management"
 @using Microsoft.EntityFrameworkCore
 @inject HestiaLinkContext Context
 @inject IJSRuntime JSRuntime
@@ -16,7 +16,7 @@
         <div class="error-banner">
             <span class="error-icon"></span>
             <span class="error-message">@ErrorMessage</span>
-            <button class="error-close" @onclick="ClearError">�</button>
+            <button class="error-close" @onclick="ClearError">?</button>
         </div>
     }
 
@@ -41,7 +41,7 @@
                     @if (!string.IsNullOrEmpty(SearchText))
                     {
                         <button class="clear-search" @onclick="ClearSearch" title="Clear search">
-                            �
+                            ?
                         </button>
                     }
                 </div>
@@ -55,8 +55,8 @@
                 <select class="filter-select" @bind="SortBy">
                     <option value="Username">Sort by Name</option>
                     <option value="Role">Sort by Role</option>
-                    <option value="EmployeeID">Sort by Employee ID</option>
-                    <option value="UserID">Sort by User ID</option>
+                    <option value="EmployeeId">Sort by Employee ID</option>
+                    <option value="UserId">Sort by User ID</option>
                 </select>
             </div>
             <div>
@@ -91,14 +91,14 @@
                 <div class="user-grid">
                     @foreach (var user in FilteredUsers)
                     {
-                        <div class="user-card @(SelectedUser?.UserID == user.UserID ? "selected-card" : "")">
+                        <div class="user-card @(SelectedUser?.UserId == user.UserId ? "selected-card" : "")">
                             <div class="user-card-header">
                                 <div class="user-avatar">
                                     @GetInitials(user.Username)
                                 </div>
                                 <div class="user-info">
                                     <h3 class="username">@user.Username</h3>
-                                    <span class="user-id">ID: @user.UserID</span>
+                                    <span class="user-id">ID: @user.UserId</span>
                                 </div>
                                 <div class="user-status">
                                     <span class="@(user.Status == "Active" ? "badge-active" : "badge-inactive")">
@@ -110,7 +110,7 @@
                             <div class="user-details">
                                 <div class="detail-item">
                                     <span class="detail-label">Employee ID:</span>
-                                    <span class="detail-value">@user.EmployeeID</span>
+                                    <span class="detail-value">@user.EmployeeId</span>
                                 </div>
                                 <div class="detail-item">
                                     <span class="detail-label">Role:</span>
@@ -187,18 +187,18 @@
             <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">Employee</label>
-                    <select class="form-select" @bind="CurrentUser.EmployeeID" disabled="@IsProcessing">
+                    <select class="form-select" @bind="CurrentUser.EmployeeId" disabled="@IsProcessing">
                         <option value="">-- Select Employee --</option>
                         @foreach (var emp in AvailableEmployees)
                         {
-                            <option value="@emp.EmployeeID">@emp.EmployeeID - @emp.FirstName @emp.LastName</option>
+                            <option value="@emp.EmployeeId">@emp.EmployeeId - @emp.FirstName @emp.LastName</option>
                         }
-                        @if (ShowEditModal && SelectedUser != null && SelectedUser.EmployeeID != null && !AvailableEmployees.Any(e => e.EmployeeID == SelectedUser.EmployeeID))
+                        @if (ShowEditModal && SelectedUser != null && SelectedUser.EmployeeId != null && !AvailableEmployees.Any(e => e.EmployeeId == SelectedUser.EmployeeId))
                         {
-                            var selEmp = Employees.FirstOrDefault(e => e.EmployeeID == SelectedUser.EmployeeID);
+                            var selEmp = Employees.FirstOrDefault(e => e.EmployeeId == SelectedUser.EmployeeId);
                             if (selEmp != null)
                             {
-                                <option value="@selEmp.EmployeeID" selected>@selEmp.EmployeeID - @selEmp.FirstName @selEmp.LastName</option>
+                                <option value="@selEmp.EmployeeId" selected>@selEmp.EmployeeId - @selEmp.FirstName @selEmp.LastName</option>
                             }
                         }
                     </select>
@@ -268,8 +268,8 @@
                             @foreach (var user in ArchivedUsers)
                             {
                                 <tr>
-                                    <td>@user.UserID</td>
-                                    <td>@user.EmployeeID</td>
+                                    <td>@user.UserId</td>
+                                    <td>@user.EmployeeId</td>
                                     <td style="font-weight:700;">@user.Username</td>
                                     <td>@user.Role</td>
                                     <td style="text-align:center;">
@@ -381,7 +381,7 @@
             AvailableEmployees = await Context.Employees
                 .AsNoTracking()
                 .Where(e => e.Status == "Active")
-                .Where(e => !Context.SystemUsers.Any(s => s.EmployeeID == e.EmployeeID && s.Status == "Active"))
+                .Where(e => !Context.SystemUsers.Any(s => s.EmployeeId == e.EmployeeId && s.Status == "Active"))
                 .OrderBy(e => e.LastName)
                 .ToListAsync();
         }
@@ -390,7 +390,7 @@
             // Fallback to in-memory filtering if database query fails
             AvailableEmployees = Employees
                 .Where(emp => emp.Status == "Active" && 
-                             !Users.Any(u => u.EmployeeID == emp.EmployeeID && u.Status == "Active"))
+                             !Users.Any(u => u.EmployeeId == emp.EmployeeId && u.Status == "Active"))
                 .OrderBy(e => e.LastName)
                 .ToList();
             
@@ -511,8 +511,8 @@
                     query = query.Where(u => 
                         u.Username.ToLower().Contains(searchTerm) ||
                         u.Role.ToLower().Contains(searchTerm) ||
-                        (u.EmployeeID != null && u.EmployeeID.ToString().ToLower().Contains(searchTerm)) ||
-                        (u.UserID.ToString().ToLower().Contains(searchTerm))
+                        (u.EmployeeId != null && u.EmployeeId.ToString().ToLower().Contains(searchTerm)) ||
+                        (u.UserId.ToString().ToLower().Contains(searchTerm))
                     );
                 }
 
@@ -526,8 +526,8 @@
                 query = SortBy switch
                 {
                     "Role" => query.OrderBy(u => u.Role).ThenBy(u => u.Username),
-                    "EmployeeID" => query.OrderBy(u => u.EmployeeID),
-                    "UserID" => query.OrderBy(u => u.UserID),
+                    "EmployeeId" => query.OrderBy(u => u.EmployeeId),
+                    "UserId" => query.OrderBy(u => u.UserId),
                     _ => query.OrderBy(u => u.Username) // Default sort by Username
                 };
 
@@ -598,8 +598,8 @@
             SelectedUser = user;
             CurrentUser = new SystemUser
             {
-                UserID = user.UserID,
-                EmployeeID = user.EmployeeID,
+                UserId = user.UserId,
+                EmployeeId = user.EmployeeId,
                 Username = user.Username,
                 Password = "", // Don't pre-fill password for security
                 Role = user.Role,
@@ -696,7 +696,7 @@
 
     private string ValidateUser(SystemUser user, bool isCreate)
     {
-        if (user.EmployeeID == null)
+        if (user.EmployeeId == null)
             return "Please select an Employee before saving.";
             
         if (string.IsNullOrWhiteSpace(user.Username))
@@ -720,13 +720,13 @@
         {
             var usernameTaken = await Context.SystemUsers
                 .AsNoTracking()
-                .AnyAsync(u => u.Username == user.Username && u.UserID != user.UserID);
+                .AnyAsync(u => u.Username == user.Username && u.UserId != user.UserId);
             if (usernameTaken)
                 return "Username already exists. Choose a different username.";
 
             var employeeAssigned = await Context.SystemUsers
                 .AsNoTracking()
-                .AnyAsync(u => u.EmployeeID == user.EmployeeID && u.UserID != user.UserID && u.Status == "Active");
+                .AnyAsync(u => u.EmployeeId == user.EmployeeId && u.UserId != user.UserId && u.Status == "Active");
             if (employeeAssigned)
                 return "Selected employee already has an active user account.";
 
@@ -762,14 +762,14 @@
     {
         try
         {
-            var existing = await Context.SystemUsers.FindAsync(CurrentUser.UserID);
+            var existing = await Context.SystemUsers.FindAsync(CurrentUser.UserId);
             if (existing == null)
             {
                 await ShowAlert("User not found. It may have been deleted.");
                 return;
             }
 
-            existing.EmployeeID = CurrentUser.EmployeeID;
+            existing.EmployeeId = CurrentUser.EmployeeId;
             existing.Username = CurrentUser.Username;
 
             if (!string.IsNullOrWhiteSpace(CurrentUser.Password))
@@ -831,7 +831,7 @@
 
             if (ArchiveTarget != null)
             {
-                var user = await Context.SystemUsers.FindAsync(ArchiveTarget.UserID);
+                var user = await Context.SystemUsers.FindAsync(ArchiveTarget.UserId);
                 if (user != null)
                 {
                     user.Status = "Archived";
@@ -892,12 +892,12 @@
             IsProcessing = true;
             StateHasChanged();
 
-            var existingUser = await Context.SystemUsers.FindAsync(user.UserID);
+            var existingUser = await Context.SystemUsers.FindAsync(user.UserId);
             if (existingUser != null)
             {
                 // Check if employee is still available
                 var employeeAvailable = await Context.Employees
-                    .AnyAsync(e => e.EmployeeID == existingUser.EmployeeID && e.Status == "Active");
+                    .AnyAsync(e => e.EmployeeId == existingUser.EmployeeId && e.Status == "Active");
                     
                 if (!employeeAvailable)
                 {

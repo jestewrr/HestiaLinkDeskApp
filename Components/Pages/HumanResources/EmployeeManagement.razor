@@ -65,7 +65,7 @@
                             @foreach (var emp in FilteredEmployees)
                             {
                                 <tr>
-                                    <td style="font-family:monospace; font-weight:700;">@emp.EmployeeID</td>
+                                    <td style="font-family:monospace; font-weight:700;">@emp.EmployeeId</td>
                                     <td style="font-weight:600;">@emp.FirstName @emp.LastName</td>
                                     <td>@(emp.Position?.Department?.DepartmentName ?? "-")</td>
                                     <td>@(emp.Position?.PositionTitle ?? "-")</td>
@@ -125,12 +125,12 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Position</label>
-                    <select class="form-select" @bind="CurrentEmp.PositionID">
+                    <select class="form-select" @bind="CurrentEmp.PositionId">
                         <option value="">-- Select Position --</option>
                         @foreach (var pos in Positions)
                         {
                             var deptName = pos.Department?.DepartmentName ?? "No Department";
-                            <option value="@pos.PositionID">@pos.PositionTitle (@deptName)</option>
+                            <option value="@pos.PositionId">@pos.PositionTitle (@deptName)</option>
                         }
                     </select>
                 </div>
@@ -197,7 +197,7 @@
                             @foreach (var emp in ArchivedEmployees)
                             {
                                 <tr>
-                                    <td>@emp.EmployeeID</td>
+                                    <td>@emp.EmployeeId</td>
                                     <td style="font-weight:700;">@emp.FirstName @emp.LastName</td>
                                     <td>@(emp.Position?.Department?.DepartmentName ?? "-")</td>
                                     <td>@(emp.Position?.PositionTitle ?? "-")</td>
@@ -320,7 +320,7 @@
                 var search = SearchText.Trim();
                 list = list.Where(e => 
                     (e.FirstName + " " + e.LastName).Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    e.EmployeeID.ToString().Contains(search) ||
+                    e.EmployeeId.ToString().Contains(search) ||
                     (e.Position?.PositionTitle ?? "").Contains(search, StringComparison.OrdinalIgnoreCase) ||
                     (e.Position?.Department?.DepartmentName ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
             }
@@ -339,7 +339,7 @@
 
     private void OpenModal()
     {
-        CurrentEmp = new Employee { Status = "Active", HireDate = DateTime.Now };
+        CurrentEmp = new Employee { Status = "Active", HireDate = DateOnly.FromDateTime(DateTime.Now) };
         IsEditMode = false;
         ShowModal = true;
     }
@@ -350,7 +350,7 @@
     {
         CurrentEmp = new Employee
         {
-            EmployeeID = emp.EmployeeID,
+            EmployeeId = emp.EmployeeId,
             FirstName = emp.FirstName,
             MiddleName = emp.MiddleName,
             LastName = emp.LastName,
@@ -358,7 +358,7 @@
             ContactNumber = emp.ContactNumber,
             Address = emp.Address,
             DateOfBirth = emp.DateOfBirth,
-            PositionID = emp.PositionID,
+            PositionId = emp.PositionId,
             HireDate = emp.HireDate,
             Status = emp.Status
         };
@@ -369,13 +369,13 @@
     // Two-way bind helpers for nullable DateTime
     private DateTime? BindDOB
     {
-        get => CurrentEmp.DateOfBirth;
-        set => CurrentEmp.DateOfBirth = value;
+        get => CurrentEmp.DateOfBirth?.ToDateTime(TimeOnly.MinValue);
+        set => CurrentEmp.DateOfBirth = value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
     }
     private DateTime? BindHireDate
     {
-        get => CurrentEmp.HireDate;
-        set => CurrentEmp.HireDate = value;
+        get => CurrentEmp.HireDate?.ToDateTime(TimeOnly.MinValue);
+        set => CurrentEmp.HireDate = value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
     }
 
     private async Task SaveEmployee()
@@ -384,7 +384,7 @@
         {
             if (IsEditMode)
             {
-                var existing = await Context.Employees.FindAsync(CurrentEmp.EmployeeID);
+                var existing = await Context.Employees.FindAsync(CurrentEmp.EmployeeId);
                 if (existing != null)
                 {
                     existing.FirstName = CurrentEmp.FirstName;
@@ -394,7 +394,7 @@
                     existing.ContactNumber = CurrentEmp.ContactNumber;
                     existing.Address = CurrentEmp.Address;
                     existing.DateOfBirth = CurrentEmp.DateOfBirth;
-                    existing.PositionID = CurrentEmp.PositionID;
+                    existing.PositionId = CurrentEmp.PositionId;
                     existing.HireDate = CurrentEmp.HireDate;
                     existing.Status = CurrentEmp.Status;
 
@@ -438,14 +438,14 @@
     {
         try
         {
-            var emp = await Context.Employees.FindAsync(ArchiveTarget.EmployeeID);
+            var emp = await Context.Employees.FindAsync(ArchiveTarget.EmployeeId);
             if (emp != null)
             {
                 emp.Status = "Archived";
                 Context.Employees.Update(emp);
                 await Context.SaveChangesAsync();
 
-                var local = Employees.FirstOrDefault(e => e.EmployeeID == emp.EmployeeID);
+                var local = Employees.FirstOrDefault(e => e.EmployeeId == emp.EmployeeId);
                 if (local != null) local.Status = "Archived";
                 StateHasChanged();
                 await JSRuntime.InvokeVoidAsync("alert", "Employee archived");
@@ -475,14 +475,14 @@
     {
         try
         {
-            var existing = await Context.Employees.FindAsync(emp.EmployeeID);
+            var existing = await Context.Employees.FindAsync(emp.EmployeeId);
             if (existing != null)
             {
                 existing.Status = "Active";
                 Context.Employees.Update(existing);
                 await Context.SaveChangesAsync();
 
-                var local = Employees.FirstOrDefault(e => e.EmployeeID == existing.EmployeeID);
+                var local = Employees.FirstOrDefault(e => e.EmployeeId == existing.EmployeeId);
                 if (local != null) local.Status = "Active";
                 StateHasChanged();
                 await JSRuntime.InvokeVoidAsync("alert", "Employee restored");

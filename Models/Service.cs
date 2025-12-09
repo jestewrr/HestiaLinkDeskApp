@@ -1,32 +1,33 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Service
 {
-    public class Service
-    {
-        [Key]
-        public int ServiceID { get; set; }
+    public int ServiceId { get; set; }
 
-        [Required]
-        [StringLength(100)]
-        public string ServiceName { get; set; } = string.Empty;
+    public string ServiceName { get; set; } = null!;
 
-        [Required]
-        public int ServiceCategoryID { get; set; }
+    public int? ServiceCategoryId { get; set; }
 
-        [ForeignKey("ServiceCategoryID")]
-        public ServiceCategory? Category { get; set; }
+    public decimal StandardPrice { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal StandardPrice { get; set; }
+    public bool? IsActive { get; set; }
 
-        public bool IsActive { get; set; } = true;
+    public string? Status { get; set; }
 
-        [StringLength(20)]
-        public string Status { get; set; } = "Active";
+    public DateTime? CreatedAt { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    }
+    public DateTime? UpdatedAt { get; set; }
+
+    public bool? UsesInventory { get; set; }
+
+    public string? InventoryNotes { get; set; }
+
+    public virtual ServiceCategory? ServiceCategory { get; set; }
+
+    public virtual ICollection<ServiceInventory> ServiceInventories { get; set; } = new List<ServiceInventory>();
+
+    public virtual ICollection<ServiceTransaction> ServiceTransactions { get; set; } = new List<ServiceTransaction>();
 }

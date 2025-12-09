@@ -1,28 +1,23 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Room
 {
-    public class Room
-    {
-        [Key]
-        public int RoomID { get; set; }
-        public int? RoomTypeID { get; set; }
+    public int RoomId { get; set; }
 
-        public string RoomNumber { get; set; } = string.Empty;
+    public int? RoomTypeId { get; set; }
 
-        public int Floor { get; set; }
-        public string Status { get; set; } = "Available";
+    public string RoomNumber { get; set; } = null!;
 
-        // UI-only fields (not present in DB table shown)
-        [NotMapped]
-        public int MaxOccupancy { get; set; }
-        [NotMapped]
-        public decimal Price { get; set; }
-        [NotMapped]
-        public string Description { get; set; } = string.Empty;
+    public int? Floor { get; set; }
 
-        // Navigation
-        public RoomType? RoomType { get; set; }
-    }
+    public string? Status { get; set; }
+
+    public virtual ICollection<ReservedRoom> ReservedRooms { get; set; } = new List<ReservedRoom>();
+
+    public virtual RoomType? RoomType { get; set; }
+
+    public virtual ICollection<CleaningTask> Tasks { get; set; } = new List<CleaningTask>();
 }

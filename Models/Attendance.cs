@@ -1,41 +1,35 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Attendance
 {
-    public class Attendance
-    {
-        [Key]
-        public int AttendanceID { get; set; }
+    public int AttendanceId { get; set; }
 
-        [Required]
-        public int ScheduleID { get; set; }
+    public int ScheduleId { get; set; }
 
-        [Required]
-        public DateTime AttendanceDate { get; set; }
+    public DateOnly AttendanceDate { get; set; }
 
-        public DateTime? ActualCheckIn { get; set; }
+    public DateTime? ActualCheckIn { get; set; }
 
-        public DateTime? ActualCheckOut { get; set; }
+    public DateTime? ActualCheckOut { get; set; }
 
-        [Column(TypeName = "decimal(5,2)")]
-        public decimal RegularHours { get; set; } = 0;
+    public decimal? RegularHours { get; set; }
 
-        [Column(TypeName = "decimal(5,2)")]
-        public decimal OvertimeHours { get; set; } = 0;
+    public decimal? OvertimeHours { get; set; }
 
-        [StringLength(20)]
-        public string AttendanceStatus { get; set; } = "Absent"; // Present, Absent, On Leave, Half Day, Pending
+    public string? AttendanceStatus { get; set; }
 
-        [StringLength(500)]
-        public string? Notes { get; set; }
+    public bool? IsListed { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? Notes { get; set; }
 
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? CreatedAt { get; set; }
 
-        // Navigation property - Schedule contains EmployeeID
-        [ForeignKey("ScheduleID")]
-        public Schedule? Schedule { get; set; }
-    }
+    public DateTime? UpdatedAt { get; set; }
+
+    public virtual ICollection<Payroll> Payrolls { get; set; } = new List<Payroll>();
+
+    public virtual Schedule Schedule { get; set; } = null!;
 }

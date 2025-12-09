@@ -1,4 +1,4 @@
-﻿@page "/settings/room-management"
+@page "/settings/room-management"
 @using Microsoft.EntityFrameworkCore
 @inject HestiaLinkContext Context
 @inject IJSRuntime JSRuntime
@@ -66,11 +66,11 @@
 
                     <div class="form-group" style="margin-bottom: 16px;">
                         <label class="form-label">Room Type</label>
-                        <select class="form-select" @bind="NewRoom.RoomTypeID">
+                        <select class="form-select" @bind="NewRoom.RoomTypeId">
                             <option value="">Select Type</option>
                             @foreach (var rt in RoomTypes.Where(rt => rt.Status == "Active"))
                             {
-                                <option value="@rt.RoomTypeID">@rt.TypeName</option>
+                                <option value="@rt.RoomTypeId">@rt.TypeName</option>
                             }
                         </select>
                     </div>
@@ -141,10 +141,10 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                     <div class="form-group">
                         <label class="form-label">Room Type</label>
-                        <select class="form-select" @bind="SelectedRoom.RoomTypeID">
+                        <select class="form-select" @bind="SelectedRoom.RoomTypeId">
                             @foreach (var rt in RoomTypes.Where(rt => rt.Status == "Active"))
                             {
-                                <option value="@rt.RoomTypeID">@rt.TypeName</option>
+                                <option value="@rt.RoomTypeId">@rt.TypeName</option>
                             }
                         </select>
                     </div>
@@ -561,7 +561,7 @@
                 RoomTypes = await Context.RoomTypes.AsNoTracking().OrderBy(rt => rt.TypeName).ToListAsync();
                 Rooms = await Context.Rooms.AsNoTracking().OrderBy(r => r.Floor).ThenBy(r => r.RoomNumber).ToListAsync();
 
-                Floors = Rooms.Select(r => r.Floor).Distinct().OrderBy(f => f).Select(f => new Floor { FloorNumber = f }).ToList();
+                Floors = Rooms.Where(r => r.Floor.HasValue).Select(r => r.Floor.Value).Distinct().OrderBy(f => f).Select(f => new Floor { FloorNumber = f }).ToList();
                 if (!Floors.Any()) Floors = new List<Floor> { new Floor { FloorNumber = 1 }, new Floor { FloorNumber = 2 } };
                 return;
             }
@@ -575,13 +575,13 @@
         Floors = new List<Floor> { new Floor { FloorNumber = 1 }, new Floor { FloorNumber = 2 }, new Floor { FloorNumber = 3 } };
         RoomTypes = new List<RoomType>
         {
-            new() { RoomTypeID = 1, TypeName = "Standard", MaxOccupancy = 2, BasePrice = 100m, Description = "Standard", Status = "Active" },
-            new() { RoomTypeID = 2, TypeName = "Deluxe", MaxOccupancy = 3, BasePrice = 150m, Description = "Deluxe", Status = "Active" }
+            new() { RoomTypeId = 1, TypeName = "Standard", MaxOccupancy = 2, BasePrice = 100m, Description = "Standard", Status = "Active" },
+            new() { RoomTypeId = 2, TypeName = "Deluxe", MaxOccupancy = 3, BasePrice = 150m, Description = "Deluxe", Status = "Active" }
         };
         Rooms = new List<Room>
         {
-            new() { RoomID = 1, RoomNumber = "101", Floor = 1, Status = "Available", RoomTypeID = 1 },
-            new() { RoomID = 2, RoomNumber = "102", Floor = 1, Status = "Occupied", RoomTypeID = 2 }
+            new() { RoomId = 1, RoomNumber = "101", Floor = 1, Status = "Available", RoomTypeId = 1 },
+            new() { RoomId = 2, RoomNumber = "102", Floor = 1, Status = "Occupied", RoomTypeId = 2 }
         };
     }
 
@@ -602,11 +602,11 @@
     {
         SelectedRoom = new Room
         {
-            RoomID = room.RoomID,
+            RoomId = room.RoomId,
             RoomNumber = room.RoomNumber,
             Floor = room.Floor,
             Status = room.Status,
-            RoomTypeID = room.RoomTypeID
+            RoomTypeId = room.RoomTypeId
         };
         ShowEditRoomModal = true;
         ShowAddRoomModal = false;
@@ -641,8 +641,8 @@
             await JSRuntime.InvokeVoidAsync("console.error", ex.Message);
         }
 
-        var nextId = Rooms.Any() ? Rooms.Max(r => r.RoomID) + 1 : 1;
-        NewRoom.RoomID = nextId;
+        var nextId = Rooms.Any() ? Rooms.Max(r => r.RoomId) + 1 : 1;
+        NewRoom.RoomId = nextId;
         NewRoom.Status = "Available";
         Rooms.Add(NewRoom);
         NewRoom = new Room();
@@ -651,7 +651,7 @@
 
     private void SelectRoomFromList(Room room)
     {
-        NewRoom = new Room { RoomID = room.RoomID, RoomNumber = room.RoomNumber, Floor = room.Floor, Status = room.Status, RoomTypeID = room.RoomTypeID };
+        NewRoom = new Room { RoomId = room.RoomId, RoomNumber = room.RoomNumber, Floor = room.Floor, Status = room.Status, RoomTypeId = room.RoomTypeId };
     }
 
     private async Task SaveRoomEdit()
@@ -660,13 +660,13 @@
         {
             if (Context != null)
             {
-                var existing = await Context.Rooms.FindAsync(SelectedRoom.RoomID);
+                var existing = await Context.Rooms.FindAsync(SelectedRoom.RoomId);
                 if (existing != null)
                 {
                     existing.RoomNumber = SelectedRoom.RoomNumber;
                     existing.Floor = SelectedRoom.Floor;
                     existing.Status = SelectedRoom.Status;
-                    existing.RoomTypeID = SelectedRoom.RoomTypeID;
+                    existing.RoomTypeId = SelectedRoom.RoomTypeId;
                     Context.Rooms.Update(existing);
                     await Context.SaveChangesAsync();
                     await LoadDataAsync();
@@ -677,13 +677,13 @@
         }
         catch (Exception ex) { await JSRuntime.InvokeVoidAsync("console.error", ex.Message); }
 
-        var local = Rooms.FirstOrDefault(r => r.RoomID == SelectedRoom.RoomID);
+        var local = Rooms.FirstOrDefault(r => r.RoomId == SelectedRoom.RoomId);
         if (local != null)
         {
             local.RoomNumber = SelectedRoom.RoomNumber;
             local.Floor = SelectedRoom.Floor;
             local.Status = SelectedRoom.Status;
-            local.RoomTypeID = SelectedRoom.RoomTypeID;
+            local.RoomTypeId = SelectedRoom.RoomTypeId;
         }
         CloseModals();
     }
@@ -695,13 +695,13 @@
         {
             if (Context != null)
             {
-                if (NewRoomType.RoomTypeID == 0)
+                if (NewRoomType.RoomTypeId == 0)
                 {
                     Context.RoomTypes.Add(NewRoomType);
                 }
                 else
                 {
-                    var existing = await Context.RoomTypes.FindAsync(NewRoomType.RoomTypeID);
+                    var existing = await Context.RoomTypes.FindAsync(NewRoomType.RoomTypeId);
                     if (existing != null)
                     {
                         existing.TypeName = NewRoomType.TypeName;
@@ -720,15 +720,15 @@
         }
         catch (Exception ex) { await JSRuntime.InvokeVoidAsync("console.error", ex.Message); }
 
-        if (NewRoomType.RoomTypeID == 0)
+        if (NewRoomType.RoomTypeId == 0)
         {
-            var nextId = RoomTypes.Any() ? RoomTypes.Max(rt => rt.RoomTypeID) + 1 : 1;
-            NewRoomType.RoomTypeID = nextId;
+            var nextId = RoomTypes.Any() ? RoomTypes.Max(rt => rt.RoomTypeId) + 1 : 1;
+            NewRoomType.RoomTypeId = nextId;
             RoomTypes.Add(NewRoomType);
         }
         else
         {
-            var existing = RoomTypes.FirstOrDefault(rt => rt.RoomTypeID == NewRoomType.RoomTypeID);
+            var existing = RoomTypes.FirstOrDefault(rt => rt.RoomTypeId == NewRoomType.RoomTypeId);
             if (existing != null)
             {
                 existing.TypeName = NewRoomType.TypeName;
@@ -746,7 +746,7 @@
     {
         NewRoomType = new RoomType
         {
-            RoomTypeID = roomType.RoomTypeID,
+            RoomTypeId = roomType.RoomTypeId,
             TypeName = roomType.TypeName,
             MaxOccupancy = roomType.MaxOccupancy,
             BasePrice = roomType.BasePrice,
@@ -764,7 +764,7 @@
         {
             if (Context != null)
             {
-                var entity = await Context.RoomTypes.FindAsync(roomType.RoomTypeID);
+                var entity = await Context.RoomTypes.FindAsync(roomType.RoomTypeId);
                 if (entity != null)
                 {
                     entity.Status = "Inactive";

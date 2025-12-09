@@ -91,13 +91,13 @@
                         <tbody>
                             @foreach (var emp in FilteredEmployees)
                             {
-                                var schedule = Schedules.FirstOrDefault(s => s.EmployeeID == emp.EmployeeID);
+                                var schedule = Schedules.FirstOrDefault(s => s.EmployeeId == emp.EmployeeId);
                                 var attendance = schedule != null
-                                ? Attendances.FirstOrDefault(a => a.ScheduleID == schedule.ScheduleID)
+                                ? Attendances.FirstOrDefault(a => a.ScheduleId == schedule.ScheduleId)
                                 : null;
 
                                 <tr>
-                                    <td style="font-family:monospace; font-weight:700;">@emp.EmployeeID</td>
+                                    <td style="font-family:monospace; font-weight:700;">@emp.EmployeeId</td>
                                     <td style="font-weight:600;">@emp.FirstName @emp.LastName</td>
                                     <td>@(emp.Position?.Department?.DepartmentName ?? "-")</td>
                                     <td>
@@ -156,7 +156,7 @@
                                     <td style="font-weight:700; color:#10b981;">
                                         @if (attendance != null)
                                         {
-                                            @((attendance.RegularHours + attendance.OvertimeHours).ToString("F1"))
+                                            @((attendance.RegularHours ?? 0 + attendance.OvertimeHours ?? 0).ToString("F1"))
                             
                                             <span style="font-weight:400;">h</span>
                                         }
@@ -175,7 +175,7 @@
                                                 @(schedule != null ? "Edit" : "➕")
                                             </button>
                                             <button class="btn-secondary" style="padding:6px 10px; background:#64748b; color:white;"
-                                                    @onclick="() => ViewHistory(emp.EmployeeID)">
+                                                    @onclick="() => ViewHistory(emp.EmployeeId)">
                                                 History
                                             </button>
                                         </div>
@@ -280,7 +280,7 @@
                                     </td>
                                     <td>@(record.ActualCheckIn?.ToString("hh:mm tt") ?? "--:--")</td>
                                     <td>@(record.ActualCheckOut?.ToString("hh:mm tt") ?? "--:--")</td>
-                                    <td style="font-weight:700; color:#10b981;">@((record.RegularHours + record.OvertimeHours).ToString("F1"))h</td>
+                                    <td style="font-weight:700; color:#10b981;">@((record.RegularHours ?? 0 + record.OvertimeHours ?? 0).ToString("F1"))h</td>
                                     <td>
                                         <span class="badge-@record.AttendanceStatus.ToLower().Replace(" ", "-")">@record.AttendanceStatus</span>
                                     </td>
@@ -417,13 +417,13 @@
                 .AsNoTracking().OrderBy(e => e.FirstName).ToListAsync();
 
             Schedules = await Context.Schedules
-                .Where(s => s.ScheduleDate.Date == SelectedDate.Date && s.IsActive)
+                .Where(s => s.ScheduleDate == DateOnly.FromDateTime(SelectedDate) && s.IsActive == true)
                 .AsNoTracking().ToListAsync();
 
-            var scheduleIds = Schedules.Select(s => s.ScheduleID).ToList();
+            var scheduleIds = Schedules.Select(s => s.ScheduleId).ToList();
 
             Attendances = await Context.Attendances
-                .Where(a => a.AttendanceDate.Date == SelectedDate.Date && scheduleIds.Contains(a.ScheduleID))
+                .Where(a => a.AttendanceDate == DateOnly.FromDateTime(SelectedDate) && scheduleIds.Contains(a.ScheduleId))
                 .Include(a => a.Schedule).AsNoTracking().ToListAsync();
 
             CalculateSummary();
@@ -447,7 +447,7 @@
         LateCount = Attendances.Count(a =>
             a.ActualCheckIn != null &&
             a.Schedule != null &&
-            a.ActualCheckIn.Value.TimeOfDay > a.Schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15)));
+            a.ActualCheckIn.Value.TimeOfDay > a.Schedule.ScheduledStart.ToTimeSpan().Add(TimeSpan.FromMinutes(15)));
     }
 
     private void SetFilter(string filter)
@@ -477,7 +477,7 @@
                 var search = SearchText.Trim();
                 list = list.Where(e =>
                     (e.FirstName + " " + e.LastName).Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    e.EmployeeID.ToString().Contains(search) ||
+                    e.EmployeeId.ToString().Contains(search) ||
                     (e.Position?.Department?.DepartmentName ?? "").Contains(search, StringComparison.OrdinalIgnoreCase))
                     .ToList();
             }
@@ -487,9 +487,9 @@
             {
                 list = list.Where(emp =>
                 {
-                    var schedule = Schedules.FirstOrDefault(s => s.EmployeeID == emp.EmployeeID);
+                    var schedule = Schedules.FirstOrDefault(s => s.EmployeeId == emp.EmployeeId);
                     var attendance = schedule != null
-                        ? Attendances.FirstOrDefault(a => a.ScheduleID == schedule.ScheduleID)
+                        ? Attendances.FirstOrDefault(a => a.ScheduleId == schedule.ScheduleId)
                         : null;
 
                     return SelectedFilter switch
@@ -498,7 +498,7 @@
                         "Absent" => attendance?.AttendanceStatus == "Absent",
                         "OnLeave" => attendance?.AttendanceStatus == "On Leave",
                         "Late" => attendance?.ActualCheckIn != null && schedule != null &&
-                                  attendance.ActualCheckIn.Value.TimeOfDay > schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15)),
+                                  attendance.ActualCheckIn.Value.TimeOfDay > schedule.ScheduledStart.ToTimeSpan().Add(TimeSpan.FromMinutes(15)),
                         _ => true
                     };
                 }).ToList();
@@ -519,8 +519,8 @@
         if (schedule != null)
         {
             // Determine shift type based on existing schedule
-            var startHour = schedule.ScheduledStart.Hours;
-            var endHour = schedule.ScheduledEnd.Hours;
+            var startHour = schedule.ScheduledStart.Hour;
+            var endHour = schedule.ScheduledEnd.Hour;
 
             if (startHour == 5 && endHour == 17)
                 SelectedShiftType = "Day";
@@ -529,8 +529,8 @@
             else
                 SelectedShiftType = "Custom";
 
-            ShiftStart = DateTime.Today.Add(schedule.ScheduledStart);
-            ShiftEnd = DateTime.Today.Add(schedule.ScheduledEnd);
+            ShiftStart = DateTime.Today.Add(schedule.ScheduledStart.ToTimeSpan());
+            ShiftEnd = DateTime.Today.Add(schedule.ScheduledEnd.ToTimeSpan());
             ShiftNotes = schedule.Notes ?? "";
         }
         else
@@ -569,7 +569,7 @@
         try
         {
             var existingSchedule = await Context.Schedules
-                .FirstOrDefaultAsync(s => s.EmployeeID == SelectedEmployee.EmployeeID && s.ScheduleDate.Date == ShiftDate.Date && s.IsActive);
+                .FirstOrDefaultAsync(s => s.EmployeeId == SelectedEmployee.EmployeeId && s.ScheduleDate == DateOnly.FromDateTime(ShiftDate) && s.IsActive == true);
 
             if (existingSchedule != null)
             {
@@ -580,10 +580,10 @@
 
             var newSchedule = new Schedule
             {
-                EmployeeID = SelectedEmployee.EmployeeID,
-                ScheduleDate = ShiftDate,
-                ScheduledStart = ShiftStart.TimeOfDay,
-                ScheduledEnd = ShiftEnd.TimeOfDay,
+                EmployeeId = SelectedEmployee.EmployeeId,
+                ScheduleDate = DateOnly.FromDateTime(ShiftDate),
+                ScheduledStart = TimeOnly.FromTimeSpan(ShiftStart.TimeOfDay),
+                ScheduledEnd = TimeOnly.FromTimeSpan(ShiftEnd.TimeOfDay),
                 Notes = $"[{SelectedShiftType} Shift] {ShiftNotes}".Trim(),
                 IsActive = true,
                 CreatedAt = DateTime.Now,
@@ -594,8 +594,8 @@
 
             if (existingSchedule != null)
             {
-                var attendancesToUpdate = await Context.Attendances.Where(a => a.ScheduleID == existingSchedule.ScheduleID).ToListAsync();
-                foreach (var att in attendancesToUpdate) { att.ScheduleID = newSchedule.ScheduleID; att.UpdatedAt = DateTime.Now; }
+                var attendancesToUpdate = await Context.Attendances.Where(a => a.ScheduleId == existingSchedule.ScheduleId).ToListAsync();
+                foreach (var att in attendancesToUpdate) { att.ScheduleId = newSchedule.ScheduleId; att.UpdatedAt = DateTime.Now; }
                 await Context.SaveChangesAsync();
             }
 
@@ -610,7 +610,7 @@
     {
         try
         {
-            var existingAttendance = await Context.Attendances.FirstOrDefaultAsync(a => a.ScheduleID == schedule.ScheduleID);
+            var existingAttendance = await Context.Attendances.FirstOrDefaultAsync(a => a.ScheduleId == schedule.ScheduleId);
 
             if (existingAttendance != null)
             {
@@ -623,8 +623,8 @@
             {
                 var newAttendance = new AttendanceRecord
                 {
-                    ScheduleID = schedule.ScheduleID,
-                    AttendanceDate = SelectedDate,
+                    ScheduleId = schedule.ScheduleId,
+                    AttendanceDate = DateOnly.FromDateTime(SelectedDate),
                     ActualCheckIn = DateTime.Now,
                     AttendanceStatus = "Present",
                     CreatedAt = DateTime.Now,
@@ -643,7 +643,7 @@
     {
         try
         {
-            var existing = await Context.Attendances.FindAsync(attendance.AttendanceID);
+            var existing = await Context.Attendances.FindAsync(attendance.AttendanceId);
             if (existing != null)
             {
                 existing.ActualCheckOut = DateTime.Now;
@@ -667,12 +667,12 @@
     {
         try
         {
-            var emp = Employees.FirstOrDefault(e => e.EmployeeID == employeeId);
+            var emp = Employees.FirstOrDefault(e => e.EmployeeId == employeeId);
             if (emp == null) return;
             HistoryEmployeeName = $"{emp.FirstName} {emp.LastName}";
-            var scheduleIds = await Context.Schedules.Where(s => s.EmployeeID == employeeId).Select(s => s.ScheduleID).ToListAsync();
+            var scheduleIds = await Context.Schedules.Where(s => s.EmployeeId == employeeId).Select(s => s.ScheduleId).ToListAsync();
             HistoryRecords = await Context.Attendances
-                .Where(a => scheduleIds.Contains(a.ScheduleID))
+                .Where(a => scheduleIds.Contains(a.ScheduleId))
                 .Include(a => a.Schedule)
                 .OrderByDescending(a => a.AttendanceDate).Take(30).AsNoTracking().ToListAsync();
             ShowHistoryModal = true;
@@ -681,7 +681,7 @@
     }
 
     private void CloseHistoryModal() { ShowHistoryModal = false; HistoryRecords = new(); }
-    private string FormatTime(TimeSpan time) => DateTime.Today.Add(time).ToString("hh:mm tt");
+    private string FormatTime(TimeOnly time) => DateTime.Today.Add(time.ToTimeSpan()).ToString("hh:mm tt");
     private string GetStatusText(AttendanceRecord? attendance, Schedule? schedule) => attendance != null ? attendance.AttendanceStatus : (schedule != null ? "Pending" : "No Shift");
     private string GetStatusClass(AttendanceRecord? attendance, Schedule? schedule) => attendance != null ? attendance.AttendanceStatus.ToLower().Replace(" ", "-") : (schedule != null ? "pending" : "no-shift");
 }

@@ -15,33 +15,36 @@
     </div>
 
     <div class="page-content">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 100%;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; height: 100%;">
             
             <!-- Left Column: Rooms Needing Cleaning -->
-            <div class="card-modern" style="display: flex; flex-direction: column;">
-                <h3 style="margin-bottom: 15px; color: var(--color-dark-teal);">Needs Cleaning (Dirty)</h3>
+            <div class="panel-card" style="padding: 24px; height: 100%;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                    <h3 style="margin:0; color: var(--color-dark-teal); font-weight:800;">Needs Cleaning</h3>
+                    <span class="status-badge badge-dirty" style="font-size:0.8rem;">DIRTY</span>
+                </div>
                 
                 @if (DirtyRooms == null)
                 {
-                    <p>Loading...</p>
+                    <div class="spinner"></div>
                 }
                 else if (!DirtyRooms.Any())
                 {
-                    <div style="text-align: center; padding: 20px; color: #64748b;">
-                        <p>No rooms currently marked as Dirty.</p>
+                    <div style="text-align: center; padding: 40px; color: #94a3b8; font-style: italic;">
+                        All rooms are clean!
                     </div>
                 }
                 else
                 {
-                    <div style="overflow-y: auto; flex: 1;">
+                    <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
                         @foreach (var room in DirtyRooms)
                         {
-                            <div class="list-item-card" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #e2e8f0;">
+                            <div style="background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <div style="font-weight: bold; font-size: 1.1rem;">Room @room.RoomNumber</div>
-                                    <div style="font-size: 0.9rem; color: #64748b;">@room.RoomType?.TypeName - Floor @room.Floor</div>
+                                    <div style="font-weight: 800; font-size: 1.1rem; color: #0f172a;">Room @room.RoomNumber</div>
+                                    <div style="font-size: 0.9rem; color: #64748b;">Floor @room.Floor</div>
                                 </div>
-                                <button class="btn-primary" style="padding: 8px 16px;" @onclick="() => OpenAssignModal(room)">
+                                <button class="btn-primary" style="padding: 8px 20px; font-size: 0.85rem; flex: none; width: auto;" @onclick="() => OpenAssignModal(room)">
                                     Assign
                                 </button>
                             </div>
@@ -51,38 +54,40 @@
             </div>
 
             <!-- Right Column: Active Cleaning Tasks -->
-            <div class="card-modern" style="display: flex; flex-direction: column;">
-                <h3 style="margin-bottom: 15px; color: var(--color-dark-teal);">Active Tasks</h3>
+            <div class="panel-card" style="padding: 24px; height: 100%;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                    <h3 style="margin:0; color: var(--color-dark-teal); font-weight:800;">Active Tasks</h3>
+                    <span class="status-badge" style="background:#e0f2fe; color:#0369a1;">IN PROGRESS</span>
+                </div>
 
                 @if (ActiveTasks == null)
                 {
-                    <p>Loading...</p>
+                    <div class="spinner"></div>
                 }
                 else if (!ActiveTasks.Any())
                 {
-                    <div style="text-align: center; padding: 20px; color: #64748b;">
-                        <p>No active cleaning tasks.</p>
+                    <div style="text-align: center; padding: 40px; color: #94a3b8; font-style: italic;">
+                        No active tasks.
                     </div>
                 }
                 else
                 {
-                    <div style="overflow-y: auto; flex: 1;">
+                    <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
                         @foreach (var task in ActiveTasks)
                         {
-                            <div class="list-item-card" style="padding: 15px; border-bottom: 1px solid #e2e8f0;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                                    <span style="font-weight: bold;">Room @task.Room?.RoomNumber</span>
-                                    <span class="status-badge status-pending">@task.Status</span>
+                            <div style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span style="font-weight: 800; color: #0f172a;">Room @(task.Room?.RoomNumber ?? "???")</span>
+                                    <span class="status-badge" style="background:#fff7ed; color:#c2410c; border:1px solid #ffedd5;">ASSIGNED</span>
                                 </div>
-                                <div style="font-size: 0.9rem; margin-bottom: 5px;">
-                                    Assigned to: <strong>@(task.AssignedUser?.Username ?? "Unassigned")</strong>
+                                <div style="font-size: 0.9rem; margin-bottom: 6px; color: #334155;">
+                                    Assigned to: <strong style="color: var(--color-dark-teal);">@(task.User?.Username ?? "Unknown")</strong>
                                 </div>
-                                <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">
-                                    @task.Description <br/>
-                                    Created: @task.CreatedDate.ToString("g")
+                                <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
+                                    Standard Cleaning Task<br/>
                                 </div>
                                 <div style="text-align: right;">
-                                    <button class="btn-secondary" style="font-size: 0.8rem;" @onclick="() => MarkTaskComplete(task)">
+                                    <button class="btn-secondary" style="font-size: 0.85rem; padding: 6px 16px; flex: none; width: auto;" @onclick="() => MarkTaskComplete(task)">
                                         Mark Completed
                                     </button>
                                 </div>
@@ -104,23 +109,20 @@
                 <h2>Assign Cleaning Task</h2>
             </div>
             <div class="login-form">
-                <p style="margin-bottom: 15px;">Assigning cleaning for <strong>Room @SelectedRoom?.RoomNumber</strong></p>
+                <p style="margin-bottom: 15px;">Assigning cleaning for <strong>Room @SelectedDirtyRoom?.RoomNumber</strong></p>
 
                 <div class="input-group-modern">
                     <label class="input-label">Assign To (Staff)</label>
-                    <select class="form-select" @bind="NewTask.UserID">
+                    <select class="form-select" @bind="NewTask.UserId">
                         <option value="">Select Staff...</option>
                         @foreach (var user in StaffUsers)
                         {
-                            <option value="@user.UserID">@user.Username</option>
+                            <option value="@user.UserId">@user.Username</option>
                         }
                     </select>
                 </div>
-
-                <div class="input-group-modern">
-                    <label class="input-label">Notes</label>
-                    <textarea class="form-input" @bind="NewTask.Description" rows="3"></textarea>
-                </div>
+                
+                <!-- Notes field removed as not supported by Task schema -->
 
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button class="btn-primary" @onclick="SaveAssignment">Assign Task</button>
@@ -132,13 +134,13 @@
 }
 
 @code {
-    private List<Room> DirtyRooms = new();
-    private List<HestiaLink.Models.CleaningTask> ActiveTasks = new();
+    private List<HestiaLink.Models.VwRoomsNeedingCleaning> DirtyRooms = new();
+    private List<CleaningTask> ActiveTasks = new();
     private List<SystemUser> StaffUsers = new();
     
     private bool ShowAssignModal = false;
-    private Room? SelectedRoom;
-    private HestiaLink.Models.CleaningTask NewTask = new();
+    private CleaningTask NewTask = new();
+    private HestiaLink.Models.VwRoomsNeedingCleaning? SelectedDirtyRoom;
 
     protected override async Task OnInitializedAsync()
     {
@@ -147,37 +149,26 @@
 
     private async Task LoadData()
     {
-        // Load Dirty Rooms that don't have an active task? 
-        // Or just all Dirty rooms. Let's load all Dirty rooms.
-        DirtyRooms = await DbContext.Rooms
-            .Include(r => r.RoomType)
-            .Where(r => r.Status == "Dirty")
+        DirtyRooms = await DbContext.VwRoomsNeedingCleanings
             .OrderBy(r => r.RoomNumber)
             .ToListAsync();
 
-        // Load Active Tasks (Pending or In Progress)
-        ActiveTasks = await DbContext.CleaningTasks
+        ActiveTasks = await DbContext.Tasks
             .Include(t => t.Room)
-            .Include(t => t.AssignedUser)
-            .Where(t => t.Status != "Completed")
-            .OrderByDescending(t => t.CreatedDate)
+            .Include(t => t.User)
             .ToListAsync();
 
-        // Load Staff (Users) - In a real app filter by Role
         StaffUsers = await DbContext.SystemUsers
             .Where(u => u.Status == "Active") 
             .ToListAsync();
     }
 
-    private void OpenAssignModal(Room room)
+    private void OpenAssignModal(HestiaLink.Models.VwRoomsNeedingCleaning room)
     {
-        SelectedRoom = room;
-        NewTask = new HestiaLink.Models.CleaningTask 
+        SelectedDirtyRoom = room;
+        NewTask = new CleaningTask 
         { 
-            RoomID = room.RoomID,
-            Description = "Standard Cleaning",
-            Status = "Pending",
-            CreatedDate = DateTime.Now
+            RoomId = room.RoomId
         };
         ShowAssignModal = true;
     }
@@ -185,29 +176,27 @@
     private void CloseAssignModal()
     {
         ShowAssignModal = false;
-        SelectedRoom = null;
+        SelectedDirtyRoom = null;
     }
 
     private async Task SaveAssignment()
     {
-        if (SelectedRoom == null) return;
+        if (SelectedDirtyRoom == null) return;
 
-        DbContext.CleaningTasks.Add(NewTask);
+        DbContext.Tasks.Add(NewTask);
         await DbContext.SaveChangesAsync();
         
         await LoadData();
         CloseAssignModal();
     }
 
-    private async Task MarkTaskComplete(HestiaLink.Models.CleaningTask task)
+    private async Task MarkTaskComplete(CleaningTask task)
     {
-        // Update Task
-        task.Status = "Completed";
-        task.CompletedDate = DateTime.Now;
-        DbContext.CleaningTasks.Update(task);
+        // Logic limited by schema: Removing task to signify completion
+        DbContext.Tasks.Remove(task);
 
         // Update Room Status to Available
-        var room = await DbContext.Rooms.FindAsync(task.RoomID);
+        var room = await DbContext.Rooms.FindAsync(task.RoomId);
         if (room != null)
         {
             room.Status = "Available";

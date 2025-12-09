@@ -76,12 +76,12 @@
                             @foreach (var pos in FilteredPositions)
                             {
                                 <tr>
-                                    <td>@pos.PositionID</td>
+                                    <td>@pos.PositionId</td>
                                     <td style="font-weight: 700;">@pos.PositionTitle</td>
                                     <td>@pos.Department?.DepartmentName</td>
                                     <td>@pos.PositionLevel</td>
                                     <td>@pos.PayGrade</td>
-                                    <td>@pos.Salary.ToString("N2")</td>
+                                    <td>@pos.Salary?.ToString("N2")</td>
                                     <td>
                                         <span class="badge-@(pos.Status == "Active" ? "active" : pos.Status == "Inactive" ? "inactive" : "archived")">
                                             @pos.Status
@@ -128,10 +128,10 @@
             <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">Department</label>
-                    <select class="form-select" @bind="CurrentPos.DepartmentID">
+                    <select class="form-select" @bind="CurrentPos.DepartmentId">
                         @foreach (var d in Departments)
                         {
-                            <option value="@d.DepartmentID">@d.DepartmentName</option>
+                            <option value="@d.DepartmentId">@d.DepartmentName</option>
                         }
                     </select>
                 </div>
@@ -206,7 +206,7 @@
                             @foreach (var pos in ArchivedPositions)
                             {
                                 <tr>
-                                    <td>@pos.PositionID</td>
+                                    <td>@pos.PositionId</td>
                                     <td>
                                         <div style="font-weight: 700; color: #102f33;">@pos.PositionTitle</div>
                                     </td>
@@ -352,8 +352,8 @@
     {
         CurrentPos = new Position
         {
-            PositionID = pos.PositionID,
-            DepartmentID = pos.DepartmentID,
+            PositionId = pos.PositionId,
+            DepartmentId = pos.DepartmentId,
             PositionTitle = pos.PositionTitle,
             PositionLevel = pos.PositionLevel,
             PayGrade = pos.PayGrade,
@@ -371,14 +371,14 @@
     {
         try
         {
-            var entity = await Context.Positions.FindAsync(pos.PositionID);
+            var entity = await Context.Positions.FindAsync(pos.PositionId);
             if (entity != null)
             {
                 entity.Status = "Archived";
                 Context.Positions.Update(entity);
                 await Context.SaveChangesAsync();
 
-                var local = Positions.FirstOrDefault(p => p.PositionID == pos.PositionID);
+                var local = Positions.FirstOrDefault(p => p.PositionId == pos.PositionId);
                 if (local != null) local.Status = "Archived";
                 StateHasChanged();
                 await JSRuntime.InvokeVoidAsync("alert", "Position archived successfully!");
@@ -399,14 +399,14 @@
     {
         try
         {
-            var entity = await Context.Positions.FindAsync(pos.PositionID);
+            var entity = await Context.Positions.FindAsync(pos.PositionId);
             if (entity != null)
             {
                 entity.Status = "Active";
                 Context.Positions.Update(entity);
                 await Context.SaveChangesAsync();
 
-                var local = Positions.FirstOrDefault(p => p.PositionID == pos.PositionID);
+                var local = Positions.FirstOrDefault(p => p.PositionId == pos.PositionId);
                 if (local != null) local.Status = "Active";
                 StateHasChanged();
                 await JSRuntime.InvokeVoidAsync("alert", "Position restored successfully!");
@@ -435,13 +435,13 @@
     {
         try
         {
-            var entity = await Context.Positions.FindAsync(CurrentPosForDelete.PositionID);
+            var entity = await Context.Positions.FindAsync(CurrentPosForDelete.PositionId);
             if (entity != null)
             {
                 Context.Positions.Remove(entity);
                 await Context.SaveChangesAsync();
 
-                Positions.RemoveAll(p => p.PositionID == CurrentPosForDelete.PositionID);
+                Positions.RemoveAll(p => p.PositionId == CurrentPosForDelete.PositionId);
                 StateHasChanged();
                 await JSRuntime.InvokeVoidAsync("alert", "Position permanently deleted.");
             }
@@ -465,10 +465,10 @@
         {
             if (IsEditMode)
             {
-                var existing = await Context.Positions.FindAsync(CurrentPos.PositionID);
+                var existing = await Context.Positions.FindAsync(CurrentPos.PositionId);
                 if (existing != null)
                 {
-                    existing.DepartmentID = CurrentPos.DepartmentID;
+                    existing.DepartmentId = CurrentPos.DepartmentId;
                     existing.PositionTitle = CurrentPos.PositionTitle;
                     existing.PositionLevel = CurrentPos.PositionLevel;
                     existing.PayGrade = CurrentPos.PayGrade;
@@ -479,11 +479,11 @@
                     await Context.SaveChangesAsync();
 
                     // update local copy
-                    var local = Positions.FirstOrDefault(p => p.PositionID == existing.PositionID);
+                    var local = Positions.FirstOrDefault(p => p.PositionId == existing.PositionId);
                     if (local != null)
                     {
-                        local.DepartmentID = existing.DepartmentID;
-                        local.Department = Departments.FirstOrDefault(d => d.DepartmentID == existing.DepartmentID);
+                        local.DepartmentId = existing.DepartmentId;
+                        local.Department = Departments.FirstOrDefault(d => d.DepartmentId == existing.DepartmentId);
                         local.PositionTitle = existing.PositionTitle;
                         local.PositionLevel = existing.PositionLevel;
                         local.PayGrade = existing.PayGrade;
@@ -509,5 +509,5 @@
         }
     }
 
-    private bool CanSave => !string.IsNullOrWhiteSpace(CurrentPos.PositionTitle) && CurrentPos.DepartmentID > 0;
+    private bool CanSave => !string.IsNullOrWhiteSpace(CurrentPos.PositionTitle) && CurrentPos.DepartmentId > 0;
 }

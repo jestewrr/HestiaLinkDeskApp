@@ -24,29 +24,37 @@
             <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
                 <div style="font-weight:600; color:#6b7280;">Occupied</div>
                 <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "Occupied")</div>
+                <div style="font-size:0.8rem; color:#94a3b8;">out of @Rooms.Count occupied</div>
             </div>
             <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
                 <div style="font-weight:600; color:#6b7280;">For Cleaning</div>
                 <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "For Cleaning")</div>
+                <div style="font-size:0.8rem; color:#94a3b8;">out of @Rooms.Count rooms</div>
             </div>
             <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
                 <div style="font-weight:600; color:#6b7280;">Under Maintenance</div>
                 <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "Maintenance")</div>
+                <div style="font-size:0.8rem; color:#94a3b8;">out of @Rooms.Count rooms</div>
             </div>
             <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
                 <div style="font-weight:600; color:#6b7280;">Available</div>
                 <div style="font-size:1.4rem; font-weight:700; color:#374151;">@Rooms.Count(r => r.Status == "Available")</div>
+                <div style="font-size:0.8rem; color:#94a3b8;">ready for check-in</div>
             </div>
             <div class="stat-card" style="flex:1; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
                 <div style="font-weight:600; color:#6b7280;">Occupancy Rate</div>
-                <div style="font-size:1.4rem; font-weight:700; color:#374151; margin-top:6px;">@GetOccupancyRate()%</div>
+                <div style="font-size:1.4rem; font-weight:700; color:#374151;">@GetOccupancyRate()%</div>
+                <div style="font-size:0.8rem; color:#94a3b8;">displaying currently</div>
             </div>
         </div>
 
-        <div class="toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px;">
-            <div style="display:flex; gap:12px; align-items:center;">
-                <input class="search-input" placeholder="Search by room or guest..." @bind="SearchText" @bind:event="oninput" />
-                <select class="filter-select" @bind="FilterStatus">
+        <div class="toolbar" style="display:flex; align-items:center; gap:16px; margin-bottom:18px;">
+            <div style="display:flex; gap:12px; align-items:center; flex: 1;">
+                <div class="search-box" style="width: 320px;">
+                    <span class="search-icon">🔍</span>
+                    <input placeholder="Search by room or guest..." @bind="SearchText" @bind:event="oninput" />
+                </div>
+                <select class="filter-select" @bind="FilterStatus" style="width: 140px;">
                     <option value="All">All</option>
                     <option value="Available">Available</option>
                     <option value="Occupied">Occupied</option>
@@ -54,7 +62,7 @@
                     <option value="Maintenance">Maintenance</option>
                 </select>
 
-                <select class="filter-select" @bind="FilterFloor">
+                <select class="filter-select" @bind="FilterFloor" style="width: 140px;">
                     <option value="All">All Floors</option>
                     @foreach (var f in Floors)
                     {
@@ -77,28 +85,48 @@
         <div class="cards-grid">
             @foreach (var room in FilteredRooms)
             {
-                <div class="user-card" @onclick="() => OnRoomClicked(room)">
-                    <div class="card-top">
-                        <div class="avatar">@GetAvatarInitials(room.RoomNumber)</div>
-                        <div class="card-title">Room @room.RoomNumber <span style="font-weight:600; font-size:0.9rem; color:#64748b; margin-left:8px;">(Floor @room.Floor)</span></div>
-                        <div class="status-badge @GetStatusBadgeClass(room.Status)">@room.Status</div>
+                <div class="user-card" @onclick="() => OnRoomClicked(room)" style="border-radius:12px; border:none; box-shadow:0 1px 3px rgba(0,0,0,0.1); background:#fafafa;">
+                    <div class="card-top" style="margin-bottom:12px;">
+                        <div class="card-title" style="font-size:1.1rem; color:#0f172a;">
+                            Room @room.RoomNumber <span style="font-weight:400; color:#64748b; font-size:0.95rem;">(Floor @room.Floor)</span>
+                        </div>
+                        <div class="status-badge @GetStatusBadgeClass(room.Status)" style="font-weight:700; letter-spacing:0.5px; padding:6px 14px;">
+                            @room.Status.ToUpper()
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div><strong>Guest:</strong> @(string.IsNullOrEmpty(room.GuestName) ? "-" : room.GuestName)</div>
-                        <div><strong>Check-in:</strong> @(room.CheckInDate?.ToString("MMM dd, yyyy") ?? "-")</div>
-                        <div><strong>Check-out:</strong> @(room.CheckOutDate?.ToString("MMM dd, yyyy") ?? "-")</div>
+                    
+                    <div class="card-body" style="gap:4px;">
+                        <div style="font-size:0.95rem; color:#334155;">
+                            <span style="font-weight:600; color:#0f172a; min-width:80px; display:inline-block;">Guest:</span> 
+                            @(string.IsNullOrEmpty(room.GuestName) ? "-" : room.GuestName)
+                        </div>
+                        <div style="font-size:0.95rem; color:#334155;">
+                            <span style="font-weight:600; color:#0f172a; min-width:80px; display:inline-block;">Check-in:</span> 
+                            @(room.CheckInDate?.ToString("MMM dd, yyyy") ?? "-")
+                        </div>
+                        <div style="font-size:0.95rem; color:#334155;">
+                            <span style="font-weight:600; color:#0f172a; min-width:80px; display:inline-block;">Check-out:</span> 
+                            @(room.CheckOutDate?.ToString("MMM dd, yyyy") ?? "-")
+                        </div>
                     </div>
+
                     @if (room.Status == "For Cleaning")
                     {
-                        <div class="card-actions">
-                            <button class="btn-clean" @onclick="() => MarkAsCleaned(room)">Mark as Cleaned</button>
+                        <div class="card-actions" style="margin-top:16px;">
+                            <button class="btn-clean" @onclick="() => MarkAsCleaned(room)" style="width:100%;">Mark as Cleaned</button>
                         </div>
                     }
-                    @if (room.Status == "Occupied")
+                    else if (room.Status == "Occupied")
                     {
-                        <div class="card-actions">
-                            <button class="btn-create" @onclick:stopPropagation="true" @onclick="() => OpenAddServiceModal(room)">Add Service</button>
+                        <div class="card-actions" style="margin-top:16px;">
+                            <button class="btn-create" @onclick:stopPropagation="true" @onclick="() => OpenAddServiceModal(room)" style="width:100%; background-color: #0f766e;">Add Service</button>
                         </div>
+                    }
+                    else if (room.Status == "Maintenance")
+                    {
+                         <div style="margin-top:16px; font-size:0.8rem; color:#ef4444; font-weight:600; text-align:center;">
+                             Under Maint.
+                         </div>
                     }
                 </div>
             }
@@ -151,7 +179,7 @@
                 <!-- Middle Column: Booking Details -->
                 <div class="form-section">
                     <h3 style="margin:0 0 12px 0; font-size:1rem; color:#0f766e; border-bottom:2px solid #e5e7eb; padding-bottom:8px;">Booking Details</h3>
-                    <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
                         <div class="form-group">
                             <label class="form-label">Check In Date</label>
                             <input type="date" class="form-input" @bind="GuestCheckIn" />
@@ -160,18 +188,21 @@
                             <label class="form-label">Check Out Date</label>
                             <input type="date" class="form-input" @bind="GuestCheckOut" />
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="grid-column: 1 / -1;">
                             <label class="form-label">Services</label>
                             <div class="multi-dropdown">
-                                <button class="dropdown-toggle" @onclick="ToggleServicesDropdown">@GetSelectedServicesLabel()</button>
+                                <button class="dropdown-toggle" @onclick="ToggleServicesDropdown" style="width:100%; text-align:left; display:flex; justify-content:space-between; align-items:center;">
+                                    <span>@GetSelectedServicesLabel()</span>
+                                    <span style="font-size:0.8em; opacity:0.6;">▼</span>
+                                </button>
                                 @if (ShowServicesDropdown)
                                 {
-                                    <div class="dropdown-panel">
+                                    <div class="dropdown-panel" style="width:100%;">
                                         @if (AvailableServices.Any())
                                         {
                                             @foreach (var svc in AvailableServices)
                                             {
-                                                <label class="dropdown-item"><input type="checkbox" checked="@SelectedServiceIds.Contains(svc.ServiceID)" @onchange="(e) => ToggleServiceSelection(svc.ServiceID, (bool?)e.Value == true)" /> @svc.ServiceName</label>
+                                                <label class="dropdown-item"><input type="checkbox" checked="@SelectedServiceIds.Contains(svc.ServiceId)" @onchange="(e) => ToggleServiceSelection(svc.ServiceId, (bool?)e.Value == true)" /> @svc.ServiceName</label>
                                             }
                                         }
                                         else
@@ -213,7 +244,7 @@
                         </div>
                         <div style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e5e7eb;">
                             <div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">Services</div>
-                            <div style="font-size:1.1rem; font-weight:600; color:#0f766e;">@(AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Sum(s => s.StandardPrice).ToString("C"))</div>
+                            <div style="font-size:1.1rem; font-weight:600; color:#0f766e;">@(AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceId)).Sum(s => s.StandardPrice).ToString("C"))</div>
                         </div>
                         <div style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e5e7eb;">
                             <div style="font-size:0.85rem; color:#64748b; margin-bottom:4px;">Tax (12%)</div>
@@ -319,7 +350,7 @@
                 {
                     @foreach (var svc in AvailableServices)
                     {
-                        <label style="display:flex; align-items:center; gap:8px; padding:8px 0;"><input type="checkbox" checked="@AddServiceSelection.Contains(svc.ServiceID)" @onchange="(e) => ToggleAddServiceSelection(svc.ServiceID, (bool?)e.Value == true)" /> @svc.ServiceName <span style="margin-left:auto; color:#64748b;">@svc.StandardPrice.ToString("C")</span></label>
+                        <label style="display:flex; align-items:center; gap:8px; padding:8px 0;"><input type="checkbox" checked="@AddServiceSelection.Contains(svc.ServiceId)" @onchange="(e) => ToggleAddServiceSelection(svc.ServiceId, (bool?)e.Value == true)" /> @svc.ServiceName <span style="margin-left:auto; color:#64748b;">@svc.StandardPrice.ToString("C")</span></label>
                     }
                 }
                 else
@@ -336,340 +367,9 @@
     </div>
 }
 
-<style>
-    .cards-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill,minmax(320px,1fr));
-        gap: 18px;
-    }
 
-    .user-card {
-        background: white;
-        border-radius: 12px;
-        padding: 14px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
+<!-- REMOVED LOCAL STYLES - Moved to app.css -->
 
-    .card-top {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .card-title {
-        font-weight: 800;
-        font-size: 1.05rem;
-    }
-
-    .status-badge {
-        margin-left: auto;
-        padding: 6px 10px;
-        border-radius: 12px;
-        font-size: 0.8rem;
-    }
-
-    .badge-occupied {
-        background: #f3f4f6;
-        color: #374151;
-        border: 1px solid #d1d5db;
-    }
-
-    .badge-available {
-        background: #e0f2f1;
-        color: #00535b;
-        border: 1px solid #b2dfdb;
-    }
-
-    .badge-maintenance {
-        background: #fef2f2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
-    }
-
-    .badge-cleaning {
-        background: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fde68a;
-    }
-
-    .card-body {
-        margin-top: 12px;
-        color: #334155;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .card-actions {
-        margin-top: 12px;
-        display: flex;
-        gap: 8px;
-    }
-
-    .btn-clean {
-        background: #f59e0b;
-        color: white;
-        padding: 8px 16px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        font-weight: 500;
-        flex: 1;
-    }
-
-        .btn-clean:hover {
-            background: #d97706;
-        }
-
-    .modal-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(16,47,51,0.45);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 40;
-    }
-
-    .modal-content {
-        background: white;
-        border-radius: 10px;
-        width: 90%;
-        max-width: 900px;
-        box-shadow: 0 10px 30px rgba(2,6,23,0.4);
-    }
-
-    .modal-header-teal {
-        background: #00535b;
-        color: white;
-        padding: 14px 18px;
-        border-top-left-radius: 10px;
-        border-top-right-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .modal-header {
-        background: #00535b;
-        color: white;
-        padding: 12px 16px;
-        border-top-left-radius: 10px;
-        border-top-right-radius: 10px;
-    }
-
-        .modal-header h2 {
-            color: #ffffff;
-            margin: 0;
-            font-weight: 700;
-        }
-
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(2,1fr);
-        gap: 12px;
-    }
-
-    .form-grid-landscape {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
-    }
-
-    .form-section {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-
-    .form-label {
-        font-weight: 600;
-        color: #334155;
-    }
-
-    .form-input {
-        padding: 10px 12px;
-        border-radius: 8px;
-        border: 1px solid #e6eef0;
-    }
-
-    .action-footer {
-        padding: 12px 16px;
-    }
-
-    .btn-primary {
-        background: #00535b;
-        color: white;
-        padding: 10px 14px;
-        border-radius: 8px;
-        border: none;
-        cursor: pointer;
-        transition: background 0.2s ease;
-    }
-
-        .btn-primary:hover, .btn-primary:active {
-            background: #0093a0;
-        }
-
-    .btn-secondary {
-        background: #64748b;
-        color: white;
-        padding: 10px 14px;
-        border-radius: 8px;
-        border: none;
-    }
-
-    .btn-create {
-        background: #0ea5a4;
-        color: white;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: none;
-    }
-
-    /* Billing Modal Buttons */
-    .btn-checkout {
-        background: #0f766e;
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        border: none;
-        cursor: pointer;
-        font-weight: 600;
-        transition: all 0.2s ease;
-        flex: 1;
-    }
-
-        .btn-checkout:hover {
-            background: #0d9488;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(15,118,110,0.2);
-        }
-
-    .btn-cancel {
-        background: #64748b;
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        border: none;
-        cursor: pointer;
-        font-weight: 600;
-        transition: all 0.2s ease;
-        flex: 1;
-    }
-
-        .btn-cancel:hover {
-            background: #475569;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(100,116,139,0.2);
-        }
-
-    .btn-confirm-clean {
-        background: #10b981;
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        border: none;
-        cursor: pointer;
-        font-weight: 600;
-        transition: all 0.2s ease;
-    }
-
-        .btn-confirm-clean:hover {
-            background: #059669;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(16,185,129,0.2);
-        }
-
-    .search-input {
-        padding: 10px 12px;
-        border-radius: 12px;
-        border: 1px solid #e6eef0;
-        width: 360px;
-    }
-
-    .filter-select {
-        padding: 10px 12px;
-        border-radius: 12px;
-        border: 1px solid #e6eef0;
-        background: white;
-        cursor: pointer;
-        min-width: 140px;
-    }
-
-    .avatar {
-        width: 56px;
-        height: 56px;
-        border-radius: 8px;
-        background: linear-gradient(135deg,#06b6d4,#0f766e);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-    }
-
-    .multi-dropdown {
-        position: relative;
-    }
-
-    .dropdown-toggle {
-        padding: 10px 12px;
-        border-radius: 8px;
-        border: 1px solid #e6eef0;
-        background: white;
-    }
-
-    .dropdown-panel {
-        position: absolute;
-        background: white;
-        box-shadow: 0 4px 12px rgba(2,6,23,0.12);
-        border-radius: 8px;
-        padding: 8px;
-        margin-top: 6px;
-        z-index: 50;
-        max-height: 200px;
-        overflow: auto;
-        width: 320px;
-    }
-
-    .dropdown-item {
-        display: block;
-        padding: 6px 8px;
-    }
-
-    .bill-summary {
-        border-top: 1px dashed #e6eef0;
-        padding-top: 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .bill-row {
-        display: flex;
-        justify-content: space-between;
-    }
-
-        .bill-row.total {
-            font-weight: 800;
-            color: #064e3b;
-        }
-</style>
 
 @code {
     private string SearchText = "";
@@ -684,7 +384,6 @@
     private bool ShowAddServiceModal = false;
     private bool ShowServicesDropdown = false;
     private bool _isInitialized = false;
-    private bool _isJsReady = false;
 
     private List<RoomCard> Rooms = new();
     private List<Service> AvailableServices = new();
@@ -715,7 +414,6 @@
     {
         if (firstRender && _isInitialized)
         {
-            _isJsReady = true;
             await SafeJsInvoke("console.log", "Component rendered successfully");
 
             if (Rooms.Any())
@@ -797,8 +495,8 @@
                     Floor = reader["Floor"] != DBNull.Value ? Convert.ToInt32(reader["Floor"]) : 1,
                     Status = MapStatus(reader["Status"]?.ToString() ?? "Available"),
                     GuestName = reader["Guest"]?.ToString()?.Trim(),
-                    CheckInDate = reader["CheckIn"] != DBNull.Value ? Convert.ToDateTime(reader["CheckIn"]) : (DateTime?)null,
-                    CheckOutDate = reader["CheckOut"] != DBNull.Value ? Convert.ToDateTime(reader["CheckOut"]) : (DateTime?)null,
+                    CheckInDate = reader["CheckIn"] != DBNull.Value ? DateOnly.FromDateTime(Convert.ToDateTime(reader["CheckIn"])) : (DateOnly?)null,
+                    CheckOutDate = reader["CheckOut"] != DBNull.Value ? DateOnly.FromDateTime(Convert.ToDateTime(reader["CheckOut"])) : (DateOnly?)null,
                     RoomCharge = 0m,
                     ServiceCharge = 0m
                 };
@@ -808,7 +506,7 @@
 
                 if (roomCard.Status == "Occupied" && roomCard.CheckInDate.HasValue && roomCard.CheckOutDate.HasValue)
                 {
-                    var nights = (roomCard.CheckOutDate.Value - roomCard.CheckInDate.Value).Days;
+                    var nights = roomCard.CheckOutDate.Value.DayNumber - roomCard.CheckInDate.Value.DayNumber;
                     if (nights <= 0) nights = 1;
                     roomCard.RoomCharge = roomCard.RoomCharge * nights;
                 }
@@ -891,7 +589,7 @@
                 var roomCard = new RoomCard
                 {
                     RoomNumber = room.RoomNumber,
-                    Floor = room.Floor,
+                    Floor = room.Floor ?? 1,
                     Status = MapStatus(room.Status ?? "Available"),
                     RoomCharge = room.RoomType?.BasePrice ?? 1200.00m,
                     ServiceCharge = 0m,
@@ -902,7 +600,7 @@
 
                 var roomReservation = activeReservations
                     .FirstOrDefault(r => reservedRooms
-                        .Any(rr => rr.ReservationID == r.ReservationID && rr.RoomID == room.RoomID));
+                        .Any(rr => rr.ReservationId == r.ReservationId && rr.RoomId == room.RoomId));
 
                 if (roomReservation != null)
                 {
@@ -913,7 +611,7 @@
 
                     if (roomCard.CheckInDate.HasValue && roomCard.CheckOutDate.HasValue)
                     {
-                        var nights = (roomCard.CheckOutDate.Value - roomCard.CheckInDate.Value).Days;
+                        var nights = roomCard.CheckOutDate.Value.DayNumber - roomCard.CheckInDate.Value.DayNumber;
                         if (nights <= 0) nights = 1;
                         roomCard.RoomCharge = roomCard.RoomCharge * nights;
                     }
@@ -970,14 +668,14 @@
     {
         var sampleRooms = new List<RoomCard>();
 
-        var sampleData = new (string RoomNumber, int Floor, decimal Price, string Status, string? Guest, DateTime? CheckIn, DateTime? CheckOut)[]
+        var sampleData = new (string RoomNumber, int Floor, decimal Price, string Status, string? Guest, DateOnly? CheckIn, DateOnly? CheckOut)[]
         {
             ("101", 1, 1200.00m, "Available", null, null, null),
             ("102", 1, 1200.00m, "For Cleaning", null, null, null),
-            ("103", 1, 1800.00m, "Occupied", "John Doe", DateTime.Today.AddDays(-2), DateTime.Today.AddDays(1)),
+            ("103", 1, 1800.00m, "Occupied", "John Doe", DateOnly.FromDateTime(DateTime.Today).AddDays(-2), DateOnly.FromDateTime(DateTime.Today).AddDays(1)),
             ("104", 1, 2800.00m, "Maintenance", null, null, null),
             ("105", 1, 3500.00m, "Available", null, null, null),
-            ("201", 2, 1200.00m, "Occupied", "Jane Smith", DateTime.Today.AddDays(-1), DateTime.Today.AddDays(2)),
+            ("201", 2, 1200.00m, "Occupied", "Jane Smith", DateOnly.FromDateTime(DateTime.Today).AddDays(-1), DateOnly.FromDateTime(DateTime.Today).AddDays(2)),
             ("202", 2, 1800.00m, "Available", null, null, null)
         };
 
@@ -993,13 +691,13 @@
                 TaxAmount = Math.Round(room.Price * 0.12m, 2),
                 TotalDue = room.Price * 1.12m,
                 GuestName = room.Status == "Occupied" ? room.Guest : null,
-                CheckInDate = room.Status == "Occupied" ? room.CheckIn : (DateTime?)null,
-                CheckOutDate = room.Status == "Occupied" ? room.CheckOut : (DateTime?)null
+                CheckInDate = room.Status == "Occupied" ? room.CheckIn : (DateOnly?)null,
+                CheckOutDate = room.Status == "Occupied" ? room.CheckOut : (DateOnly?)null
             };
 
             if (room.Status == "Occupied" && room.CheckIn.HasValue && room.CheckOut.HasValue)
             {
-                var nights = (room.CheckOut.Value - room.CheckIn.Value).Days;
+                var nights = room.CheckOut.Value.DayNumber - room.CheckIn.Value.DayNumber;
                 roomCard.RoomCharge = room.Price * nights;
                 roomCard.TaxAmount = Math.Round(roomCard.RoomCharge * 0.12m, 2);
                 roomCard.TotalDue = roomCard.RoomCharge + roomCard.TaxAmount;
@@ -1048,8 +746,8 @@
     {
         SelectedRoom = room;
         GuestFirstName = ""; GuestLastName = ""; GuestEmail = ""; GuestContact = ""; GuestAddress = ""; GuestDOB = null;
-        GuestCheckIn = DateTime.Today;
-        GuestCheckOut = DateTime.Today.AddDays(1);
+        GuestCheckIn = DateOnly.FromDateTime(DateTime.Today);
+        GuestCheckOut = DateOnly.FromDateTime(DateTime.Today).AddDays(1);
         GuestPaymentStatus = "Pending";
         PaymentMethod = "Cash";
         SelectedServiceIds.Clear();
@@ -1075,19 +773,19 @@
     private string GetSelectedServicesLabel()
     {
         if (!SelectedServiceIds.Any()) return "Select services...";
-        var names = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Select(s => s.ServiceName).ToArray();
+        var names = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceId)).Select(s => s.ServiceName).ToArray();
         return string.Join(", ", names);
     }
 
     private decimal CalculateGuestTotal()
     {
-        var nights = (GuestCheckOut - GuestCheckIn).Days;
+        var nights = GuestCheckOut.DayNumber - GuestCheckIn.DayNumber;
         if (nights <= 0) nights = 1;
 
         var roomPrice = SelectedRoom?.RoomCharge ?? 1200.00m;
         var roomCharge = roomPrice * nights;
 
-        var serviceCharge = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
+        var serviceCharge = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceId)).Sum(s => s.StandardPrice);
         var tax = Math.Round((roomCharge + serviceCharge) * 0.12m, 2);
 
         return roomCharge + serviceCharge + tax;
@@ -1100,8 +798,8 @@
     private string GuestContact = "";
     private DateTime? GuestDOB;
     private string GuestAddress = "";
-    private DateTime GuestCheckIn = DateTime.Today;
-    private DateTime GuestCheckOut = DateTime.Today.AddDays(1);
+    private DateOnly GuestCheckIn = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly GuestCheckOut = DateOnly.FromDateTime(DateTime.Today).AddDays(1);
 
     // Helper method to get current user ID from UserSession
     private int GetCurrentUserId()
@@ -1119,7 +817,7 @@
     // Helper method to generate reference number
     private string GenerateReferenceNumber()
     {
-        return $"REF-{DateTime.Now:yyyyMMddHHmmss}-{new Random().Next(1000, 9999)}";
+        return $"REF-{DateOnly.FromDateTime(DateTime.Now):yyyyMMddHHmmss}-{new Random().Next(1000, 9999)}";
     }
 
     private async Task SaveGuest()
@@ -1161,8 +859,8 @@
 
         if (GuestDOB.HasValue)
         {
-            var age = DateTime.Today.Year - GuestDOB.Value.Year;
-            if (GuestDOB.Value.Date > DateTime.Today.AddYears(-age))
+            var age = DateOnly.FromDateTime(DateTime.Today).Year - GuestDOB.Value.Year;
+            if (DateOnly.FromDateTime(GuestDOB.Value) > DateOnly.FromDateTime(DateTime.Today).AddYears(-age))
                 age--;
 
             if (age < 18)
@@ -1172,7 +870,7 @@
         if (GuestCheckOut <= GuestCheckIn)
             errors.Add("Check-out date must be after check-in date");
 
-        if (GuestCheckIn < DateTime.Today)
+        if (GuestCheckIn < DateOnly.FromDateTime(DateTime.Today))
             errors.Add("Check-in date cannot be in the past");
 
         if (errors.Any())
@@ -1204,8 +902,8 @@
         }
 
         var overlap = await DbContext.ReservedRooms
-            .Join(DbContext.Reservations, rr => rr.ReservationID, res => res.ReservationID, (rr, res) => new { rr, res })
-            .Where(x => x.rr.RoomID == roomEntity.RoomID &&
+            .Join(DbContext.Reservations, rr => rr.ReservationId, res => res.ReservationId, (rr, res) => new { rr, res })
+            .Where(x => x.rr.RoomId == roomEntity.RoomId &&
                        x.res.Status == "Checked In" &&
                        ((GuestCheckIn >= x.res.CheckInDate && GuestCheckIn < x.res.CheckOutDate) ||
                         (GuestCheckOut > x.res.CheckInDate && GuestCheckOut <= x.res.CheckOutDate) ||
@@ -1236,7 +934,7 @@
                 {
                     // Reload the room entity with tracking for update
                     var roomForUpdate = await DbContext.Rooms
-                        .FirstOrDefaultAsync(r => r.RoomID == roomEntity.RoomID);
+                        .FirstOrDefaultAsync(r => r.RoomId == roomEntity.RoomId);
 
                     if (roomForUpdate == null)
                     {
@@ -1252,23 +950,23 @@
                         Email = string.IsNullOrWhiteSpace(GuestEmail) ? null : GuestEmail.Trim(),
                         ContactNumber = GuestContact.Trim(),
                         Address = string.IsNullOrWhiteSpace(GuestAddress) ? null : GuestAddress.Trim(),
-                        DateOfBirth = GuestDOB,
+                        DateOfBirth = GuestDOB.HasValue ? DateOnly.FromDateTime(GuestDOB.Value) : null,
                         CreatedDate = DateTime.Now
                     };
                     DbContext.Guests.Add(guest);
                     await DbContext.SaveChangesAsync();
 
-                    var nights = (GuestCheckOut - GuestCheckIn).Days;
+                    var nights = GuestCheckOut.DayNumber - GuestCheckIn.DayNumber;
                     if (nights <= 0) nights = 1;
 
-                    var roomCharge = await CalculateRoomCharge(roomForUpdate.RoomID, GuestCheckIn, GuestCheckOut);
-                    var serviceTotal = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
+                    var roomCharge = await CalculateRoomCharge(roomForUpdate.RoomId, GuestCheckIn, GuestCheckOut);
+                    var serviceTotal = AvailableServices.Where(s => SelectedServiceIds.Contains(s.ServiceId)).Sum(s => s.StandardPrice);
                     var tax = Math.Round((roomCharge + serviceTotal) * 0.12m, 2);
                     var grandTotal = roomCharge + serviceTotal + tax;
 
                     var reservation = new Reservation
                     {
-                        GuestID = guest.GuestID,
+                        GuestId = guest.GuestId,
                         CheckInDate = GuestCheckIn,
                         CheckOutDate = GuestCheckOut,
                         Status = "Checked In",
@@ -1282,8 +980,8 @@
 
                     var reservedRoom = new ReservedRoom
                     {
-                        ReservationID = reservation.ReservationID,
-                        RoomID = roomForUpdate.RoomID
+                        ReservationId = reservation.ReservationId,
+                        RoomId = roomForUpdate.RoomId
                     };
                     DbContext.ReservedRooms.Add(reservedRoom);
 
@@ -1292,13 +990,13 @@
 
                     foreach (var svcId in SelectedServiceIds)
                     {
-                        var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
+                        var svc = AvailableServices.FirstOrDefault(s => s.ServiceId == svcId);
                         if (svc == null) continue;
 
                         var serviceTransaction = new ServiceTransaction
                         {
-                            ReservationID = reservation.ReservationID,
-                            ServiceID = svc.ServiceID,
+                            ReservationId = reservation.ReservationId,
+                            ServiceId = svc.ServiceId,
                             TransactionDateTime = DateTime.Now,
                             Quantity = 1,
                             UnitPrice = svc.StandardPrice,
@@ -1310,7 +1008,7 @@
 
                     var bill = new Bill
                     {
-                        ReservationID = reservation.ReservationID,
+                        ReservationId = reservation.ReservationId,
                         BillDate = DateTime.Now,
                         SubtotalAmount = roomCharge + serviceTotal,
                         GrandTotal = grandTotal,
@@ -1329,7 +1027,7 @@
 
                         var payment = new Payment
                         {
-                            BillID = bill.BillID,
+                            BillId = bill.BillId,
                             PaymentDate = DateTime.Now,
                             PaymentMethod = PaymentMethod,
                             Amount = amountPaid,
@@ -1346,8 +1044,8 @@
                         {
                             var income = new Income
                             {
-                                PaymentID = payment.PaymentID,
-                                IncomeDate = DateTime.Today,
+                                PaymentId = payment.PaymentId,
+                                IncomeDate = DateOnly.FromDateTime(DateTime.Today),
                                 Amount = payment.Amount,
                                 IncomeType = "Checkin",
                                 Description = "CheckInAndCheckout",
@@ -1363,7 +1061,7 @@
 
                     var roomBillDetail = new BillDetail
                     {
-                        BillID = bill.BillID,
+                        BillId = bill.BillId,
                         Description = $"Room {roomForUpdate.RoomNumber} ({nights} nights)",
                         Quantity = nights,
                         UnitPrice = roomCharge / nights,
@@ -1374,12 +1072,12 @@
 
                     foreach (var svcId in SelectedServiceIds)
                     {
-                        var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
+                        var svc = AvailableServices.FirstOrDefault(s => s.ServiceId == svcId);
                         if (svc == null) continue;
 
                         var serviceBillDetail = new BillDetail
                         {
-                            BillID = bill.BillID,
+                            BillId = bill.BillId,
                             Description = svc.ServiceName,
                             Quantity = 1,
                             UnitPrice = svc.StandardPrice,
@@ -1399,7 +1097,7 @@
                     ShowGuestModal = false;
                     await LoadRoomsFromView();
                 }
-                catch (Exception ex)
+                catch
                 {
                     await transaction.RollbackAsync();
                     throw;
@@ -1559,10 +1257,10 @@
                     // Find the active reservation for this room
                     var reservationData = await DbContext.Reservations
                         .Join(DbContext.ReservedRooms,
-                            r => r.ReservationID,
-                            rr => rr.ReservationID,
+                            r => r.ReservationId,
+                            rr => rr.ReservationId,
                             (r, rr) => new { r, rr })
-                        .Where(x => x.rr.RoomID == roomEntity.RoomID && x.r.Status == "Checked In")
+                        .Where(x => x.rr.RoomId == roomEntity.RoomId && x.r.Status == "Checked In")
                         .Select(x => new
                         {
                             Reservation = x.r,
@@ -1581,7 +1279,7 @@
 
                         // Find and update the bill
                         var bill = await DbContext.Bills
-                            .Where(b => b.ReservationID == reservationData.Reservation.ReservationID)
+                            .Where(b => b.ReservationId == reservationData.Reservation.ReservationId)
                             .FirstOrDefaultAsync();
 
                         if (bill != null)
@@ -1594,7 +1292,7 @@
 
                             // Create payment record if it doesn't exist
                             var existingPayment = await DbContext.Payments
-                                .Where(p => p.BillID == bill.BillID && p.PaymentStatus == "Completed")
+                                .Where(p => p.BillId == bill.BillId && p.PaymentStatus == "Completed")
                                 .FirstOrDefaultAsync();
 
                             Payment payment = null;
@@ -1604,7 +1302,7 @@
 
                                 payment = new Payment
                                 {
-                                    BillID = bill.BillID,
+                                    BillId = bill.BillId,
                                     PaymentDate = DateTime.Now,
                                     PaymentMethod = "Cash",
                                     Amount = bill.GrandTotal,
@@ -1626,8 +1324,8 @@
                             {
                                 var income = new Income
                                 {
-                                    PaymentID = payment.PaymentID,
-                                    IncomeDate = DateTime.Today,
+                                    PaymentId = payment.PaymentId,
+                                    IncomeDate = DateOnly.FromDateTime(DateTime.Today),
                                     Amount = payment.Amount,
                                     IncomeType = "Checkout",
                                     Description = "CheckInAndCheckout",
@@ -1691,14 +1389,14 @@
         return trimmed.Length <= 2 ? trimmed : trimmed.Substring(0, 2);
     }
 
-    private async Task<decimal> CalculateRoomCharge(int roomId, DateTime checkIn, DateTime checkOut)
+    private async Task<decimal> CalculateRoomCharge(int roomId, DateOnly checkIn, DateOnly checkOut)
     {
         var room = await DbContext.Rooms
             .AsNoTracking()
             .Include(r => r.RoomType)
-            .FirstOrDefaultAsync(r => r.RoomID == roomId);
+            .FirstOrDefaultAsync(r => r.RoomId == roomId);
         if (room == null) return 0m;
-        var nights = (checkOut - checkIn).Days;
+        var nights = checkOut.DayNumber - checkIn.DayNumber;
         if (nights <= 0) nights = 1;
         var basePrice = room.RoomType?.BasePrice ?? 0m;
         return basePrice * nights;
@@ -1733,8 +1431,8 @@
             if (roomEntity == null) return;
 
             var reservation = await DbContext.Reservations
-                .Join(DbContext.ReservedRooms, r => r.ReservationID, rr => rr.ReservationID, (r, rr) => new { r, rr })
-                .Where(x => x.rr.RoomID == roomEntity.RoomID && x.r.Status == "Checked In")
+                .Join(DbContext.ReservedRooms, r => r.ReservationId, rr => rr.ReservationId, (r, rr) => new { r, rr })
+                .Where(x => x.rr.RoomId == roomEntity.RoomId && x.r.Status == "Checked In")
                 .Select(x => x.r)
                 .FirstOrDefaultAsync();
 
@@ -1742,13 +1440,13 @@
 
             foreach (var svcId in AddServiceSelection)
             {
-                var svc = AvailableServices.FirstOrDefault(s => s.ServiceID == svcId);
+                var svc = AvailableServices.FirstOrDefault(s => s.ServiceId == svcId);
                 if (svc == null) continue;
 
                 var serviceTransaction = new ServiceTransaction
                 {
-                    ReservationID = reservation.ReservationID,
-                    ServiceID = svc.ServiceID,
+                    ReservationId = reservation.ReservationId,
+                    ServiceId = svc.ServiceId,
                     TransactionDateTime = DateTime.Now,
                     Quantity = 1,
                     UnitPrice = svc.StandardPrice,
@@ -1759,7 +1457,7 @@
             }
             await DbContext.SaveChangesAsync();
 
-            var addedAmount = AvailableServices.Where(s => AddServiceSelection.Contains(s.ServiceID)).Sum(s => s.StandardPrice);
+            var addedAmount = AvailableServices.Where(s => AddServiceSelection.Contains(s.ServiceId)).Sum(s => s.StandardPrice);
             SelectedRoom.ServiceCharge += addedAmount;
             SelectedRoom.TaxAmount = Math.Round((SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge) * 0.12m, 2);
             SelectedRoom.TotalDue = SelectedRoom.RoomCharge + SelectedRoom.ServiceCharge + SelectedRoom.TaxAmount;
@@ -1779,8 +1477,8 @@
         public int Floor { get; set; } = 1;
         public string Status { get; set; } = "Available";
         public string? GuestName { get; set; }
-        public DateTime? CheckInDate { get; set; }
-        public DateTime? CheckOutDate { get; set; }
+        public DateOnly? CheckInDate { get; set; }
+        public DateOnly? CheckOutDate { get; set; }
         public decimal RoomCharge { get; set; }
         public decimal ServiceCharge { get; set; }
         public decimal TaxAmount { get; set; }

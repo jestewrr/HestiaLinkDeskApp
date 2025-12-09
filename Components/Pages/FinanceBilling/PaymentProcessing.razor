@@ -1,5 +1,10 @@
 ﻿@page "/finance/payment-processing"
 @layout MainLayout
+@using HestiaLink.Data
+@using HestiaLink.Models
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext _context
+@inject NavigationManager NavigationManager
 
 <div class="page-wrapper">
     <header class="page-topbar">
@@ -81,7 +86,7 @@
                                 <td>@payment.PaymentDate.ToString("MMM dd, yyyy HH:mm")</td>
                                 <td style="font-weight: 700; color: var(--color-teal);">INV-@payment.InvoiceId.ToString("D5")</td>
                                 <td style="font-weight: 700;">@payment.GuestName</td>
-                                <td>Room @payment.RoomNumber</td>
+                                <td>@payment.RoomNumber</td>
                                 <td>₱@payment.TotalBill.ToString("N2")</td>
                                 <td style="font-weight: 900; color: var(--color-teal);">₱@payment.AmountPaid.ToString("N2")</td>
                                 <td style="font-weight: 700; color: @(payment.Balance > 0 ? "#991b1b" : "#065f46");">₱@payment.Balance.ToString("N2")</td>
@@ -156,30 +161,33 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 16px;">
-                <label class="form-label">Guest Name</label>
-                <input type="text" class="form-input" @bind="NewPayment.GuestName" placeholder="Enter guest name" />
+                <label class="form-label">Invoice ID</label>
+                <div style="display:flex; gap: 8px;">
+                    <input type="number" class="form-input" @bind="NewPayment.InvoiceId" placeholder="Enter Invoice ID to fetch" />
+                    <button class="btn-primary" style="padding: 8px 16px;" @onclick="FetchBillDetails">Fetch</button>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                 <label class="form-label">Guest Name</label>
+                 <input type="text" class="form-input" @bind="NewPayment.GuestName" readonly style="background-color: #f3f4f6;" />
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                    <label class="form-label">Invoice ID</label>
-                    <input type="number" class="form-input" @bind="NewPayment.InvoiceId" placeholder="Invoice number" />
-                </div>
                 <div class="form-group">
                     <label class="form-label">Room Number</label>
-                    <input type="text" class="form-input" @bind="NewPayment.RoomNumber" placeholder="e.g., 101" />
+                    <input type="text" class="form-input" @bind="NewPayment.RoomNumber" readonly style="background-color: #f3f4f6;" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Current Balance</label>
+                     <!-- Display ONLY the unpaid balance, not full bill, to avoid confusion -->
+                    <input type="text" class="form-input" value="₱@CurrentBillBalance.ToString("N2")" readonly style="background-color: #f3f4f6; font-weight: bold; color: #991b1b;" />
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                    <label class="form-label">Total Bill Amount</label>
-                    <input type="number" class="form-input" @bind="NewPayment.TotalBill" placeholder="0.00" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Amount Paying</label>
-                    <input type="number" class="form-input" @bind="NewPayment.AmountPaid" placeholder="0.00" />
-                </div>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">Amount Paying</label>
+                <input type="number" class="form-input" @bind="NewPayment.AmountPaid" placeholder="0.00" />
             </div>
 
             <div class="form-group" style="margin-bottom: 16px;">
@@ -201,8 +209,8 @@
 
             <div style="background: var(--color-cream); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="font-weight: 600;">Balance Remaining:</span>
-                    <span style="font-weight: 900; color: var(--color-teal); font-size: 1.2rem;">₱@(NewPayment.TotalBill - NewPayment.AmountPaid).ToString("N2")</span>
+                    <span style="font-weight: 600;">Balance After Payment:</span>
+                    <span style="font-weight: 900; color: var(--color-teal); font-size: 1.2rem;">₱@(CurrentBillBalance - NewPayment.AmountPaid).ToString("N2")</span>
                 </div>
             </div>
 
@@ -222,28 +230,52 @@
 </style>
 
 @code {
-    private List<Payment> Payments = new List<Payment>();
-    private Payment NewPayment = new Payment();
+    public class PaymentViewModel
+    {
+        public int PaymentId { get; set; } // DB ID
+        public DateTime PaymentDate { get; set; }
+        public int InvoiceId { get; set; }
+        public string GuestName { get; set; } = "";
+        public string RoomNumber { get; set; } = "";
+        public decimal TotalBill { get; set; }
+        public decimal AmountPaid { get; set; }
+        public decimal Balance { get; set; } // Bill Balance, not just payment balance
+        public string PaymentMethod { get; set; } = "Cash";
+        public string ReferenceNumber { get; set; } = "";
+        public string Status { get; set; } = "Pending";
+    }
+
+    private List<PaymentViewModel> Payments = new List<PaymentViewModel>();
+    private PaymentViewModel NewPayment = new PaymentViewModel();
     private string SearchText = "";
     private string PaymentStatusFilter = "";
     private string PaymentMethodFilter = "";
     private bool ShowProcessModal = false;
+    private decimal CurrentBillBalance = 0; // Helper for modal
 
     private decimal TodayPayments => Payments.Where(p => p.PaymentDate.Date == DateTime.Now.Date).Sum(p => p.AmountPaid);
-    private int PendingCount => Payments.Count(p => p.Status == "Pending");
-    private decimal TotalCollected => Payments.Where(p => p.Status == "Paid").Sum(p => p.AmountPaid);
-    private decimal OutstandingBalance => Payments.Sum(p => p.Balance);
-
-    private decimal CashPayments => Payments.Where(p => p.PaymentMethod == "Cash" && p.Status == "Paid").Sum(p => p.AmountPaid);
-    private int CashPaymentCount => Payments.Count(p => p.PaymentMethod == "Cash" && p.Status == "Paid");
+    private int PendingCount => Payments.Count(p => p.Status == "Pending" || p.Status == "Partial"); // Logic adjustment
+    private decimal TotalCollected => Payments.Sum(p => p.AmountPaid);
     
-    private decimal CardPayments => Payments.Where(p => (p.PaymentMethod == "Credit Card" || p.PaymentMethod == "Debit Card") && p.Status == "Paid").Sum(p => p.AmountPaid);
-    private int CardPaymentCount => Payments.Count(p => (p.PaymentMethod == "Credit Card" || p.PaymentMethod == "Debit Card") && p.Status == "Paid");
-    
-    private decimal DigitalPayments => Payments.Where(p => (p.PaymentMethod == "GCash" || p.PaymentMethod == "Maya") && p.Status == "Paid").Sum(p => p.AmountPaid);
-    private int DigitalPaymentCount => Payments.Count(p => (p.PaymentMethod == "GCash" || p.PaymentMethod == "Maya") && p.Status == "Paid");
+    // Outstanding is tricky, it's really the sum of Balances of UNIQUE bills, not payments. 
+    // But for simple view, let's sum remaining balances of latest payments? 
+    // Better: We should probably fetch Bills separately for the "Outstanding" card. 
+    // For now, I'll stick to a simple sum but aware it might double count if multiple payments exist for same bill.
+    // Fixed: OutstandingBalance should query Bills directly ideally. 
+    // Let's approximate: Distinct Invoices sum of balances.
+    private decimal OutstandingBalance => Payments.Select(p => new { p.InvoiceId, p.Balance }).Distinct().Sum(x => x.Balance);
 
-    private List<Payment> FilteredPayments => Payments
+    // Breakdowns
+    private decimal CashPayments => Payments.Where(p => p.PaymentMethod == "Cash").Sum(p => p.AmountPaid);
+    private int CashPaymentCount => Payments.Count(p => p.PaymentMethod == "Cash");
+    
+    private decimal CardPayments => Payments.Where(p => p.PaymentMethod == "Credit Card" || p.PaymentMethod == "Debit Card").Sum(p => p.AmountPaid);
+    private int CardPaymentCount => Payments.Count(p => p.PaymentMethod == "Credit Card" || p.PaymentMethod == "Debit Card");
+    
+    private decimal DigitalPayments => Payments.Where(p => p.PaymentMethod == "GCash" || p.PaymentMethod == "Maya").Sum(p => p.AmountPaid);
+    private int DigitalPaymentCount => Payments.Count(p => p.PaymentMethod == "GCash" || p.PaymentMethod == "Maya");
+
+    private List<PaymentViewModel> FilteredPayments => Payments
         .Where(p => (string.IsNullOrEmpty(SearchText) || 
                     p.GuestName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
                     p.InvoiceId.ToString().Contains(SearchText)) &&
@@ -252,63 +284,139 @@
         .OrderByDescending(p => p.PaymentDate)
         .ToList();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        Payments.Add(new Payment 
-        { 
-            PaymentDate = DateTime.Now.AddHours(-2),
-            InvoiceId = 1,
-            GuestName = "John Doe",
-            RoomNumber = "101",
-            TotalBill = 10980,
-            AmountPaid = 10980,
-            PaymentMethod = "Credit Card",
-            ReferenceNumber = "CC-2025-001",
-            Status = "Paid"
-        });
-        Payments.Add(new Payment 
-        { 
-            PaymentDate = DateTime.Now.AddHours(-1),
-            InvoiceId = 2,
-            GuestName = "Jane Smith",
-            RoomNumber = "205",
-            TotalBill = 14640,
-            AmountPaid = 7000,
-            PaymentMethod = "Cash",
-            ReferenceNumber = "CASH-001",
-            Status = "Partial"
-        });
+        await LoadPayments();
+    }
 
-        foreach (var payment in Payments)
+    private async Task LoadPayments()
+    {
+        try 
         {
-            payment.Balance = payment.TotalBill - payment.AmountPaid;
+            var payments = await _context.Payments
+                .Include(p => p.Bill)
+                .ThenInclude(b => b.Reservation)
+                .ThenInclude(r => r.Guest)
+                .Include(p => p.Bill)
+                .ThenInclude(b => b.Reservation)
+                .ThenInclude(r => r.ReservedRooms)
+                .ThenInclude(rr => rr.Room)
+                .ToListAsync();
+
+            Payments = payments.Select(p => new PaymentViewModel
+            {
+                PaymentId = p.PaymentId,
+                PaymentDate = p.PaymentDate ?? DateTime.Now,
+                InvoiceId = p.BillId ?? 0,
+                GuestName = p.Bill?.Reservation?.Guest != null ? $"{p.Bill.Reservation.Guest.FirstName} {p.Bill.Reservation.Guest.LastName}" : "Unknown",
+                RoomNumber = p.Bill?.Reservation?.ReservedRooms.FirstOrDefault()?.Room?.RoomNumber ?? "N/A",
+                TotalBill = p.Bill?.GrandTotal ?? 0,
+                AmountPaid = p.Amount ?? 0,
+                Balance = (p.Bill?.GrandTotal ?? 0) - (p.Bill?.AmountPaid ?? 0), // Calc real balance from Bill
+                PaymentMethod = p.PaymentMethod ?? "Cash",
+                ReferenceNumber = p.ReferenceNumber ?? "",
+                Status = p.PaymentStatus ?? "Completed"
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading payments: {ex.Message}");
         }
     }
 
     private void OpenProcessPaymentModal()
     {
-        NewPayment = new Payment { PaymentDate = DateTime.Now, PaymentMethod = "Cash" };
+        NewPayment = new PaymentViewModel { PaymentDate = DateTime.Now, PaymentMethod = "Cash" };
+        CurrentBillBalance = 0;
         ShowProcessModal = true;
     }
 
-    private void ProcessPayment()
+    private async Task FetchBillDetails()
     {
-        NewPayment.Balance = NewPayment.TotalBill - NewPayment.AmountPaid;
-        NewPayment.Status = NewPayment.Balance <= 0 ? "Paid" : "Partial";
-        if (string.IsNullOrEmpty(NewPayment.ReferenceNumber))
+        if (NewPayment.InvoiceId == 0) return;
+
+        var bill = await _context.Bills
+            .Include(b => b.Reservation)
+            .ThenInclude(r => r.Guest)
+            .Include(b => b.Reservation)
+            .ThenInclude(r => r.ReservedRooms)
+            .ThenInclude(rr => rr.Room)
+            .FirstOrDefaultAsync(b => b.BillId == NewPayment.InvoiceId);
+
+        if (bill != null)
         {
-            NewPayment.ReferenceNumber = $"{NewPayment.PaymentMethod.ToUpper()}-{DateTime.Now:yyyyMMddHHmmss}";
+            NewPayment.GuestName = bill.Reservation?.Guest != null ? $"{bill.Reservation.Guest.FirstName} {bill.Reservation.Guest.LastName}" : "Unknown";
+            NewPayment.RoomNumber = bill.Reservation?.ReservedRooms.FirstOrDefault()?.Room?.RoomNumber ?? "N/A";
+            NewPayment.TotalBill = bill.GrandTotal ?? 0;
+            
+            // Calculate what has been paid so far
+            decimal alreadyPaid = await _context.Payments.Where(p => p.BillId == bill.BillId).SumAsync(p => p.Amount ?? 0);
+            CurrentBillBalance = (bill.GrandTotal ?? 0) - alreadyPaid;
+            
+            // Default amount to pay = balance
+            NewPayment.AmountPaid = CurrentBillBalance;
         }
-        Payments.Add(NewPayment);
-        CloseModals();
     }
 
-    private void ViewReceipt(Payment payment)
+    private async Task ProcessPayment()
+    {
+        if (NewPayment.InvoiceId == 0 || NewPayment.AmountPaid <= 0) return;
+
+        using var transaction = _context.Database.BeginTransaction();
+        try
+        {
+            // 1. Record Payment
+            var dbPayment = new HestiaLink.Models.Payment
+            {
+                BillId = NewPayment.InvoiceId,
+                Amount = NewPayment.AmountPaid,
+                PaymentDate = DateTime.Now,
+                PaymentMethod = NewPayment.PaymentMethod,
+                ReferenceNumber = NewPayment.ReferenceNumber,
+                PaymentStatus = "Completed"
+            };
+            _context.Payments.Add(dbPayment);
+            await _context.SaveChangesAsync();
+
+            // 2. Update Bill Balance/Status
+            var bill = await _context.Bills.FindAsync(NewPayment.InvoiceId);
+            if (bill != null)
+            {
+                var existingPaid = bill.AmountPaid ?? 0;
+                bill.AmountPaid = existingPaid + NewPayment.AmountPaid;
+
+                // Simple check: if Paid >= GrandTotal, mark as Paid
+                if (bill.AmountPaid >= bill.GrandTotal)
+                {
+                    bill.BillStatus = "Paid";
+                    bill.BalanceDue = 0;
+                }
+                else
+                {
+                    bill.BillStatus = "Partial";
+                    bill.BalanceDue = bill.GrandTotal - bill.AmountPaid;
+                }
+                _context.Bills.Update(bill);
+                await _context.SaveChangesAsync();
+            }
+
+            await transaction.CommitAsync();
+            await LoadPayments();
+            CloseModals();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            Console.WriteLine($"Error processing payment: {ex.Message}");
+        }
+    }
+
+    private void ViewReceipt(PaymentViewModel payment)
     {
         // View receipt logic
     }
 
-    private void PrintReceipt(Payment payment)
+    private void PrintReceipt(PaymentViewModel payment)
     {
         // Print receipt logic
     }
@@ -316,19 +424,5 @@
     private void CloseModals()
     {
         ShowProcessModal = false;
-    }
-
-    public class Payment
-    {
-        public DateTime PaymentDate { get; set; }
-        public int InvoiceId { get; set; }
-        public string GuestName { get; set; } = "";
-        public string RoomNumber { get; set; } = "";
-        public decimal TotalBill { get; set; }
-        public decimal AmountPaid { get; set; }
-        public decimal Balance { get; set; }
-        public string PaymentMethod { get; set; } = "Cash";
-        public string ReferenceNumber { get; set; } = "";
-        public string Status { get; set; } = "Pending";
     }
 }
