@@ -19,6 +19,15 @@
 
         <nav class="sidebar-nav">
 
+            <!-- HOUSEKEEPING ROLE: Only show My Dashboard -->
+            @if (UserSession.Role == "Housekeeping")
+            {
+                <button class="sidebar-nav-item @(GetActiveClass("/housekeeping/dashboard"))" @onclick='() => NavigateTo("/housekeeping/dashboard")'>
+                    <span class="sidebar-nav-icon">🧹</span>
+                    <span>My Dashboard</span>
+                </button>
+            }
+
             <!-- ADMIN ONLY: Dashboard Overview -->
             @if (UserSession.Role == "Administrator")
             {
