@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HestiaLink.Models;
 
@@ -28,4 +29,8 @@ public partial class Reservation
     public virtual ICollection<ReservedRoom> ReservedRooms { get; set; } = new List<ReservedRoom>();
 
     public virtual ICollection<ServiceTransaction> ServiceTransactions { get; set; } = new List<ServiceTransaction>();
+
+    // Alias for different naming conventions
+    [NotMapped]
+    public int ReservationID { get => ReservationId; set => ReservationId = value; }
 }

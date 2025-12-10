@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HestiaLink.Models;
 
@@ -27,11 +28,13 @@ public partial class Employee
 
     public string Status { get; set; } = null!;
 
-    public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
-
     public virtual Position? Position { get; set; }
 
     public virtual ICollection<Schedule> Schedules { get; set; } = new List<Schedule>();
 
     public virtual ICollection<SystemUser> SystemUsers { get; set; } = new List<SystemUser>();
+
+    // Alias for different naming conventions
+    [NotMapped]
+    public int EmployeeID { get => EmployeeId; set => EmployeeId = value; }
 }
