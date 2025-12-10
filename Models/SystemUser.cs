@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HestiaLink.Models
 {
@@ -18,7 +19,9 @@ namespace HestiaLink.Models
         /// <summary>
         /// Tracks if the user (especially housekeeping staff) is available for new task assignments.
         /// When a task is assigned, this is set to false. When task is completed, it's set back to true.
+        /// Note: This is NOT mapped to the database - used only in memory for application logic.
         /// </summary>
+        [NotMapped]
         public bool IsAvailable { get; set; } = true;
     }
 }

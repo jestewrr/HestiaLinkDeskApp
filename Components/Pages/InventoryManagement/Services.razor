@@ -30,8 +30,8 @@
                 <div class="summary-value">
                     @(
                                     ServicesList.Any()
-                                    ? "?" + ServicesList.Average(s => s.StandardPrice).ToString("N2", CultureInfo.InvariantCulture)
-                                    : "?0.00"
+                                    ? "₱" + ServicesList.Average(s => s.StandardPrice).ToString("N2", CultureInfo.InvariantCulture)
+                                    : "₱0.00"
                                     )
                 </div>
             </div>
@@ -68,7 +68,7 @@
     else if (HasError)
     {
         <div class="error-message">
-            <h4>? Database Error</h4>
+            <h4>⚠️ Database Error</h4>
             <p>@ErrorMessage</p>
             <button class="btn-primary" @onclick="RetryLoad">Retry</button>
         </div>
