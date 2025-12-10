@@ -31,6 +31,9 @@ namespace HestiaIT13Final
             // Add Inventory Service
             builder.Services.AddScoped<InventoryService>();
 
+            // Add Housekeeping Service
+            builder.Services.AddScoped<HousekeepingService>();
+
             // Add database context with connection string
             var connectionString = "Data Source=JESTER-PC\\SQLEXPRESS;Initial Catalog=\"IT13 (1)\";Integrated Security=True;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True;Application Intent=ReadWrite;Multi Subnet Failover=False";
             

@@ -1,209 +1,820 @@
 ﻿@page "/housekeeping/cleaning-schedule"
 @using HestiaLink.Data
 @using HestiaLink.Models
+@using HestiaLink.Services
 @using Microsoft.EntityFrameworkCore
 @inject HestiaLinkContext DbContext
+@inject HousekeepingService HousekeepingService
 @inject NavigationManager Navigation
+@inject UserSession UserSession
+@inject IJSRuntime JSRuntime
+@layout MainLayout
 
 <div class="page-wrapper">
-    <div class="page-topbar">
-        <div>
-            <h1>Cleaning Schedule</h1>
-            <div class="page-topbar-subtitle">Assign and track room cleaning tasks</div>
-        </div>
-        <div class="page-topbar-date">@DateTime.Now.ToString("MMMM dd, yyyy")</div>
-    </div>
+    <header class="page-topbar">
+        <h1>🗓️ Cleaning Schedule</h1>
+        <span class="page-topbar-subtitle">Assign and manage room cleaning tasks</span>
+    </header>
 
-    <div class="page-content">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; height: 100%;">
-            
-            <!-- Left Column: Rooms Needing Cleaning -->
-            <div class="panel-card" style="padding: 24px; height: 100%;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-                    <h3 style="margin:0; color: var(--color-dark-teal); font-weight:800;">Needs Cleaning</h3>
-                    <span class="status-badge badge-dirty" style="font-size:0.8rem;">DIRTY</span>
+    <section class="page-content">
+        @if (HasError)
+        {
+            <div style="padding:12px; border-radius:8px; background:#fff4f8; color:#7f1d1d; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                <span>⚠️ @ErrorMessage</span>
+                <button class="btn-create" @onclick="LoadData">Retry</button>
+            </div>
+        }
+        else if (!IsLoaded)
+        {
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Loading cleaning schedule...</p>
+            </div>
+        }
+        else
+        {
+            <!-- Stats Summary - Same style as CheckInCheckOut -->
+            <div class="top-cards" style="display:flex; gap:14px; margin-bottom:18px; align-items:center; flex-wrap:wrap;">
+                <div class="stat-card" style="flex:1; min-width:140px; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                    <div style="font-weight:600; color:#6b7280;">🧹 Needs Cleaning</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#374151;">@RoomsForCleaning.Count</div>
                 </div>
-                
-                @if (DirtyRooms == null)
-                {
-                    <div class="spinner"></div>
-                }
-                else if (!DirtyRooms.Any())
-                {
-                    <div style="text-align: center; padding: 40px; color: #94a3b8; font-style: italic;">
-                        All rooms are clean!
-                    </div>
-                }
-                else
-                {
-                    <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
-                        @foreach (var room in DirtyRooms)
-                        {
-                            <div style="background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <div style="font-weight: 800; font-size: 1.1rem; color: #0f172a;">Room @room.RoomNumber</div>
-                                    <div style="font-size: 0.9rem; color: #64748b;">Floor @room.Floor</div>
-                                </div>
-                                <button class="btn-primary" style="padding: 8px 20px; font-size: 0.85rem; flex: none; width: auto;" @onclick="() => OpenAssignModal(room)">
-                                    Assign
-                                </button>
-                            </div>
-                        }
-                    </div>
-                }
+                <div class="stat-card" style="flex:1; min-width:140px; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                    <div style="font-weight:600; color:#6b7280;">📋 Active Tasks</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#374151;">@ActiveTasks.Count</div>
+                </div>
+                <div class="stat-card" style="flex:1; min-width:140px; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                    <div style="font-weight:600; color:#6b7280;">👤 Available Staff</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#374151;">@AvailableHousekeepers.Count</div>
+                </div>
+                <div class="stat-card" style="flex:1; min-width:140px; padding:12px; border-radius:10px; background:white; box-shadow:0 2px 4px rgba(0,0,0,0.04); border:1px solid #e5e7eb;">
+                    <div style="font-weight:600; color:#6b7280;">🔧 Maintenance</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#374151;">@RoomsUnderMaintenance.Count</div>
+                </div>
             </div>
 
-            <!-- Right Column: Active Cleaning Tasks -->
-            <div class="panel-card" style="padding: 24px; height: 100%;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-                    <h3 style="margin:0; color: var(--color-dark-teal); font-weight:800;">Active Tasks</h3>
-                    <span class="status-badge" style="background:#e0f2fe; color:#0369a1;">IN PROGRESS</span>
+            <!-- Toolbar with Tabs -->
+            <div class="toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap;">
+                <div class="tab-group" style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="tab-btn @(ActiveTab == "cleaning" ? "active" : "")" @onclick='() => SwitchTab("cleaning")'>
+                        🧹 For Cleaning (@RoomsForCleaning.Count)
+                    </button>
+                    <button class="tab-btn @(ActiveTab == "active" ? "active" : "")" @onclick='() => SwitchTab("active")'>
+                        📋 Active Tasks (@ActiveTasks.Count)
+                    </button>
+                    <button class="tab-btn @(ActiveTab == "maintenance" ? "active" : "")" @onclick='() => SwitchTab("maintenance")'>
+                        🔧 Maintenance (@RoomsUnderMaintenance.Count)
+                    </button>
                 </div>
+                <button class="btn-create" @onclick="LoadData">🔄 Refresh</button>
+            </div>
 
-                @if (ActiveTasks == null)
+            <!-- Tab Content -->
+            @if (ActiveTab == "cleaning")
+            {
+                @if (!RoomsForCleaning.Any())
                 {
-                    <div class="spinner"></div>
-                }
-                else if (!ActiveTasks.Any())
-                {
-                    <div style="text-align: center; padding: 40px; color: #94a3b8; font-style: italic;">
-                        No active tasks.
+                    <div style="text-align:center; padding:60px 20px; background:white; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                        <span style="font-size:3rem; display:block; margin-bottom:12px;">✨</span>
+                        <p style="color:#6b7280; font-size:1rem; margin:0;">All rooms are clean!</p>
                     </div>
                 }
                 else
                 {
-                    <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
-                        @foreach (var task in ActiveTasks)
+                    <div class="cards-grid">
+                        @foreach (var room in RoomsForCleaning)
                         {
-                            <div style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                    <span style="font-weight: 800; color: #0f172a;">Room @(task.Room?.RoomNumber ?? "???")</span>
-                                    <span class="status-badge" style="background:#fff7ed; color:#c2410c; border:1px solid #ffedd5;">ASSIGNED</span>
+                            <div class="user-card">
+                                <div class="card-top">
+                                    <div class="avatar">@GetAvatarInitials(room.RoomNumber)</div>
+                                    <div class="card-title">Room @room.RoomNumber <span style="font-weight:600; font-size:0.9rem; color:#64748b; margin-left:8px;">(Floor @room.Floor)</span></div>
+                                    <div class="status-badge badge-cleaning">For Cleaning</div>
                                 </div>
-                                <div style="font-size: 0.9rem; margin-bottom: 6px; color: #334155;">
-                                    Assigned to: <strong style="color: var(--color-dark-teal);">@(task.User?.Username ?? "Unknown")</strong>
+                                <div class="card-body">
+                                    <div><strong>Type:</strong> @(room.RoomType?.TypeName ?? "Standard")</div>
+                                    <div><strong>Floor:</strong> @room.Floor</div>
                                 </div>
-                                <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px; line-height: 1.4;">
-                                    Standard Cleaning Task<br/>
-                                </div>
-                                <div style="text-align: right;">
-                                    <button class="btn-secondary" style="font-size: 0.85rem; padding: 6px 16px; flex: none; width: auto;" @onclick="() => MarkTaskComplete(task)">
-                                        Mark Completed
+                                <div class="card-actions">
+                                    <button class="btn-primary" @onclick="() => OpenAssignModal(room)">
+                                        👤 Assign Staff
                                     </button>
                                 </div>
                             </div>
                         }
                     </div>
                 }
-            </div>
-        </div>
-    </div>
+            }
+            else if (ActiveTab == "active")
+            {
+                @if (!ActiveTasks.Any())
+                {
+                    <div style="text-align:center; padding:60px 20px; background:white; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                        <span style="font-size:3rem; display:block; margin-bottom:12px;">📋</span>
+                        <p style="color:#6b7280; font-size:1rem; margin:0;">No active tasks</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="cards-grid">
+                        @foreach (var task in ActiveTasks)
+                        {
+                            <div class="user-card">
+                                <div class="card-top">
+                                    <div class="avatar">@GetAvatarInitials(task.Room?.RoomNumber ?? "NA")</div>
+                                    <div class="card-title">Room @(task.Room?.RoomNumber ?? "N/A") <span style="font-weight:600; font-size:0.9rem; color:#64748b; margin-left:8px;">(Floor @(task.Room?.Floor ?? 0))</span></div>
+                                    <div class="status-badge @(task.Status == "In Progress" ? "badge-info" : "badge-warning")">
+                                        @task.Status
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div><strong>Assigned:</strong> @(task.AssignedUser?.Username ?? "Unassigned")</div>
+                                    <div><strong>Type:</strong> @(task.Room?.RoomType?.TypeName ?? "Standard")</div>
+                                    <div><strong>Time:</strong> @task.AssignedDate.ToString("MMM dd, HH:mm")</div>
+                                    @if (!string.IsNullOrEmpty(task.Notes))
+                                    {
+                                        <div class="notes-box">📝 @task.Notes</div>
+                                    }
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn-success" @onclick="() => AdminCompleteTask(task)">
+                                        ✅ Mark Complete
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else if (ActiveTab == "maintenance")
+            {
+                @if (!RoomsUnderMaintenance.Any())
+                {
+                    <div style="text-align:center; padding:60px 20px; background:white; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                        <span style="font-size:3rem; display:block; margin-bottom:12px;">✅</span>
+                        <p style="color:#6b7280; font-size:1rem; margin:0;">No maintenance issues</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="cards-grid">
+                        @foreach (var room in RoomsUnderMaintenance)
+                        {
+                            <div class="user-card">
+                                <div class="card-top">
+                                    <div class="avatar avatar-danger">@GetAvatarInitials(room.RoomNumber)</div>
+                                    <div class="card-title">Room @room.RoomNumber <span style="font-weight:600; font-size:0.9rem; color:#64748b; margin-left:8px;">(Floor @room.Floor)</span></div>
+                                    <div class="status-badge badge-danger">Maintenance</div>
+                                </div>
+                                <div class="card-body">
+                                    <div><strong>Type:</strong> @(room.RoomType?.TypeName ?? "Standard")</div>
+                                    <div><strong>Floor:</strong> @room.Floor</div>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn-info" @onclick="() => ResolveMaintenanceRoom(room)">
+                                        ✅ Resolve Issue
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        }
+    </section>
 </div>
 
-<!-- Assign Modal -->
+<!-- Assign Task Modal -->
 @if (ShowAssignModal)
 {
-    <div class="modal-overlay" @onclick="CloseAssignModal">
-        <div class="modal-content" @onclick:stopPropagation>
-            <div class="modal-header">
-                <h2>Assign Cleaning Task</h2>
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header-teal">
+                <h2 style="margin:0;">Assign Cleaning Task</h2>
+                <div style="font-size:0.9rem; color:#f8fafc;">Room @SelectedRoom?.RoomNumber</div>
             </div>
-            <div class="login-form">
-                <p style="margin-bottom: 15px;">Assigning cleaning for <strong>Room @SelectedDirtyRoom?.RoomNumber</strong></p>
-
-                <div class="input-group-modern">
-                    <label class="input-label">Assign To (Staff)</label>
-                    <select class="form-select" @bind="NewTask.UserId">
-                        <option value="">Select Staff...</option>
-                        @foreach (var user in StaffUsers)
-                        {
-                            <option value="@user.UserId">@user.Username</option>
-                        }
-                    </select>
+            <div style="padding:18px;">
+                <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:16px; text-align:center;">
+                    <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:6px;">
+                        <span style="font-size:0.9rem; color:#6b7280;">Room</span>
+                        <span style="font-size:1.4rem; font-weight:700; color:#0f766e;">@SelectedRoom?.RoomNumber</span>
+                    </div>
+                    <div style="font-size:0.9rem; color:#4b5563;">Floor @SelectedRoom?.Floor · @(SelectedRoom?.RoomType?.TypeName ?? "Standard")</div>
                 </div>
-                
-                <!-- Notes field removed as not supported by Task schema -->
 
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn-primary" @onclick="SaveAssignment">Assign Task</button>
-                    <button class="btn-secondary" @onclick="CloseAssignModal">Cancel</button>
+                <div class="form-group">
+                    <label class="form-label">Assign To:</label>
+                    @if (!AvailableHousekeepers.Any())
+                    {
+                        <div style="background:#fef3c7; color:#92400e; padding:12px; border-radius:8px; text-align:center;">
+                            ⚠️ No housekeeping staff available
+                        </div>
+                    }
+                    else
+                    {
+                        <select class="form-input" @bind="SelectedUserID">
+                            <option value="0">-- Select Staff --</option>
+                            @foreach (var user in AvailableHousekeepers)
+                            {
+                                <option value="@user.UserID">@user.Username</option>
+                            }
+                        </select>
+                    }
                 </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes:</label>
+                    <textarea class="form-input" @bind="TaskNotes" placeholder="Optional instructions..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="action-footer">
+                <button class="btn-secondary" @onclick="CloseAssignModal" disabled="@IsProcessing">Cancel</button>
+                <button class="btn-primary" @onclick="SaveAssignment" disabled="@(IsProcessing || SelectedUserID == 0)">
+                    @if (IsProcessing) { <span>Saving...</span> } else { <span>Assign Task</span> }
+                </button>
             </div>
         </div>
     </div>
 }
 
+<!-- Complete Task Modal -->
+@if (ShowAdminCompleteModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header" style="background:#10b981;">
+                <h2 style="margin:0; color:white;">Complete Task</h2>
+                <div style="font-size:0.9rem; color:#f8fafc;">Room @SelectedTask?.Room?.RoomNumber</div>
+            </div>
+            <div style="padding:30px 20px; text-align:center;">
+                <div style="font-size:4rem; color:#10b981; margin-bottom:20px;">✅</div>
+                <p style="font-size:1.1rem; color:#1e293b; margin-bottom:10px;">
+                    Mark task for <strong>Room @SelectedTask?.Room?.RoomNumber</strong> as complete?
+                </p>
+                <p style="color:#64748b; margin-bottom:20px;">
+                    The room will be marked as "Available".
+                </p>
+            </div>
+            <div class="action-footer" style="justify-content:center;">
+                <button class="btn-secondary" @onclick="CloseAdminCompleteModal" disabled="@IsProcessing">Cancel</button>
+                <button class="btn-confirm-clean" @onclick="ConfirmAdminComplete" disabled="@IsProcessing">
+                    @if (IsProcessing) { <span>Processing...</span> } else { <span>Confirm Complete</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Cards Grid - Same as CheckInCheckOut */
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 18px;
+    }
+
+    .user-card {
+        background: white;
+        border-radius: 12px;
+        padding: 14px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .user-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+        transition: all 0.2s ease;
+    }
+
+    .card-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .card-title {
+        font-weight: 800;
+        font-size: 1.05rem;
+        flex: 1;
+    }
+
+    .status-badge {
+        margin-left: auto;
+        padding: 6px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+    }
+
+    .badge-cleaning {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+
+    .badge-info {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+
+    .badge-danger {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+
+    .card-body {
+        margin-top: 12px;
+        color: #334155;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .card-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .notes-box {
+        background: #f8fafc;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-style: italic;
+        font-size: 0.85rem;
+        color: #64748b;
+        margin-top: 4px;
+    }
+
+    /* Avatar - Same as CheckInCheckOut */
+    .avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #06b6d4, #0f766e);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+    }
+
+    .avatar-danger {
+        background: linear-gradient(135deg, #f87171, #ef4444);
+    }
+
+    /* Tab Buttons */
+    .tab-btn {
+        padding: 10px 16px;
+        border: none;
+        background: #e5e7eb;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+        background: #0f766e;
+        color: white;
+    }
+
+    .tab-btn:hover:not(.active) {
+        background: #d1d5db;
+    }
+
+    /* Buttons - Same as CheckInCheckOut */
+    .btn-primary {
+        background: #0f766e;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        flex: 1;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+        background: #0d9488;
+        transform: translateY(-1px);
+    }
+
+    .btn-success {
+        background: #10b981;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        flex: 1;
+        transition: all 0.2s ease;
+    }
+
+    .btn-success:hover {
+        background: #059669;
+    }
+
+    .btn-info {
+        background: #3b82f6;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        flex: 1;
+        transition: all 0.2s ease;
+    }
+
+    .btn-info:hover {
+        background: #2563eb;
+    }
+
+    .btn-secondary {
+        background: #64748b;
+        color: white;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .btn-secondary:hover {
+        background: #475569;
+    }
+
+    .btn-create {
+        background: #0ea5a4;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-create:hover {
+        background: #0d9488;
+    }
+
+    .btn-confirm-clean {
+        background: #10b981;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .btn-confirm-clean:hover {
+        background: #059669;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(16,185,129,0.2);
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Modal - Same as CheckInCheckOut */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(16, 47, 51, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 40;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 480px;
+        box-shadow: 0 10px 30px rgba(2, 6, 23, 0.4);
+    }
+
+    .modal-header-teal {
+        background: #00535b;
+        color: white;
+        padding: 14px 18px;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .modal-header {
+        background: #00535b;
+        color: white;
+        padding: 12px 16px;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .modal-header h2 {
+        color: #ffffff;
+        margin: 0;
+        font-weight: 700;
+    }
+
+    .action-footer {
+        padding: 12px 16px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #e6eef0;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        box-sizing: border-box;
+    }
+
+    textarea.form-input {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    /* Loading */
+    .loading-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e5e7eb;
+        border-top-color: #0f766e;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+    }
+
+    .loading-state p {
+        color: #6b7280;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .cards-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .tab-group {
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .tab-btn {
+            width: 100%;
+            text-align: center;
+        }
+    }
+</style>
+
 @code {
-    private List<HestiaLink.Models.VwRoomsNeedingCleaning> DirtyRooms = new();
+    private List<Room> RoomsForCleaning = new();
+    private List<Room> RoomsUnderMaintenance = new();
     private List<CleaningTask> ActiveTasks = new();
-    private List<SystemUser> StaffUsers = new();
-    
+    private List<SystemUser> AvailableHousekeepers = new();
+
+    private string ActiveTab = "cleaning";
     private bool ShowAssignModal = false;
-    private CleaningTask NewTask = new();
-    private HestiaLink.Models.VwRoomsNeedingCleaning? SelectedDirtyRoom;
+    private bool ShowAdminCompleteModal = false;
+    private bool IsLoaded = false;
+    private bool HasError = false;
+    private bool IsProcessing = false;
+    private string ErrorMessage = string.Empty;
+
+    private Room? SelectedRoom;
+    private CleaningTask? SelectedTask;
+    private int SelectedUserID = 0;
+    private string TaskNotes = "Standard Cleaning";
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
     }
 
-    private async Task LoadData()
+    private string GetAvatarInitials(string roomNumber)
     {
-        DirtyRooms = await DbContext.VwRoomsNeedingCleanings
-            .OrderBy(r => r.RoomNumber)
-            .ToListAsync();
-
-        ActiveTasks = await DbContext.Tasks
-            .Include(t => t.Room)
-            .Include(t => t.User)
-            .ToListAsync();
-
-        StaffUsers = await DbContext.SystemUsers
-            .Where(u => u.Status == "Active") 
-            .ToListAsync();
+        if (string.IsNullOrWhiteSpace(roomNumber)) return "RM";
+        var trimmed = roomNumber.Trim();
+        return trimmed.Length <= 2 ? trimmed : trimmed[..2];
     }
 
-    private void OpenAssignModal(HestiaLink.Models.VwRoomsNeedingCleaning room)
+    private async Task LoadData()
     {
-        SelectedDirtyRoom = room;
-        NewTask = new CleaningTask 
-        { 
-            RoomId = room.RoomId
-        };
+        try
+        {
+            HasError = false;
+            ErrorMessage = string.Empty;
+            IsLoaded = false;
+            StateHasChanged();
+
+            RoomsForCleaning = await HousekeepingService.GetRoomsForCleaningAsync();
+            RoomsUnderMaintenance = await HousekeepingService.GetRoomsUnderMaintenanceAsync();
+            ActiveTasks = await HousekeepingService.GetActiveTasksAsync();
+            AvailableHousekeepers = await HousekeepingService.GetAvailableHousekeepersAsync();
+
+            IsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = ex.Message;
+            IsLoaded = true;
+        }
+
+        StateHasChanged();
+    }
+
+    private void SwitchTab(string tab) => ActiveTab = tab;
+
+    private async Task OpenAssignModal(Room room)
+    {
+        SelectedRoom = room;
+        SelectedUserID = 0;
+        TaskNotes = "Standard Cleaning";
+
+        try
+        {
+            AvailableHousekeepers = await HousekeepingService.GetAvailableHousekeepersAsync();
+        }
+        catch { }
+
         ShowAssignModal = true;
+        StateHasChanged();
     }
 
     private void CloseAssignModal()
     {
         ShowAssignModal = false;
-        SelectedDirtyRoom = null;
+        SelectedRoom = null;
+        SelectedUserID = 0;
     }
 
     private async Task SaveAssignment()
     {
-        if (SelectedDirtyRoom == null) return;
+        if (SelectedRoom == null || SelectedUserID == 0 || IsProcessing) return;
 
-        DbContext.Tasks.Add(NewTask);
-        await DbContext.SaveChangesAsync();
-        
-        await LoadData();
-        CloseAssignModal();
+        try
+        {
+            IsProcessing = true;
+            StateHasChanged();
+
+            var result = await HousekeepingService.AssignTaskAsync(
+                SelectedRoom.RoomID,
+                SelectedUserID,
+                TaskNotes);
+
+            if (result.Success)
+            {
+                CloseAssignModal();
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Task assigned successfully!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
     }
 
-    private async Task MarkTaskComplete(CleaningTask task)
+    private void AdminCompleteTask(CleaningTask task)
     {
-        // Logic limited by schema: Removing task to signify completion
-        DbContext.Tasks.Remove(task);
+        SelectedTask = task;
+        ShowAdminCompleteModal = true;
+    }
 
-        // Update Room Status to Available
-        var room = await DbContext.Rooms.FindAsync(task.RoomId);
-        if (room != null)
+    private void CloseAdminCompleteModal()
+    {
+        ShowAdminCompleteModal = false;
+        SelectedTask = null;
+    }
+
+    private async Task ConfirmAdminComplete()
+    {
+        if (SelectedTask == null || IsProcessing) return;
+
+        try
         {
-            room.Status = "Available";
-            DbContext.Rooms.Update(room);
-        }
+            IsProcessing = true;
+            StateHasChanged();
 
-        await DbContext.SaveChangesAsync();
-        await LoadData();
+            var userId = SelectedTask.UserID ?? 0;
+            if (userId == 0)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Cannot complete: No user assigned");
+                return;
+            }
+
+            var result = await HousekeepingService.CompleteTaskAsync(SelectedTask.TaskID, userId, "Cleaned");
+
+            CloseAdminCompleteModal();
+
+            if (result.Success)
+            {
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", "Task completed!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResolveMaintenanceRoom(Room room)
+    {
+        try
+        {
+            IsProcessing = true;
+            StateHasChanged();
+
+            var success = await HousekeepingService.UpdateRoomStatusAsync(room.RoomID, "Available");
+
+            if (success)
+            {
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", $"Room {room.RoomNumber} is now available!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to update room status.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
     }
 }
