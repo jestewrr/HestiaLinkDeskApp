@@ -1,22 +1,36 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HestiaLink.Models
-{
-    public class Reservation
-    {
-        [Key]
-        public int ReservationID { get; set; }
-        public int GuestID { get; set; }
-        public DateTime CheckInDate { get; set; }
-        public DateTime CheckOutDate { get; set; }
-        public string Status { get; set; } = "Checked In";
-        public string PaymentStatus { get; set; } = "Pending";
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal TotalPayment { get; set; }
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+namespace HestiaLink.Models;
 
-        // Navigation
-        public Guest? Guest { get; set; }
-    }
+public partial class Reservation
+{
+    public int ReservationId { get; set; }
+
+    public int? GuestId { get; set; }
+
+    public DateOnly CheckInDate { get; set; }
+
+    public DateOnly CheckOutDate { get; set; }
+
+    public string? Status { get; set; }
+
+    public string? PaymentStatus { get; set; }
+
+    public decimal? TotalPayment { get; set; }
+
+    public DateTime? CreatedDate { get; set; }
+
+    public virtual ICollection<Bill> Bills { get; set; } = new List<Bill>();
+
+    public virtual Guest? Guest { get; set; }
+
+    public virtual ICollection<ReservedRoom> ReservedRooms { get; set; } = new List<ReservedRoom>();
+
+    public virtual ICollection<ServiceTransaction> ServiceTransactions { get; set; } = new List<ServiceTransaction>();
+
+    // Alias for different naming conventions
+    [NotMapped]
+    public int ReservationID { get => ReservationId; set => ReservationId = value; }
 }

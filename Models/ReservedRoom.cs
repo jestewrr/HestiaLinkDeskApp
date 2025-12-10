@@ -1,16 +1,22 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class ReservedRoom
 {
-    public class ReservedRoom
-    {
-        [Key]
-        public int ReservedRoomID { get; set; }
-        public int ReservationID { get; set; }
-        public int RoomID { get; set; }
+    public int ReservedRoomId { get; set; }
 
-        // Navigation
-        public Reservation? Reservation { get; set; }
-        public Room? Room { get; set; }
-    }
+    public int? ReservationId { get; set; }
+
+    public int? RoomId { get; set; }
+
+    public virtual Reservation? Reservation { get; set; }
+
+    public virtual Room? Room { get; set; }
+
+    // Alias for different naming conventions
+    [NotMapped]
+    public int? ReservationID { get => ReservationId; set => ReservationId = value; }
 }

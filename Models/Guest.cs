@@ -1,20 +1,25 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Guest
 {
-    public class Guest
-    {
-        [Key]
-        public int GuestID { get; set; }
-        public string FirstName { get; set; } = string.Empty;
-        public string LastName { get; set; } = string.Empty;
-        public string? Email { get; set; }
-        public string ContactNumber { get; set; } = string.Empty;
-        public string? Address { get; set; }
-        public DateTime? DateOfBirth { get; set; }
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public int GuestId { get; set; }
 
-        // convenience
-        public string FullName => (FirstName + " " + LastName).Trim();
-    }
+    public string FirstName { get; set; } = null!;
+
+    public string LastName { get; set; } = null!;
+
+    public string? Email { get; set; }
+
+    public string? ContactNumber { get; set; }
+
+    public string? Address { get; set; }
+
+    public DateOnly? DateOfBirth { get; set; }
+
+    public DateTime? CreatedDate { get; set; }
+
+    public virtual ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
 }

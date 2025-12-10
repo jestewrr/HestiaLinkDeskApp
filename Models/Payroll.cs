@@ -1,59 +1,45 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Payroll
 {
-    public class Payroll
-    {
-        [Key]
-        public int PayrollID { get; set; }
+    public int PayrollId { get; set; }
 
-        public int? AttendanceID { get; set; }
+    public int AttendanceId { get; set; }
 
-        public int? IncomeID { get; set; }
+    public int? IncomeId { get; set; }
 
-        public int? TaxID { get; set; }
+    public int? TaxId { get; set; }
 
-        [Column("PeriodStart")]
-        public DateTime PeriodStart { get; set; }
+    public DateOnly PeriodStart { get; set; }
 
-        [Column("PeriodEnd")]
-        public DateTime PeriodEnd { get; set; }
+    public DateOnly PeriodEnd { get; set; }
 
-        [Column(TypeName = "decimal(10,2)")]
-        public decimal TotalHours { get; set; }
+    public decimal? TotalHours { get; set; }
 
-        [Column(TypeName = "decimal(10,2)")]
-        public decimal OvertimeHours { get; set; }
+    public decimal? OvertimeHours { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal HourlyRate { get; set; }
+    public decimal? HourlyRate { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal RegularPay { get; set; }
+    public decimal? RegularPay { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal OvertimePay { get; set; }
+    public decimal? OvertimePay { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal GrossPay { get; set; }
+    public decimal? GrossPay { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal TaxAmount { get; set; }
+    public decimal? TaxAmount { get; set; }
 
-        [Column("NetPay", TypeName = "decimal(18,2)")]
-        public decimal NetPay { get; set; }
+    public decimal? NetPay { get; set; }
 
-        [StringLength(20)]
-        public string Status { get; set; } = "Pending"; // Pending, Processing, Paid, On Hold
+    public string? Status { get; set; }
 
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime? CreatedDate { get; set; }
 
-        // Navigation properties
-        [ForeignKey("AttendanceID")]
-        public Attendance? Attendance { get; set; }
+    public virtual Attendance Attendance { get; set; } = null!;
 
-        [ForeignKey("TaxID")]
-        public Tax? Tax { get; set; }
-    }
+    public virtual TotalIncome? Income { get; set; }
+
+    public virtual Tax? Tax { get; set; }
 }

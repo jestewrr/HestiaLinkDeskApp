@@ -6,13 +6,13 @@ namespace HestiaLink.Models
     public class InventoryConsumption
     {
         [Key]
-        public int ConsumptionID { get; set; }
+        public int ConsumptionId { get; set; }
 
         [Required]
-        public int ServiceTransactionID { get; set; }
+        public int ServiceTransactionId { get; set; }
 
         [Required]
-        public int InventoryItemID { get; set; }
+        public int InventoryItemId { get; set; }
 
         [Required]
         [Column(TypeName = "decimal(10,2)")]
@@ -24,10 +24,10 @@ namespace HestiaLink.Models
         public string? RoomNumber { get; set; }
 
         // Navigation Properties
-        [ForeignKey("ServiceTransactionID")]
+        [ForeignKey("ServiceTransactionId")]
         public ServiceTransaction? ServiceTransaction { get; set; }
 
-        [ForeignKey("InventoryItemID")]
+        [ForeignKey("InventoryItemId")]
         public InventoryItem? InventoryItem { get; set; }
     }
 }

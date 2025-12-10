@@ -16,13 +16,13 @@
 
     <div class="page-content">
         <!-- Filter/Actions -->
-        <div class="user-toolbar">
-            <div class="toolbar-left">
-                <div class="toolbar-search">
-                    <input type="text" placeholder="Search Room..." @bind="SearchTerm" @bind:event="oninput" />
+        <div class="toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:18px;">
+            <div style="display:flex; gap:12px; align-items:center;">
+                <div class="search-box" style="width: 320px;">
                     <span class="search-icon">🔍</span>
+                    <input placeholder="Search Room..." @bind="SearchTerm" @bind:event="oninput" />
                 </div>
-                <select class="form-select" @bind="FilterStatus" style="width: 200px;">
+                <select class="filter-select" @bind="FilterStatus" style="width: 200px;">
                     <option value="">All Statuses</option>
                     <option value="Available">Available</option>
                     <option value="Occupied">Occupied</option>
@@ -30,15 +30,16 @@
                     <option value="Maintenance">Maintenance</option>
                 </select>
             </div>
-            <button class="btn-secondary" @onclick="LoadRooms">Refresh</button>
-            <div style="margin-left: 20px; display: flex; gap: 10px;">
-                <a href="/housekeeping/cleaning-schedule" class="btn-primary" style="text-decoration: none; padding: 8px 12px; font-size: 0.9rem;">Cleaning Schedule</a>
-                <a href="/housekeeping/maintenance-requests" class="btn-secondary" style="text-decoration: none; padding: 8px 12px; font-size: 0.9rem;">Maintenance Requests</a>
+            
+            <div style="display:flex; gap:12px; align-items:center;">
+                <a href="/housekeeping/cleaning-schedule" class="btn-primary" style="text-decoration: none; padding: 11px 20px; font-size: 0.9rem; white-space: nowrap;">Cleaning Schedule</a>
+
+                <button class="btn-primary" @onclick="LoadRooms" style="padding: 11px 20px; font-size: 0.9rem;">Refresh</button>
             </div>
         </div>
 
         <!-- Room Grid -->
-        <div class="room-list-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
+        <div class="cards-grid">
             @if (FilteredRooms == null)
             {
                 <p>Loading...</p>
@@ -51,34 +52,47 @@
             {
                 @foreach (var room in FilteredRooms)
                 {
-                    <div class="room-card-item @GetStatusClass(room.Status)" style="text-align: left; padding: 20px; border-left: 5px solid @GetStatusColor(room.Status);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <span class="room-number" style="font-size: 1.5rem;">@room.RoomNumber</span>
-                            <span class="room-status" style="color: @GetStatusColor(room.Status);">@room.Status</span>
+                    <div class="user-card">
+                        <div class="card-top" style="margin-bottom:12px;">
+                            <div class="card-title">
+                                Room @room.RoomNumber <span style="font-weight:400; color:#64748b; font-size:0.95rem;">(Floor @room.Floor)</span>
+                            </div>
+                            <div class="status-badge @GetStatusBadgeClass(room.Status)">
+                                @room.Status.ToUpper()
+                            </div>
                         </div>
-                        <div style="font-size: 0.9rem; color: #64748b; margin-bottom: 15px;">
-                            @room.RoomType?.TypeName <br/>
-                            Floor: @room.Floor
+
+                        <div class="card-body" style="gap:4px; margin-bottom:16px;">
+                            <div style="font-size:0.95rem; color:#334155;">
+                                <span style="font-weight:600; color:#0f172a; min-width:80px; display:inline-block;">Type:</span> 
+                                @(room.RoomType?.TypeName ?? "-")
+                            </div>
+                             <div style="font-size:0.95rem; color:#334155;">
+                                <span style="font-weight:600; color:#0f172a; min-width:80px; display:inline-block;">Status:</span> 
+                                @room.Status
+                            </div>
                         </div>
                         
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            @if (room.Status == "Dirty")
+                        <div class="card-actions" style="margin-top:auto; display:flex; gap:8px;">
+                            @if (room.Status == "Dirty" || room.Status == "For Cleaning")
                             {
-                                <button class="btn-primary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkAvailable(room)">Mark Clean</button>
-                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkMaintenance(room)">Maintenance</button>
+                                <button class="btn-primary" style="flex:1; padding: 8px; font-size: 0.85rem;" @onclick="() => MarkAvailable(room)">Mark Clean</button>
+                                <button class="btn-secondary" style="flex:1; padding: 8px; font-size: 0.85rem;" @onclick="() => MarkMaintenance(room)">Maint.</button>
                             }
                             else if (room.Status == "Available")
                             {
-                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkDirty(room)">Mark Dirty</button>
-                                <button class="btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkMaintenance(room)">Maintenance</button>
+                                <button class="btn-secondary" style="flex:1; padding: 8px; font-size: 0.85rem;" @onclick="() => MarkDirty(room)">Mark Dirty</button>
+                                <button class="btn-secondary" style="flex:1; padding: 8px; font-size: 0.85rem;" @onclick="() => MarkMaintenance(room)">Maint.</button>
                             }
                             else if (room.Status == "Maintenance")
                             {
-                                <button class="btn-primary" style="padding: 8px 12px; font-size: 0.8rem;" @onclick="() => MarkAvailable(room)">Finish Maint.</button>
+                                <button class="btn-primary" style="width:100%; padding: 8px; font-size: 0.85rem;" @onclick="() => MarkAvailable(room)">Finish Maintenance</button>
                             }
                             else if (room.Status == "Occupied")
                             {
-                                <span class="badge-active">Occupied</span>
+                                <div style="text-align:center; width:100%; font-size:0.85rem; color:#64748b; font-style:italic;">
+                                    Occupied by Guest
+                                </div>
                             }
                         </div>
                     </div>
@@ -119,27 +133,16 @@
     private async Task MarkDirty(Room room) => await UpdateStatus(room, "Dirty");
     private async Task MarkMaintenance(Room room) => await UpdateStatus(room, "Maintenance");
 
-    private string GetStatusClass(string status)
+    private string GetStatusBadgeClass(string status)
     {
         return status?.ToLower() switch
         {
-            "available" => "status-available-bg",
-            "occupied" => "status-occupied-bg",
-            "dirty" => "status-dirty-bg",
-            "maintenance" => "status-maintenance-bg",
-            _ => ""
-        };
-    }
-
-    private string GetStatusColor(string status)
-    {
-        return status?.ToLower() switch
-        {
-            "available" => "#047857", // Green
-            "occupied" => "#b91c1c", // Red
-            "dirty" => "#d97706", // Amber/Orange
-            "maintenance" => "#6b7280", // Gray
-            _ => "#000000"
+            "available" => "badge-available",
+            "occupied" => "badge-occupied",
+            "dirty" => "badge-dirty",
+            "for cleaning" => "badge-dirty",
+            "maintenance" => "badge-maintenance",
+            _ => "badge-available"
         };
     }
 }

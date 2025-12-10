@@ -17,31 +17,31 @@
         <!-- 4 Summary Cards -->
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
             <!-- Card 1: Total Income -->
-            <div class="stat-card" style="background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);">
-                <div class="stat-title">Total Income</div>
-                <div class="stat-value">₱@TotalIncome.ToString("N2")</div>
-                <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">From all completed payments</div>
+            <div class="stat-card">
+                <div class="stat-label">Total Income</div>
+                <div class="stat-value" style="color: #3b82f6;">₱@TotalIncome.ToString("N2")</div>
+                <div class="stat-desc">From all completed payments</div>
             </div>
 
             <!-- Card 2: Number of Employees -->
-            <div class="stat-card" style="background: linear-gradient(135deg, #dcfce7 0%, #86efac 100%);">
-                <div class="stat-title">Active Employees</div>
-                <div class="stat-value">@TotalEmployees</div>
-                <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Currently employed</div>
+            <div class="stat-card">
+                <div class="stat-label">Active Employees</div>
+                <div class="stat-value" style="color: #10b981;">@TotalEmployees</div>
+                <div class="stat-desc">Currently employed</div>
             </div>
 
             <!-- Card 3: Total Employee Payments -->
-            <div class="stat-card" style="background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);">
-                <div class="stat-title">Total Payments</div>
-                <div class="stat-value">₱@TotalEmployeePayments.ToString("N2")</div>
-                <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Gross payroll amount</div>
+            <div class="stat-card">
+                <div class="stat-label">Total Payments</div>
+                <div class="stat-value" style="color: #f59e0b;">₱@TotalEmployeePayments.ToString("N2")</div>
+                <div class="stat-desc">Gross payroll amount</div>
             </div>
 
             <!-- Card 4: Total Taxes Deducted -->
-            <div class="stat-card" style="background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%);">
-                <div class="stat-title">Total Taxes</div>
-                <div class="stat-value">₱@TotalTaxesDeducted.ToString("N2")</div>
-                <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Tax deductions</div>
+            <div class="stat-card">
+                <div class="stat-label">Total Taxes</div>
+                <div class="stat-value" style="color: #ef4444;">₱@TotalTaxesDeducted.ToString("N2")</div>
+                <div class="stat-desc">Tax deductions</div>
             </div>
         </div>
 
@@ -63,7 +63,7 @@
                         <option value="0">All Departments</option>
                         @foreach (var dept in Departments)
                         {
-                            <option value="@dept.DepartmentID">@dept.DepartmentName</option>
+                            <option value="@dept.DepartmentId">@dept.DepartmentName</option>
                         }
                     </select>
                 </div>
@@ -113,13 +113,13 @@
                                 @foreach (var employee in FilteredPayrollSummary)
                                 {
                                     <tr style="cursor: pointer;" @onclick="@(() => OpenEmployeePaymentModal(employee))">
-                                        <td style="font-family: monospace; font-weight: 700;">@employee.EmployeeID</td>
+                                        <td style="font-family: monospace; font-weight: 700;">@employee.EmployeeId</td>
                                         <td style="font-weight: 700;">@employee.EmployeeName</td>
                                         <td>@employee.PositionTitle</td>
-                                        <td>₱@employee.MonthlySalary.ToString("N2")</td>
-                                        <td style="text-align: center; font-weight: 600;">@employee.TotalHours.ToString("N1")</td>
-                                        <td>₱@employee.HourlyRate.ToString("N2")</td>
-                                        <td style="font-weight: 900; color: var(--color-teal);">₱@employee.TotalSalary.ToString("N2")</td>
+                                        <td>₱@employee.MonthlySalary?.ToString("N2")</td>
+                                        <td style="text-align: center; font-weight: 600;">@employee.TotalHours?.ToString("N1")</td>
+                                        <td>₱@employee.HourlyRate?.ToString("N2")</td>
+                                        <td style="font-weight: 900; color: var(--color-teal);">₱@employee.TotalSalary?.ToString("N2")</td>
                                         <td>
                                             <span class="status-badge @GetPaymentStatusClass(employee.PaymentStatus)">
                                                 @employee.PaymentStatus
@@ -333,11 +333,11 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
                     <div style="background: #ecfdf5; padding: 16px; border-radius: 8px;">
                         <div style="font-weight: 700; color: #065f46; font-size: 0.85rem;">Total Hours</div>
-                        <div style="font-size: 1.4rem; font-weight: 900, color: #047857;">@SelectedEmployee.TotalHours.ToString("N1")h</div>
+                        <div style="font-size: 1.4rem; font-weight: 900, color: #047857;">@((SelectedEmployee.TotalHours ?? 0).ToString("N1"))h</div>
                     </div>
                     <div style="background: #eff6ff; padding: 16px; border-radius: 8px;">
                         <div style="font-weight: 700; color: #1e40af; font-size: 0.85rem;">Total Salary</div>
-                        <div style="font-size: 1.4rem; font-weight: 900, color: #1d4ed8;">₱@SelectedEmployee.TotalSalary.ToString("N2")</div>
+                        <div style="font-size: 1.4rem; font-weight: 900, color: #1d4ed8;">₱@((SelectedEmployee.TotalSalary ?? 0).ToString("N2"))</div>
                     </div>
                 </div>
 
@@ -362,23 +362,41 @@
 
 <style>
     .stat-card {
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        background: #ffffff;
+        padding: 20px 24px;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 160px;
+        transition: transform 0.2s;
     }
 
-    .stat-title {
-        font-size: 0.85rem;
-        color: #1e293b;
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: #64748b;
         text-transform: uppercase;
+        letter-spacing: .5px;
         font-weight: 700;
     }
 
     .stat-value {
-        font-size: 1.8rem;
-        font-weight: 900;
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin-top: 6px;
         color: #0f172a;
-        margin-top: 8px;
+    }
+    
+    .stat-desc {
+        font-size: 0.85rem; 
+        color: #94a3b8; 
+        margin-top: 4px;
     }
 
     .status-active {
@@ -439,10 +457,10 @@
 @code {
     // State
     private List<Tax> TaxRates = new();
-    private List<EmployeePayrollSummaryView> EmployeePayrollSummary = new();
+    private List<VwEmployeePayrollSummary> EmployeePayrollSummary = new();
     private List<Department> Departments = new();
     private Tax NewTax = new();
-    private EmployeePayrollSummaryView? SelectedEmployee;
+    private VwEmployeePayrollSummary? SelectedEmployee;
     private string SelectedPaymentStatus = "Pending";
     private string SelectedPeriod = "2025-01-01";
     private int DepartmentFilter = 0;
@@ -458,10 +476,10 @@
     private decimal TotalEmployeePayments = 0m;
     private decimal TotalTaxesDeducted = 0m;
 
-    private List<EmployeePayrollSummaryView> FilteredPayrollSummary =>
+    private List<VwEmployeePayrollSummary> FilteredPayrollSummary =>
         DepartmentFilter == 0
             ? EmployeePayrollSummary
-            : EmployeePayrollSummary.Where(e => e.DepartmentID == DepartmentFilter).ToList();
+            : EmployeePayrollSummary.Where(e => e.DepartmentId == DepartmentFilter).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -486,9 +504,9 @@
             TaxRates = await Context.Taxes
                 .Select(t => new Tax
                 {
-                    TaxID = t.TaxID,
+                    TaxId = t.TaxId,
                     TaxName = t.TaxName,
-                    TaxPercentage = Convert.ToDecimal(t.TaxPercentage),
+                    TaxPercentage = Convert.ToInt32(t.TaxPercentage),
                     TaxDescription = t.TaxDescription,
                     Status = t.Status
                 })
@@ -523,8 +541,8 @@
 
             // TOTAL INCOME: Get all income for current month
             TotalIncome = await Context.Incomes
-                .Where(i => i.IncomeDate >= monthStart && i.IncomeDate <= monthEnd)
-                .SumAsync(i => i.Amount);
+                .Where(i => i.IncomeDate >= DateOnly.FromDateTime(monthStart) && i.IncomeDate <= DateOnly.FromDateTime(monthEnd))
+                .SumAsync(i => i.Amount ?? 0);
 
             // Total Active Employees
             TotalEmployees = await Context.Employees
@@ -532,20 +550,20 @@
 
             // Total Employee Payments for current month
             TotalEmployeePayments = await Context.Payrolls
-                .Where(p => p.PeriodStart >= monthStart && p.PeriodEnd <= monthEnd)
-                .SumAsync(p => p.GrossPay);
+                .Where(p => p.PeriodStart >= DateOnly.FromDateTime(monthStart) && p.PeriodEnd <= DateOnly.FromDateTime(monthEnd))
+                .SumAsync(p => p.GrossPay ?? 0);
 
             // Total Taxes Deducted for current month
             TotalTaxesDeducted = await Context.Payrolls
-                .Where(p => p.PeriodStart >= monthStart && p.PeriodEnd <= monthEnd)
-                .SumAsync(p => p.TaxAmount);
+                .Where(p => p.PeriodStart >= DateOnly.FromDateTime(monthStart) && p.PeriodEnd <= DateOnly.FromDateTime(monthEnd))
+                .SumAsync(p => p.TaxAmount ?? 0);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error in CalculateSummaryTotals: {ex.Message}");
             TotalIncome = 0m;
             TotalEmployees = EmployeePayrollSummary.Count;
-            TotalEmployeePayments = EmployeePayrollSummary.Sum(e => e.TotalSalary);
+            TotalEmployeePayments = EmployeePayrollSummary.Sum(e => e.TotalSalary ?? 0);
             TotalTaxesDeducted = 0m;
         }
     }
@@ -596,9 +614,9 @@
             TaxRates = await Context.Taxes
                 .Select(t => new Tax
                 {
-                    TaxID = t.TaxID,
+                    TaxId = t.TaxId,
                     TaxName = t.TaxName,
-                    TaxPercentage = Convert.ToDecimal(t.TaxPercentage),
+                    TaxPercentage = Convert.ToInt32(t.TaxPercentage),
                     TaxDescription = t.TaxDescription,
                     Status = t.Status
                 })
@@ -620,7 +638,7 @@
     {
         try
         {
-            var existingTax = await Context.Taxes.FindAsync(tax.TaxID);
+            var existingTax = await Context.Taxes.FindAsync(tax.TaxId);
             if (existingTax != null)
             {
                 existingTax.Status = existingTax.Status == "Active" ? "Archived" : "Active";
@@ -629,9 +647,9 @@
                 TaxRates = await Context.Taxes
                     .Select(t => new Tax
                     {
-                        TaxID = t.TaxID,
+                        TaxId = t.TaxId,
                         TaxName = t.TaxName,
-                        TaxPercentage = Convert.ToDecimal(t.TaxPercentage),
+                        TaxPercentage = Convert.ToInt32(t.TaxPercentage),
                         TaxDescription = t.TaxDescription,
                         Status = t.Status
                     })
@@ -649,7 +667,7 @@
         }
     }
 
-    private void OpenEmployeePaymentModal(EmployeePayrollSummaryView employee)
+    private void OpenEmployeePaymentModal(VwEmployeePayrollSummary employee)
     {
         SelectedEmployee = employee;
         SelectedPaymentStatus = employee.PaymentStatus;
@@ -663,8 +681,8 @@
         try
         {
             // Calculate pay values
-            decimal regularPay = SelectedEmployee.TotalRegularHours * SelectedEmployee.HourlyRate;
-            decimal overtimePay = SelectedEmployee.TotalOvertimeHours * (SelectedEmployee.HourlyRate * 1.5m);
+            decimal regularPay = (SelectedEmployee.TotalRegularHours ?? 0) * (SelectedEmployee.HourlyRate ?? 0);
+            decimal overtimePay = (SelectedEmployee.TotalOvertimeHours ?? 0) * ((SelectedEmployee.HourlyRate ?? 0) * 1.5m);
             decimal grossPay = regularPay + overtimePay;
 
             // Calculate tax amount from active taxes
@@ -678,25 +696,25 @@
             var periodEnd = periodStart.AddDays(14);
 
             // Get first active tax ID if available
-            int? taxId = TaxRates.FirstOrDefault(t => t.Status == "Active")?.TaxID;
+            int? taxId = TaxRates.FirstOrDefault(t => t.Status == "Active")?.TaxId;
 
             // Find attendance
             var attendance = await Context.Attendances
                 .Include(a => a.Schedule)
-                .FirstOrDefaultAsync(a => a.Schedule != null && a.Schedule.EmployeeID == SelectedEmployee.EmployeeID);
+                .FirstOrDefaultAsync(a => a.Schedule != null && a.Schedule.EmployeeId == SelectedEmployee.EmployeeId);
 
-            int? attendanceId = attendance?.AttendanceID;
+            int? attendanceId = attendance?.AttendanceId;
 
             // CRITICAL FIX: Get or create IncomeID for this payroll
             var incomeStart = new DateTime(periodStart.Year, periodStart.Month, 1);
             var incomeEnd = incomeStart.AddMonths(1).AddDays(-1);
 
             var income = await Context.Incomes
-                .Where(i => i.IncomeDate >= incomeStart && i.IncomeDate <= incomeEnd)
+                .Where(i => i.IncomeDate >= DateOnly.FromDateTime(incomeStart) && i.IncomeDate <= DateOnly.FromDateTime(incomeEnd))
                 .OrderByDescending(i => i.IncomeDate)
                 .FirstOrDefaultAsync();
 
-            int? incomeId = income?.IncomeID;
+            int? incomeId = income?.IncomeId;
 
             // If no income record exists for this month, create one
             if (incomeId == null)
@@ -704,20 +722,20 @@
                 // Create a default income record for the month
                 var newIncome = new Income
                 {
-                    IncomeDate = incomeStart,
+                    IncomeDate = DateOnly.FromDateTime(incomeStart),
                     Amount = 100000m, // Default starting amount
                     Description = $"Monthly income for {incomeStart:MMMM yyyy}",
                     CreatedDate = DateTime.Now
                 };
                 Context.Incomes.Add(newIncome);
                 await Context.SaveChangesAsync();
-                incomeId = newIncome.IncomeID;
+                incomeId = newIncome.IncomeId;
             }
 
             // Check if payroll already exists for this period
             var existingPayroll = await Context.Payrolls
-                .FirstOrDefaultAsync(p => p.PeriodStart == periodStart && p.PeriodEnd == periodEnd &&
-                                        p.AttendanceID == attendanceId);
+                .FirstOrDefaultAsync(p => p.PeriodStart == DateOnly.FromDateTime(periodStart) && p.PeriodEnd == DateOnly.FromDateTime(periodEnd) &&
+                                        p.AttendanceId == attendanceId);
 
             if (existingPayroll != null)
             {
@@ -734,8 +752,8 @@
                 existingPayroll.GrossPay = grossPay;
                 existingPayroll.TaxAmount = taxAmount;
                 existingPayroll.NetPay = netPay;
-                existingPayroll.TaxID = taxId;
-                existingPayroll.IncomeID = incomeId; // Always set IncomeID
+                existingPayroll.TaxId = taxId;
+                existingPayroll.IncomeId = incomeId; // Always set IncomeID
 
                 // CRITICAL FIX: Handle income adjustment properly
                 var incomeRecord = await Context.Incomes.FindAsync(incomeId);
@@ -756,7 +774,7 @@
                     else if (oldStatus == "Paid" && SelectedPaymentStatus == "Paid")
                     {
                         // Calculate the difference
-                        decimal difference = grossPay - existingPayroll.GrossPay;
+                        decimal difference = grossPay - (existingPayroll.GrossPay ?? 0);
                         incomeRecord.Amount -= difference;
                         if (incomeRecord.Amount < 0) incomeRecord.Amount = 0;
                     }
@@ -769,11 +787,11 @@
                 // Create new payroll
                 var newPayroll = new Payroll
                 {
-                    AttendanceID = attendanceId,
-                    IncomeID = incomeId, // Always set IncomeID
-                    TaxID = taxId,
-                    PeriodStart = periodStart,
-                    PeriodEnd = periodEnd,
+                    AttendanceId = attendanceId ?? 0,
+                    IncomeId = incomeId, // Always set IncomeID
+                    TaxId = taxId,
+                    PeriodStart = DateOnly.FromDateTime(periodStart),
+                    PeriodEnd = DateOnly.FromDateTime(periodEnd),
                     TotalHours = SelectedEmployee.TotalHours,
                     OvertimeHours = SelectedEmployee.TotalOvertimeHours,
                     HourlyRate = SelectedEmployee.HourlyRate,
@@ -847,8 +865,8 @@
             var monthEnd = monthStart.AddMonths(1).AddDays(-1);
 
             TotalIncome = await Context.Incomes
-                .Where(i => i.IncomeDate >= monthStart && i.IncomeDate <= monthEnd)
-                .SumAsync(i => i.Amount);
+                .Where(i => i.IncomeDate >= DateOnly.FromDateTime(monthStart) && i.IncomeDate <= DateOnly.FromDateTime(monthEnd))
+                .SumAsync(i => i.Amount ?? 0);
 
             await CalculateSummaryTotals();
             StateHasChanged();
@@ -868,7 +886,7 @@
             EmployeePayrollSummary.Clear();
 
             // Force a fresh query from the database
-            var freshData = await Context.EmployeePayrollSummaryView
+            var freshData = await Context.VwEmployeePayrollSummaries
                 .AsNoTracking()
                 .OrderBy(e => e.EmployeeName)
                 .ToListAsync();

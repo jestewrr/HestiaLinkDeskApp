@@ -45,7 +45,7 @@ namespace HestiaLink.Services
         {
             return await _context.InventoryItems
                 .Include(i => i.Supplier)
-                .FirstOrDefaultAsync(i => i.ItemID == itemId);
+                .FirstOrDefaultAsync(i => i.ItemId == itemId);
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace HestiaLink.Services
         /// </summary>
         public async Task<bool> UpdateItemAsync(InventoryItem item)
         {
-            var existing = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemID == item.ItemID);
+            var existing = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemId == item.ItemId);
             if (existing == null) return false;
 
             existing.ItemCode = item.ItemCode;
@@ -97,7 +97,7 @@ namespace HestiaLink.Services
         /// </summary>
         public async Task<bool> DeactivateItemAsync(int itemId)
         {
-            var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemID == itemId);
+            var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemId == itemId);
             if (item == null) return false;
 
             item.IsActive = false;
@@ -110,7 +110,7 @@ namespace HestiaLink.Services
         /// </summary>
         public async Task<bool> ReactivateItemAsync(int itemId)
         {
-            var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemID == itemId);
+            var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemId == itemId);
             if (item == null) return false;
 
             item.IsActive = true;
@@ -473,7 +473,7 @@ namespace HestiaLink.Services
         /// </summary>
         public async Task<bool> AdjustStockAsync(int itemId, int quantity, StockAdjustmentType adjustmentType)
         {
-            var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemID == itemId);
+            var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemId == itemId);
             if (item == null) return false;
 
             var currentStock = item.CurrentStock ?? 0;
@@ -529,7 +529,7 @@ namespace HestiaLink.Services
         /// </summary>
         public async Task<bool> HasSufficientStockAsync(int itemId, decimal requiredQuantity)
         {
-            var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemID == itemId);
+            var item = await _context.InventoryItems.FirstOrDefaultAsync(i => i.ItemId == itemId);
             return item != null && (item.CurrentStock ?? 0) >= requiredQuantity;
         }
 
@@ -544,7 +544,7 @@ namespace HestiaLink.Services
         {
             return await _context.ServiceInventories
                 .Include(si => si.InventoryItem)
-                .Where(si => si.ServiceID == serviceId)
+                .Where(si => si.ServiceId == serviceId)
                 .ToListAsync();
         }
 
@@ -555,15 +555,15 @@ namespace HestiaLink.Services
         {
             // Check if link already exists
             var existing = await _context.ServiceInventories
-                .FirstOrDefaultAsync(si => si.ServiceID == serviceId && si.InventoryItemID == inventoryItemId);
+                .FirstOrDefaultAsync(si => si.ServiceId == serviceId && si.InventoryItemId == inventoryItemId);
             
             if (existing != null)
                 throw new InvalidOperationException("This item is already linked to the service.");
 
             var link = new ServiceInventory
             {
-                ServiceID = serviceId,
-                InventoryItemID = inventoryItemId,
+                ServiceId = serviceId,
+                InventoryItemId = inventoryItemId,
                 QuantityRequired = quantityRequired,
                 CreatedDate = DateTime.Now
             };
@@ -571,7 +571,7 @@ namespace HestiaLink.Services
             _context.ServiceInventories.Add(link);
 
             // Enable inventory tracking for the service
-            var service = await _context.Services.FirstOrDefaultAsync(s => s.ServiceID == serviceId);
+            var service = await _context.Services.FirstOrDefaultAsync(s => s.ServiceId == serviceId);
             if (service != null && (service.UsesInventory != true))
             {
                 service.UsesInventory = true;
@@ -587,18 +587,18 @@ namespace HestiaLink.Services
         /// </summary>
         public async Task<bool> RemoveServiceInventoryLinkAsync(int serviceInventoryId)
         {
-            var link = await _context.ServiceInventories.FirstOrDefaultAsync(si => si.ServiceInventoryID == serviceInventoryId);
+            var link = await _context.ServiceInventories.FirstOrDefaultAsync(si => si.ServiceInventoryId == serviceInventoryId);
             if (link == null) return false;
 
-            var serviceId = link.ServiceID;
+            var serviceId = link.ServiceId;
             _context.ServiceInventories.Remove(link);
             await _context.SaveChangesAsync();
 
             // Check if service still has links, if not disable inventory tracking
-            var hasOtherLinks = await _context.ServiceInventories.AnyAsync(si => si.ServiceID == serviceId);
+            var hasOtherLinks = await _context.ServiceInventories.AnyAsync(si => si.ServiceId == serviceId);
             if (!hasOtherLinks)
             {
-                var service = await _context.Services.FirstOrDefaultAsync(s => s.ServiceID == serviceId);
+                var service = await _context.Services.FirstOrDefaultAsync(s => s.ServiceId == serviceId);
                 if (service != null)
                 {
                     service.UsesInventory = false;
@@ -616,13 +616,13 @@ namespace HestiaLink.Services
         public async Task<List<HestiaLink.Models.Service>> GetServicesWithInventoryAsync()
         {
             var serviceIds = await _context.ServiceInventories
-                .Select(si => si.ServiceID)
+                .Select(si => si.ServiceId)
                 .Distinct()
                 .ToListAsync();
 
             return await _context.Services
-                .Include(s => s.Category)
-                .Where(s => serviceIds.Contains(s.ServiceID) && s.IsActive != null && s.IsActive.Value)
+                .Include(s => s.ServiceCategory)
+                .Where(s => serviceIds.Contains(s.ServiceId) && s.IsActive != null && s.IsActive.Value)
                 .ToListAsync();
         }
 
@@ -642,7 +642,7 @@ namespace HestiaLink.Services
             // Get the service transaction
             var transaction = await _context.ServiceTransactions
                 .Include(st => st.Service)
-                .FirstOrDefaultAsync(st => st.ServiceTransactionID == serviceTransactionId);
+                .FirstOrDefaultAsync(st => st.ServiceTransactionId == serviceTransactionId);
 
             if (transaction?.Service == null || transaction.Service.UsesInventory != true)
                 return consumptions;
@@ -650,7 +650,7 @@ namespace HestiaLink.Services
             // Get all inventory links for this service
             var links = await _context.ServiceInventories
                 .Include(si => si.InventoryItem)
-                .Where(si => si.ServiceID == transaction.ServiceID)
+                .Where(si => si.ServiceId == transaction.ServiceId)
                 .ToListAsync();
 
             foreach (var link in links)
@@ -669,9 +669,9 @@ namespace HestiaLink.Services
                 // Create consumption record
                 var consumption = new InventoryConsumption
                 {
-                    ServiceTransactionID = serviceTransactionId,
-                    InventoryItemID = link.InventoryItemID,
-                    QuantityConsumed = quantityToConsume,
+                    ServiceTransactionId = serviceTransactionId,
+                    InventoryItemId = link.InventoryItemId,
+                    QuantityConsumed = quantityToConsume ?? 0,
                     ConsumptionDate = DateTime.Now,
                     RoomNumber = roomNumber
                 };
@@ -679,7 +679,7 @@ namespace HestiaLink.Services
                 _context.InventoryConsumptions.Add(consumption);
 
                 // Deduct from stock
-                link.InventoryItem.CurrentStock = Math.Max(0, currentStock - (int)Math.Ceiling(quantityToConsume));
+                link.InventoryItem.CurrentStock = Math.Max(0, currentStock - (int)Math.Ceiling(quantityToConsume ?? 0));
 
                 consumptions.Add(consumption);
             }
@@ -696,7 +696,7 @@ namespace HestiaLink.Services
             var query = _context.InventoryConsumptions
                 .Include(c => c.ServiceTransaction)
                     .ThenInclude(st => st!.Service)
-                .Where(c => c.InventoryItemID == itemId);
+                .Where(c => c.InventoryItemId == itemId);
 
             if (startDate.HasValue)
                 query = query.Where(c => c.ConsumptionDate >= startDate.Value);
@@ -778,7 +778,7 @@ namespace HestiaLink.Services
                 .ToListAsync();
 
             return consumptions
-                .GroupBy(c => c.InventoryItemID)
+                .GroupBy(c => c.InventoryItemId)
                 .Select(g => new TopConsumedItem
                 {
                     ItemId = g.Key,

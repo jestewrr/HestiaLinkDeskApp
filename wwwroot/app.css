@@ -206,8 +206,13 @@ body {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* --- BOOKING HISTORY PAGE STYLES --- */
@@ -568,7 +573,8 @@ body {
 }
 
 .sidebar-section-header.open .sidebar-nav-icon {
-    filter: brightness(0.3);
+    /* Filter to match var(--color-dark-teal) #00535b */
+    filter: invert(26%) sepia(19%) saturate(3486%) hue-rotate(152deg) brightness(96%) contrast(101%);
     color: var(--color-dark-teal);
 }
 
@@ -686,14 +692,14 @@ body {
 
 .page-topbar {
     height: 70px;
-    background-color: var(--color-white);
-    color: var(--color-gray-800);
+    background-color: var(--color-dark-teal);
+    color: var(--color-white);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 40px;
-    border-bottom: 1px solid var(--color-gray-200);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border-bottom: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .page-topbar h1 {
@@ -710,7 +716,7 @@ body {
 .page-topbar-subtitle {
     font-size: 0.95rem;
     font-weight: 600;
-    opacity: 0.9;
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .page-content {
@@ -965,7 +971,7 @@ body {
     border: none;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .btn-icon-action svg {
@@ -976,11 +982,12 @@ body {
 
 .btn-icon-action:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .btn-icon-action.edit {
-    background-color: #0e5e6f; /* Teal/dark greenish from image */
+    background-color: #0e5e6f;
+    /* Teal/dark greenish from image */
     color: white;
 }
 
@@ -989,7 +996,8 @@ body {
 }
 
 .btn-icon-action.archive {
-    background-color: #0e5e6f; /* Same teal/dark greenish as requested "uniform" */
+    background-color: #0e5e6f;
+    /* Same teal/dark greenish as requested "uniform" */
     color: white;
 }
 
@@ -1347,4 +1355,128 @@ body {
     border-top-color: transparent;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
+}
+
+/* --- SHARED CARD STYLES (Used in CheckIn/Out and RoomStatus) --- */
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+}
+
+.user-card {
+    background: white;
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.user-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.card-title {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #0f172a;
+}
+
+.status-badge {
+    margin-left: auto;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-occupied {
+    background: white;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+}
+
+.badge-available {
+    background: #ccfbf1;
+    color: #0f766e;
+    border: 1px solid #99f6e4;
+}
+
+.badge-maintenance {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.badge-cleaning,
+.badge-dirty {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fcd34d;
+}
+
+.bill-summary {
+    border-top: 1px dashed #e6eef0;
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bill-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.bill-row.total {
+    font-weight: 800;
+    color: #064e3b;
+}
+
+/* --- REFINED SEARCH BOX --- */
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 14px 10px 40px;
+    border-radius: 8px;
+    /* Slightly tighter radius per image 3 */
+    border: 1px solid #cbd5e1;
+    /* Distinct border color */
+    background-color: var(--color-white);
+    font-size: 0.95rem;
+    color: var(--color-dark-teal);
+    transition: all 0.2s;
+    outline: none;
+}
+
+.search-box input:focus {
+    border-color: var(--color-teal);
+    box-shadow: 0 0 0 3px rgba(0, 147, 160, 0.1);
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    color: #94a3b8;
+    font-size: 1rem;
+    pointer-events: none;
 }

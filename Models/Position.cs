@@ -1,27 +1,27 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Position
 {
-    public class Position
-    {
-        public int PositionID { get; set; }
+    public int PositionId { get; set; }
 
-        public int DepartmentID { get; set; }
+    public int? DepartmentId { get; set; }
 
-        // Navigation property
-        public Department? Department { get; set; }
+    public string PositionTitle { get; set; } = null!;
 
-        [Required]
-        public string PositionTitle { get; set; } = string.Empty;
+    public string? PositionLevel { get; set; }
 
-        public string PositionLevel { get; set; } = string.Empty;
+    public string? PayGrade { get; set; }
 
-        public string PayGrade { get; set; } = string.Empty;
+    public decimal? Salary { get; set; }
 
-        public decimal Salary { get; set; }
+    public string? JobDescription { get; set; }
 
-        public string JobDescription { get; set; } = string.Empty;
+    public string? Status { get; set; }
 
-        public string Status { get; set; } = "Active";
-    }
+    public virtual Department? Department { get; set; }
+
+    public virtual ICollection<Employee> Employees { get; set; } = new List<Employee>();
 }

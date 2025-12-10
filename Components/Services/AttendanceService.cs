@@ -29,20 +29,20 @@ namespace HestiaLink.Services
                     .AsNoTracking()
                     .ToListAsync();
 
-                // Get schedules for this date (keyed by EmployeeID)
+                // Get schedules for this date (keyed by EmployeeId)
                 var schedules = await _context.Schedules
-                    .Where(s => s.ScheduleDate.Date == date.Date && s.IsActive)
+                    .Where(s => s.ScheduleDate == DateOnly.FromDateTime(date) && s.IsActive == true)
                     .AsNoTracking()
-                    .ToDictionaryAsync(s => s.EmployeeID);
+                    .ToDictionaryAsync(s => s.EmployeeId);
 
                 // Get schedule IDs for the date
-                var scheduleIds = schedules.Values.Select(s => s.ScheduleID).ToList();
+                var ScheduleIds = schedules.Values.Select(s => s.ScheduleId).ToList();
 
-                // Get attendance via ScheduleID (not EmployeeID)
+                // Get attendance via ScheduleId (not EmployeeId)
                 var attendances = await _context.Attendances
-                    .Where(a => a.AttendanceDate.Date == date.Date && scheduleIds.Contains(a.ScheduleID))
+                    .Where(a => a.AttendanceDate == DateOnly.FromDateTime(date) && ScheduleIds.Contains(a.ScheduleId))
                     .AsNoTracking()
-                    .ToDictionaryAsync(a => a.ScheduleID);
+                    .ToDictionaryAsync(a => a.ScheduleId);
 
                 var result = new List<EmployeeWithScheduleDto>();
 
@@ -50,35 +50,35 @@ namespace HestiaLink.Services
                 {
                     var position = emp.Position;
                     var department = position?.Department;
-                    schedules.TryGetValue(emp.EmployeeID, out var schedule);
+                    schedules.TryGetValue(emp.EmployeeId, out var schedule);
                     
                     // Get attendance through schedule
                     Attendance? attendance = null;
                     if (schedule != null)
                     {
-                        attendances.TryGetValue(schedule.ScheduleID, out attendance);
+                        attendances.TryGetValue(schedule.ScheduleId, out attendance);
                     }
 
                     // Calculate IsLate dynamically
                     var isLate = false;
                     if (attendance?.ActualCheckIn != null && schedule != null)
                     {
-                        var graceTime = schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15));
-                        isLate = attendance.ActualCheckIn.Value.TimeOfDay > graceTime;
+                        var graceTime = schedule.ScheduledStart.AddMinutes(15);
+                        isLate = TimeOnly.FromTimeSpan(attendance.ActualCheckIn.Value.TimeOfDay) > graceTime;
                     }
 
                     var dto = new EmployeeWithScheduleDto
                     {
-                        EmployeeID = emp.EmployeeID,
+                        EmployeeId = emp.EmployeeId,
                         FirstName = emp.FirstName,
                         LastName = emp.LastName,
                         Department = department?.DepartmentName ?? "-",
                         Position = position?.PositionTitle ?? "-",
                         AttendanceDate = date,
-                        ScheduleID = schedule?.ScheduleID,
-                        ScheduleStart = schedule?.ScheduledStart,
-                        ScheduleEnd = schedule?.ScheduledEnd,
-                        AttendanceID = attendance?.AttendanceID,
+                        ScheduleId = schedule?.ScheduleId,
+                        ScheduleStart = schedule?.ScheduledStart.ToTimeSpan(),
+                        ScheduleEnd = schedule?.ScheduledEnd.ToTimeSpan(),
+                        AttendanceId = attendance?.AttendanceId,
                         ActualCheckIn = attendance?.ActualCheckIn,
                         ActualCheckOut = attendance?.ActualCheckOut,
                         AttendanceStatus = attendance?.AttendanceStatus ?? (schedule != null ? "Pending" : "Not Scheduled"),
@@ -109,73 +109,73 @@ namespace HestiaLink.Services
             {
                 // Get schedules for the date
                 var schedules = await _context.Schedules
-                    .Where(s => s.ScheduleDate.Date == attendanceDate.Date && s.IsActive)
+                    .Where(s => s.ScheduleDate == DateOnly.FromDateTime(attendanceDate) && s.IsActive == true)
                     .AsNoTracking()
                     .ToListAsync();
 
-                var scheduleIds = schedules.Select(s => s.ScheduleID).ToList();
+                var ScheduleIds = schedules.Select(s => s.ScheduleId).ToList();
 
-                // Get attendance records via ScheduleID
+                // Get attendance records via ScheduleId
                 var records = await _context.Attendances
-                    .Where(a => a.AttendanceDate.Date == attendanceDate.Date && scheduleIds.Contains(a.ScheduleID))
+                    .Where(a => a.AttendanceDate == DateOnly.FromDateTime(attendanceDate) && ScheduleIds.Contains(a.ScheduleId))
                     .Include(a => a.Schedule)
                     .AsNoTracking()
                     .ToListAsync();
 
                 // Get employee IDs from schedules
-                var employeeIds = schedules.Select(s => s.EmployeeID).Distinct().ToList();
+                var EmployeeIds = schedules.Select(s => s.EmployeeId).Distinct().ToList();
 
                 var employees = await _context.Employees
-                    .Where(e => employeeIds.Contains(e.EmployeeID))
+                    .Where(e => EmployeeIds.Contains(e.EmployeeId))
                     .Include(e => e.Position)
                     .ThenInclude(p => p!.Department)
                     .AsNoTracking()
-                    .ToDictionaryAsync(e => e.EmployeeID);
+                    .ToDictionaryAsync(e => e.EmployeeId);
 
                 // Create schedule lookup by ID
-                var scheduleLookup = schedules.ToDictionary(s => s.ScheduleID);
+                var scheduleLookup = schedules.ToDictionary(s => s.ScheduleId);
 
                 var attendanceList = new List<AttendanceRecordDto>();
 
                 foreach (var record in records)
                 {
                     // Get employee through schedule
-                    if (!scheduleLookup.TryGetValue(record.ScheduleID, out var schedule))
+                    if (!scheduleLookup.TryGetValue(record.ScheduleId, out var schedule))
                         continue;
 
-                    if (!employees.TryGetValue(schedule.EmployeeID, out var employee))
+                    if (!employees.TryGetValue(schedule.EmployeeId, out var employee))
                         continue;
 
                     var position = employee.Position;
                     var department = position?.Department;
 
-                    if (departmentId.HasValue && position?.DepartmentID != departmentId)
+                    if (departmentId.HasValue && position?.DepartmentId != departmentId)
                         continue;
 
                     // Calculate IsLate dynamically
                     var isLate = false;
                     if (record.ActualCheckIn != null && schedule != null)
                     {
-                        var graceTime = schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15));
-                        isLate = record.ActualCheckIn.Value.TimeOfDay > graceTime;
+                        var graceTime = schedule.ScheduledStart.AddMinutes(15);
+                        isLate = TimeOnly.FromTimeSpan(record.ActualCheckIn.Value.TimeOfDay) > graceTime;
                     }
 
                     attendanceList.Add(new AttendanceRecordDto
                     {
-                        AttendanceID = record.AttendanceID,
-                        EmployeeID = schedule.EmployeeID,
+                        AttendanceId = record.AttendanceId,
+                        EmployeeId = schedule.EmployeeId,
                         FirstName = employee.FirstName,
                         LastName = employee.LastName,
                         Department = department?.DepartmentName ?? "-",
                         Position = position?.PositionTitle ?? "-",
-                        AttendanceDate = record.AttendanceDate,
-                        ScheduleStart = schedule.ScheduledStart,
-                        ScheduleEnd = schedule.ScheduledEnd,
+                        AttendanceDate = record.AttendanceDate.ToDateTime(TimeOnly.MinValue),
+                        ScheduleStart = schedule.ScheduledStart.ToTimeSpan(),
+                        ScheduleEnd = schedule.ScheduledEnd.ToTimeSpan(),
                         ActualCheckIn = record.ActualCheckIn,
                         ActualCheckOut = record.ActualCheckOut,
-                        RegularHours = record.RegularHours,
-                        OvertimeHours = record.OvertimeHours,
-                        AttendanceStatus = record.AttendanceStatus,
+                        RegularHours = record.RegularHours ?? 0,
+                        OvertimeHours = record.OvertimeHours ?? 0,
+                        AttendanceStatus = record.AttendanceStatus ?? "Present",
                         IsLate = isLate,
                         Notes = record.Notes,
                         HoursWorked = record.ActualCheckIn.HasValue && record.ActualCheckOut.HasValue
@@ -196,11 +196,11 @@ namespace HestiaLink.Services
         /// <summary>
         /// Records employee check-in via Schedule connection
         /// </summary>
-        public async Task<bool> RecordCheckInAsync(int employeeID, DateTime attendanceDate, int? scheduleId)
+        public async Task<bool> RecordCheckInAsync(int EmployeeId, DateTime attendanceDate, int? ScheduleId)
         {
             try
             {
-                if (!scheduleId.HasValue)
+                if (!ScheduleId.HasValue)
                 {
                     Console.WriteLine("Cannot check in without a schedule");
                     return false;
@@ -208,7 +208,7 @@ namespace HestiaLink.Services
 
                 // Check if attendance already exists for this schedule
                 var attendance = await _context.Attendances
-                    .FirstOrDefaultAsync(a => a.ScheduleID == scheduleId.Value);
+                    .FirstOrDefaultAsync(a => a.ScheduleId == ScheduleId.Value);
 
                 var checkInTime = DateTime.Now;
 
@@ -216,8 +216,8 @@ namespace HestiaLink.Services
                 {
                     var newAttendance = new Attendance
                     {
-                        ScheduleID = scheduleId.Value,
-                        AttendanceDate = attendanceDate,
+                        ScheduleId = ScheduleId.Value,
+                        AttendanceDate = DateOnly.FromDateTime(attendanceDate),
                         ActualCheckIn = checkInTime,
                         AttendanceStatus = "Present",
                         RegularHours = 0,
@@ -248,13 +248,13 @@ namespace HestiaLink.Services
         /// <summary>
         /// Records employee check-out via Schedule connection
         /// </summary>
-        public async Task<bool> RecordCheckOutAsync(int employeeID, DateTime attendanceDate)
+        public async Task<bool> RecordCheckOutAsync(int EmployeeId, DateTime attendanceDate)
         {
             try
             {
                 // Find schedule for employee on this date
                 var schedule = await _context.Schedules
-                    .FirstOrDefaultAsync(s => s.EmployeeID == employeeID && s.ScheduleDate.Date == attendanceDate.Date && s.IsActive);
+                    .FirstOrDefaultAsync(s => s.EmployeeId == EmployeeId && s.ScheduleDate == DateOnly.FromDateTime(attendanceDate) && s.IsActive == true);
 
                 if (schedule == null)
                 {
@@ -264,7 +264,7 @@ namespace HestiaLink.Services
 
                 // Find attendance via schedule
                 var attendance = await _context.Attendances
-                    .FirstOrDefaultAsync(a => a.ScheduleID == schedule.ScheduleID);
+                    .FirstOrDefaultAsync(a => a.ScheduleId == schedule.ScheduleId);
 
                 if (attendance == null || !attendance.ActualCheckIn.HasValue)
                 {
@@ -302,7 +302,7 @@ namespace HestiaLink.Services
         /// <summary>
         /// Gets attendance history for an employee via Schedule connection
         /// </summary>
-        public async Task<List<AttendanceRecordDto>> GetEmployeeAttendanceHistoryAsync(int employeeID, DateTime? fromDate = null, DateTime? toDate = null)
+        public async Task<List<AttendanceRecordDto>> GetEmployeeAttendanceHistoryAsync(int EmployeeId, DateTime? fromDate = null, DateTime? toDate = null)
         {
             try
             {
@@ -310,14 +310,14 @@ namespace HestiaLink.Services
                 toDate ??= DateTime.Now;
 
                 // Get all schedule IDs for this employee
-                var scheduleIds = await _context.Schedules
-                    .Where(s => s.EmployeeID == employeeID)
-                    .Select(s => s.ScheduleID)
+                var ScheduleIds = await _context.Schedules
+                    .Where(s => s.EmployeeId == EmployeeId)
+                    .Select(s => s.ScheduleId)
                     .ToListAsync();
 
                 // Get attendance records via schedule IDs
                 var records = await _context.Attendances
-                    .Where(a => scheduleIds.Contains(a.ScheduleID) && a.AttendanceDate >= fromDate && a.AttendanceDate <= toDate)
+                    .Where(a => ScheduleIds.Contains(a.ScheduleId) && a.AttendanceDate >= DateOnly.FromDateTime(fromDate.Value) && a.AttendanceDate <= DateOnly.FromDateTime(toDate.Value))
                     .Include(a => a.Schedule)
                     .AsNoTracking()
                     .OrderByDescending(a => a.AttendanceDate)
@@ -328,22 +328,22 @@ namespace HestiaLink.Services
                     var isLate = false;
                     if (a.ActualCheckIn != null && a.Schedule != null)
                     {
-                        var graceTime = a.Schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15));
-                        isLate = a.ActualCheckIn.Value.TimeOfDay > graceTime;
+                        var graceTime = a.Schedule.ScheduledStart.AddMinutes(15);
+                        isLate = TimeOnly.FromTimeSpan(a.ActualCheckIn.Value.TimeOfDay) > graceTime;
                     }
 
                     return new AttendanceRecordDto
                     {
-                        AttendanceID = a.AttendanceID,
-                        EmployeeID = a.Schedule?.EmployeeID ?? 0,
-                        AttendanceDate = a.AttendanceDate,
-                        ScheduleStart = a.Schedule?.ScheduledStart,
-                        ScheduleEnd = a.Schedule?.ScheduledEnd,
+                        AttendanceId = a.AttendanceId,
+                        EmployeeId = a.Schedule?.EmployeeId ?? 0,
+                        AttendanceDate = a.AttendanceDate.ToDateTime(TimeOnly.MinValue),
+                        ScheduleStart = a.Schedule?.ScheduledStart.ToTimeSpan(),
+                        ScheduleEnd = a.Schedule?.ScheduledEnd.ToTimeSpan(),
                         ActualCheckIn = a.ActualCheckIn,
                         ActualCheckOut = a.ActualCheckOut,
-                        RegularHours = a.RegularHours,
-                        OvertimeHours = a.OvertimeHours,
-                        AttendanceStatus = a.AttendanceStatus,
+                        RegularHours = a.RegularHours ?? 0,
+                        OvertimeHours = a.OvertimeHours ?? 0,
+                        AttendanceStatus = a.AttendanceStatus ?? "Present",
                         IsLate = isLate,
                         Notes = a.Notes,
                         HoursWorked = a.ActualCheckIn.HasValue && a.ActualCheckOut.HasValue
@@ -362,12 +362,12 @@ namespace HestiaLink.Services
         /// <summary>
         /// Creates a new schedule for an employee on a specific date
         /// </summary>
-        public async Task<bool> CreateScheduleAsync(int employeeId, DateTime scheduleDate, TimeSpan startTime, TimeSpan endTime, string? notes = null)
+        public async Task<bool> CreateScheduleAsync(int EmployeeId, DateTime scheduleDate, TimeSpan startTime, TimeSpan endTime, string? notes = null)
         {
             try
             {
                 var existingSchedule = await _context.Schedules
-                    .FirstOrDefaultAsync(s => s.EmployeeID == employeeId && s.ScheduleDate.Date == scheduleDate.Date && s.IsActive);
+                    .FirstOrDefaultAsync(s => s.EmployeeId == EmployeeId && s.ScheduleDate == DateOnly.FromDateTime(scheduleDate) && s.IsActive == true);
 
                 if (existingSchedule != null)
                 {
@@ -380,10 +380,10 @@ namespace HestiaLink.Services
                 // Always create new schedule
                 var newSchedule = new Schedule
                 {
-                    EmployeeID = employeeId,
-                    ScheduleDate = scheduleDate.Date,
-                    ScheduledStart = startTime,
-                    ScheduledEnd = endTime,
+                    EmployeeId = EmployeeId,
+                    ScheduleDate = DateOnly.FromDateTime(scheduleDate),
+                    ScheduledStart = TimeOnly.FromTimeSpan(startTime),
+                    ScheduledEnd = TimeOnly.FromTimeSpan(endTime),
                     IsActive = true,
                     Notes = notes,
                     CreatedAt = DateTime.UtcNow,
@@ -396,12 +396,12 @@ namespace HestiaLink.Services
                 if (existingSchedule != null)
                 {
                     var attendancesToUpdate = await _context.Attendances
-                        .Where(a => a.ScheduleID == existingSchedule.ScheduleID)
+                        .Where(a => a.ScheduleId == existingSchedule.ScheduleId)
                         .ToListAsync();
 
                     foreach (var att in attendancesToUpdate)
                     {
-                        att.ScheduleID = newSchedule.ScheduleID;
+                        att.ScheduleId = newSchedule.ScheduleId;
                         att.UpdatedAt = DateTime.UtcNow;
                     }
                     await _context.SaveChangesAsync();
@@ -425,15 +425,15 @@ namespace HestiaLink.Services
             {
                 // Get schedules for this date
                 var schedules = await _context.Schedules
-                    .Where(s => s.ScheduleDate.Date == attendanceDate.Date && s.IsActive)
+                    .Where(s => s.ScheduleDate == DateOnly.FromDateTime(attendanceDate) && s.IsActive == true)
                     .AsNoTracking()
                     .ToListAsync();
 
-                var scheduleIds = schedules.Select(s => s.ScheduleID).ToList();
+                var ScheduleIds = schedules.Select(s => s.ScheduleId).ToList();
 
                 // Get attendance records via schedule
                 var records = await _context.Attendances
-                    .Where(a => a.AttendanceDate.Date == attendanceDate.Date && scheduleIds.Contains(a.ScheduleID))
+                    .Where(a => a.AttendanceDate == DateOnly.FromDateTime(attendanceDate) && ScheduleIds.Contains(a.ScheduleId))
                     .Include(a => a.Schedule)
                     .AsNoTracking()
                     .ToListAsync();
@@ -447,7 +447,7 @@ namespace HestiaLink.Services
                 var lateCount = records.Count(a => 
                     a.ActualCheckIn != null && 
                     a.Schedule != null && 
-                    a.ActualCheckIn.Value.TimeOfDay > a.Schedule.ScheduledStart.Add(TimeSpan.FromMinutes(15)));
+                    a.ActualCheckIn.Value.TimeOfDay > a.Schedule.ScheduledStart.AddMinutes(15).ToTimeSpan());
 
                 return new AttendanceSummaryDto
                 {
@@ -469,8 +469,8 @@ namespace HestiaLink.Services
     // DTOs for data transfer
     public class AttendanceRecordDto
     {
-        public int AttendanceID { get; set; }
-        public int EmployeeID { get; set; }
+        public int AttendanceId { get; set; }
+        public int EmployeeId { get; set; }
         public string FirstName { get; set; } = "";
         public string LastName { get; set; } = "";
         public string Department { get; set; } = "";
@@ -490,15 +490,15 @@ namespace HestiaLink.Services
 
     public class EmployeeWithScheduleDto
     {
-        public int EmployeeID { get; set; }
+        public int EmployeeId { get; set; }
         public string FirstName { get; set; } = "";
         public string LastName { get; set; } = "";
         public string Department { get; set; } = "";
         public string Position { get; set; } = "";
-        public int? ScheduleID { get; set; }
+        public int? ScheduleId { get; set; }
         public TimeSpan? ScheduleStart { get; set; }
         public TimeSpan? ScheduleEnd { get; set; }
-        public int? AttendanceID { get; set; }
+        public int? AttendanceId { get; set; }
         public DateTime? ActualCheckIn { get; set; }
         public DateTime? ActualCheckOut { get; set; }
         public DateTime AttendanceDate { get; set; }
@@ -511,7 +511,7 @@ namespace HestiaLink.Services
 
     public class EmployeeDto
     {
-        public int EmployeeID { get; set; }
+        public int EmployeeId { get; set; }
         public string FirstName { get; set; } = "";
         public string LastName { get; set; } = "";
         public string Department { get; set; } = "";

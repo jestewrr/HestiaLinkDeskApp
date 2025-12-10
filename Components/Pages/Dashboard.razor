@@ -864,14 +864,15 @@
 
             // Load Reservation Statistics
             var today = DateTime.Today;
+            var todayDateOnly = DateOnly.FromDateTime(today);
             var reservations = await DbContext.Reservations
                 .AsNoTracking()
                 .Include(r => r.Guest)
                 .ToListAsync();
 
             ActiveGuests = reservations.Count(r => r.Status == "Checked In");
-            TodayCheckIns = reservations.Count(r => r.CheckInDate.Date == today && r.Status == "Checked In");
-            TodayCheckOuts = reservations.Count(r => r.CheckOutDate.Date == today && r.Status == "Checked Out");
+            TodayCheckIns = reservations.Count(r => r.CheckInDate == todayDateOnly && r.Status == "Checked In");
+            TodayCheckOuts = reservations.Count(r => r.CheckOutDate == todayDateOnly && r.Status == "Checked Out");
             PendingReservations = reservations.Count(r => r.Status == "Confirmed" || r.Status == "Pending");
 
             // Recent Reservations with Room info
@@ -886,8 +887,8 @@
                 .Select(r => new ReservationSummary
                 {
                     GuestName = r.Guest != null ? $"{r.Guest.FirstName} {r.Guest.LastName}" : "Unknown",
-                    RoomNumber = reservedRooms.FirstOrDefault(rr => rr.ReservationID == r.ReservationID)?.Room?.RoomNumber ?? "N/A",
-                    CheckInDate = r.CheckInDate,
+                    RoomNumber = reservedRooms.FirstOrDefault(rr => rr.ReservationId == r.ReservationId)?.Room?.RoomNumber ?? "N/A",
+                    CheckInDate = r.CheckInDate.ToDateTime(TimeOnly.MinValue),
                     Status = r.Status ?? "Unknown"
                 })
                 .ToList();
@@ -897,9 +898,9 @@
             var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
             var startOfMonth = new DateTime(today.Year, today.Month, 1);
 
-            TodayRevenue = payments.Where(p => p.PaymentDate.Date == today).Sum(p => p.Amount);
-            WeeklyRevenue = payments.Where(p => p.PaymentDate.Date >= startOfWeek).Sum(p => p.Amount);
-            MonthlyRevenue = payments.Where(p => p.PaymentDate.Date >= startOfMonth).Sum(p => p.Amount);
+            TodayRevenue = payments.Where(p => p.PaymentDate.HasValue && p.PaymentDate.Value.Date == today).Sum(p => p.Amount ?? 0);
+            WeeklyRevenue = payments.Where(p => p.PaymentDate.HasValue && p.PaymentDate.Value.Date >= startOfWeek).Sum(p => p.Amount ?? 0);
+            MonthlyRevenue = payments.Where(p => p.PaymentDate.HasValue && p.PaymentDate.Value.Date >= startOfMonth).Sum(p => p.Amount ?? 0);
 
             // Weekly Revenue Data for Chart
             WeeklyRevenueData = Enumerable.Range(0, 7)
@@ -909,7 +910,7 @@
                     return new DailyRevenue
                     {
                         DayName = date.ToString("ddd"),
-                        Amount = payments.Where(p => p.PaymentDate.Date == date).Sum(p => p.Amount)
+                        Amount = payments.Where(p => p.PaymentDate.HasValue && p.PaymentDate.Value.Date == date).Sum(p => p.Amount ?? 0)
                     };
                 })
                 .ToList();

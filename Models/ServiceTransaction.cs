@@ -1,24 +1,29 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class ServiceTransaction
 {
-    public class ServiceTransaction
-    {
-        [Key]
-        public int ServiceTransactionID { get; set; }
-        public int ReservationID { get; set; }
-        public int ServiceID { get; set; }
-        public DateTime TransactionDateTime { get; set; } = DateTime.Now;
-        public int Quantity { get; set; } = 1;
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal UnitPrice { get; set; }
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal TotalAmount { get; set; }
-        public string ServiceStatus { get; set; } = "Pending";
+    public int ServiceTransactionId { get; set; }
 
-        // Navigation
-        public Reservation? Reservation { get; set; }
-        public Service? Service { get; set; }
-    }
+    public int? ReservationId { get; set; }
+
+    public int? ServiceId { get; set; }
+
+    public DateTime? TransactionDateTime { get; set; }
+
+    public int? Quantity { get; set; }
+
+    public decimal? UnitPrice { get; set; }
+
+    public decimal? TotalAmount { get; set; }
+
+    public string? ServiceStatus { get; set; }
+
+    public virtual ICollection<InventoryConsumption> InventoryConsumptions { get; set; } = new List<InventoryConsumption>();
+
+    public virtual Reservation? Reservation { get; set; }
+
+    public virtual Service? Service { get; set; }
 }
