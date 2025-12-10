@@ -1,56 +1,117 @@
-﻿using HestiaLink.Models;
+﻿using System;
+using System.Collections.Generic;
+using HestiaLink.Models;
 using HestiaLink.Models.Views;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Reflection.Emit;
 
-namespace HestiaLink.Data
+namespace HestiaLink.Data;
+
+public partial class HestiaLinkContext : DbContext
 {
-    public class HestiaLinkContext : DbContext
+    public HestiaLinkContext()
     {
-        public HestiaLinkContext(DbContextOptions<HestiaLinkContext> options) : base(options)
+
+    }
+
+    public HestiaLinkContext(DbContextOptions<HestiaLinkContext> options)
+        : base(options)
+    {
+    }
+
+    public virtual DbSet<Attendance> Attendances { get; set; }
+
+    public virtual DbSet<Bill> Bills { get; set; }
+
+    public virtual DbSet<BillDetail> BillDetails { get; set; }
+
+    public virtual DbSet<Department> Departments { get; set; }
+
+    public virtual DbSet<Employee> Employees { get; set; }
+
+    public virtual DbSet<Guest> Guests { get; set; }
+
+    public virtual DbSet<Income> Incomes { get; set; }
+
+    public virtual DbSet<InventoryConsumption> InventoryConsumptions { get; set; }
+
+    public virtual DbSet<InventoryItem> InventoryItems { get; set; }
+
+    public virtual DbSet<OperationalExpense> OperationalExpenses { get; set; }
+
+    public virtual DbSet<Payment> Payments { get; set; }
+
+    public virtual DbSet<Payroll> Payrolls { get; set; }
+
+    public virtual DbSet<Position> Positions { get; set; }
+
+    public virtual DbSet<Reservation> Reservations { get; set; }
+
+    public virtual DbSet<ReservedRoom> ReservedRooms { get; set; }
+
+    public virtual DbSet<Room> Rooms { get; set; }
+
+    public virtual DbSet<RoomType> RoomTypes { get; set; }
+
+    public virtual DbSet<Schedule> Schedules { get; set; }
+
+    public virtual DbSet<Service> Services { get; set; }
+
+    public virtual DbSet<ServiceCategory> ServiceCategories { get; set; }
+
+    public virtual DbSet<ServiceInventory> ServiceInventories { get; set; }
+
+    public virtual DbSet<ServiceTransaction> ServiceTransactions { get; set; }
+
+    public virtual DbSet<SystemUser> SystemUsers { get; set; }
+
+    public virtual DbSet<Supplier> Suppliers { get; set; }
+
+    public virtual DbSet<InventoryPurchase> InventoryPurchases { get; set; }
+
+
+    
+
+
+    public virtual DbSet<CleaningTask> Tasks { get; set; }
+
+    public virtual DbSet<Tax> Taxes { get; set; }
+
+    public virtual DbSet<TotalIncome> TotalIncomes { get; set; }
+
+    public virtual DbSet<VwAttendanceDetail> VwAttendanceDetails { get; set; }
+
+    public virtual DbSet<VwBookingHistory> VwBookingHistories { get; set; }
+
+    public virtual DbSet<VwEmployeeFullDetail> VwEmployeeFullDetails { get; set; }
+
+    public virtual DbSet<VwEmployeePayrollSummary> VwEmployeePayrollSummaries { get; set; }
+
+    public virtual DbSet<VwRoomAvailability> VwRoomAvailabilities { get; set; }
+
+    public virtual DbSet<VwRoomStatusDisplay> VwRoomStatusDisplays { get; set; }
+
+    public virtual DbSet<VwRoomsBasic> VwRoomsBasics { get; set; }
+
+    public virtual DbSet<VwRoomsNeedingCleaning> VwRoomsNeedingCleanings { get; set; }
+
+    public virtual DbSet<VwTodaysRoomStatus> VwTodaysRoomStatuses { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseSqlServer("Data Source=JESTER-PC\\SQLEXPRESS;Initial Catalog=\"IT13 (1)\";Integrated Security=True;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True;Application Intent=ReadWrite;Multi Subnet Failover=False");
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<OperationalExpense>(entity =>
         {
-        }
-
-        public DbSet<Department> Departments { get; set; }
-        public DbSet<Position> Positions { get; set; }
-        public DbSet<Employee> Employees { get; set; }
-        public DbSet<SystemUser> SystemUsers { get; set; }
-        public DbSet<Room> Rooms { get; set; }
-        public DbSet<RoomType> RoomTypes { get; set; }
-        public DbSet<ServiceCategory> ServiceCategories { get; set; }
-        public DbSet<Service> Services { get; set; }
-
-        // Added sets
-        public DbSet<Guest> Guests { get; set; }
-        public DbSet<Reservation> Reservations { get; set; }
-        public DbSet<ReservedRoom> ReservedRooms { get; set; }
-        public DbSet<ServiceTransaction> ServiceTransactions { get; set; }
-        public DbSet<Bill> Bills { get; set; }
-        public DbSet<BillDetail> BillDetails { get; set; }
-        public DbSet<Payment> Payments { get; set; }
-        public DbSet<MaintenanceRequest> MaintenanceRequests { get; set; }
-        public DbSet<Attendance> Attendances { get; set; }
-        public DbSet<Schedule> Schedules { get; set; }
-
-        // Housekeeping
-        public DbSet<CleaningTask> CleaningTasks { get; set; }
-
-        // Payroll related tables
-        public DbSet<Tax> Taxes { get; set; }
-        public DbSet<Payroll> Payrolls { get; set; }
-        public DbSet<TotalIncome> TotalIncomes { get; set; }
-        public DbSet<Income> Incomes { get; set; }
-
+            entity.HasKey(e => e.ExpenseId);
+            entity.ToTable("OperationalExpenses");
+            entity.Property(e => e.Amount).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.ExpenseDate).HasColumnType("datetime");
+        });
+        
         // ============================================
-        // INVENTORY TABLES
-        // ============================================
-        public DbSet<InventoryItem> InventoryItems { get; set; }
-        public DbSet<ServiceInventory> ServiceInventories { get; set; }
-        public DbSet<InventoryConsumption> InventoryConsumptions { get; set; }
-
-        // ============================================
-        // SUPPLIER & PURCHASE TABLES
+        // SUPPLIER & PURCHASE TABLES MAPPING
         // ============================================
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<InventoryPurchase> InventoryPurchases { get; set; }
@@ -154,22 +215,20 @@ namespace HestiaLink.Data
                 .HasForeignKey(si => si.ServiceID)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<ServiceInventory>()
-                .HasOne(si => si.InventoryItem)
-                .WithMany()
-                .HasForeignKey(si => si.InventoryItemID)
-                .OnDelete(DeleteBehavior.Restrict);
+        // Supplier configuration
+        modelBuilder.Entity<Supplier>(entity =>
+        {
+            entity.HasIndex(s => s.SupplierCode).IsUnique();
+        });
 
-            modelBuilder.Entity<InventoryConsumption>()
-                .HasOne(ic => ic.ServiceTransaction)
-                .WithMany()
-                .HasForeignKey(ic => ic.ServiceTransactionID)
-                .OnDelete(DeleteBehavior.Restrict);
+        // InventoryPurchase configuration
+        modelBuilder.Entity<InventoryPurchase>(entity =>
+        {
+            entity.HasIndex(p => p.PurchaseNumber).IsUnique();
 
-            modelBuilder.Entity<InventoryConsumption>()
-                .HasOne(ic => ic.InventoryItem)
+            entity.HasOne(p => p.InventoryItem)
                 .WithMany()
-                .HasForeignKey(ic => ic.InventoryItemID)
+                .HasForeignKey(p => p.ItemID)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // ============================================
@@ -198,4 +257,6 @@ namespace HestiaLink.Data
             });
         }
     }
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }

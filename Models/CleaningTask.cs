@@ -1,16 +1,7 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
-{
-    public class CleaningTask
-    {
-        [Key]
-        public int TaskID { get; set; }
-
-        public int RoomID { get; set; }
-
-        public int? UserID { get; set; } // Assigned Staff
+namespace HestiaLink.Models;
 
         public DateTime AssignedDate { get; set; } = DateTime.Now;
 
@@ -19,7 +10,7 @@ namespace HestiaLink.Models
         /// </summary>
         public string Status { get; set; } = "Assigned";
 
-        public DateTime? CompletedDate { get; set; }
+    public int UserId { get; set; }
 
         /// <summary>
         /// Additional notes for the task
@@ -38,7 +29,5 @@ namespace HestiaLink.Models
         [ForeignKey("RoomID")]
         public Room? Room { get; set; }
 
-        [ForeignKey("UserID")]
-        public SystemUser? AssignedUser { get; set; }
-    }
+    public virtual SystemUser User { get; set; } = null!;
 }

@@ -1,38 +1,29 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Schedule
 {
-    public class Schedule
-    {
-        [Key]
-        public int ScheduleID { get; set; }
+    public int ScheduleId { get; set; }
 
-        [Required]
-        public int EmployeeID { get; set; }
+    public int EmployeeId { get; set; }
 
-        [Required]
-        public DateTime ScheduleDate { get; set; }
+    public DateOnly ScheduleDate { get; set; }
 
-        [Required]
-        [Column(TypeName = "time")]
-        public TimeSpan ScheduledStart { get; set; }
+    public TimeOnly ScheduledStart { get; set; }
 
-        [Required]
-        [Column(TypeName = "time")]
-        public TimeSpan ScheduledEnd { get; set; }
+    public TimeOnly ScheduledEnd { get; set; }
 
-        public bool IsActive { get; set; } = true;
+    public bool? IsActive { get; set; }
 
-        [StringLength(500)]
-        public string? Notes { get; set; }
+    public string? Notes { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? CreatedAt { get; set; }
 
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 
-        // Navigation property
-        [ForeignKey("EmployeeID")]
-        public Employee? Employee { get; set; }
-    }
+    public virtual ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
+
+    public virtual Employee Employee { get; set; } = null!;
 }

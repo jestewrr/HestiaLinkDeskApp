@@ -1,16 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Department
 {
-    public class Department
-    {
-        public int DepartmentID { get; set; }
+    public int DepartmentId { get; set; }
 
-        [Required(ErrorMessage = "Department name is required")]
-        public string DepartmentName { get; set; } = string.Empty;
+    public string DepartmentName { get; set; } = null!;
 
-        public string Description { get; set; } = string.Empty;
+    public string? Description { get; set; }
 
-        public string Status { get; set; } = "Active";
-    }
+    public string? Status { get; set; }
+
+    public virtual ICollection<Position> Positions { get; set; } = new List<Position>();
 }

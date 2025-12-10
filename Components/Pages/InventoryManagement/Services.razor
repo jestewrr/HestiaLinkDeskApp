@@ -11,34 +11,40 @@
         <span class="page-topbar-subtitle">Manage Services</span>
     </header>
 
+    <section class="page-content">
+
     @* ===== SUMMARY CARDS (show only when loaded and no error) ===== *@
     @if (IsLoaded && !HasError)
     {
-        <div class="summary-cards">
-            <div class="summary-card">
-                <div class="summary-label">TOTAL SERVICES</div>
-                <div class="summary-value">@ServicesList.Count</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div class="stat-card">
+                <div class="stat-title">TOTAL SERVICES</div>
+                <div class="stat-value">@ServicesList.Count</div>
+                <div class="stat-desc">Total registered services</div>
             </div>
 
-            <div class="summary-card">
-                <div class="summary-label">CATEGORIES</div>
-                <div class="summary-value">@ActiveCategories.Count</div>
+            <div class="stat-card">
+                <div class="stat-title">CATEGORIES</div>
+                <div class="stat-value">@ActiveCategories.Count</div>
+                <div class="stat-desc">Active service types</div>
             </div>
 
-            <div class="summary-card">
-                <div class="summary-label">AVG. PRICE</div>
-                <div class="summary-value">
+            <div class="stat-card">
+                <div class="stat-title">AVG. PRICE</div>
+                <div class="stat-value">
                     @(
                                     ServicesList.Any()
-                                    ? "?" + ServicesList.Average(s => s.StandardPrice).ToString("N2", CultureInfo.InvariantCulture)
-                                    : "?0.00"
+                                    ? "₱" + ServicesList.Average(s => s.StandardPrice).ToString("N2", CultureInfo.InvariantCulture)
+                                    : "₱0.00"
                                     )
                 </div>
+                <div class="stat-desc">Average service cost</div>
             </div>
 
-            <div class="summary-card">
-                <div class="summary-label">INACTIVE</div>
-                <div class="summary-value">@InactiveServicesCount</div>
+            <div class="stat-card">
+                <div class="stat-title">INACTIVE</div>
+                <div class="stat-value">@InactiveServicesCount</div>
+                <div class="stat-desc">Archived services</div>
             </div>
         </div>
     }
@@ -46,8 +52,8 @@
     <div class="user-toolbar">
         <div class="toolbar-left">
             <div class="toolbar-search">
+                <span class="search-icon">🔍</span>
                 <input type="text" placeholder="Search by name or ID..." @bind="SearchText" @oninput="OnSearchChanged" />
-                <span class="search-icon"></span>
             </div>
             <select class="filter-select" @bind="FilterStatus">
                 <option value="All">All</option>
@@ -57,7 +63,7 @@
         </div>
         <div>
             <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenInactiveModal"> View Inactive (@InactiveServicesCount)</button>
-            <button class="btn-create" @onclick="OpenModal">+ Create New Service</button>
+            <button class="btn-create" @onclick="OpenModal">Create New Service</button>
         </div>
     </div>
 
@@ -94,9 +100,9 @@
                             @foreach (var service in FilteredServices)
                             {
                                 <tr>
-                                    <td style="font-family:monospace; font-weight:700;">@service.ServiceID</td>
+                                    <td style="font-family:monospace; font-weight:700;">@service.ServiceId</td>
                                     <td style="font-weight:600;">@service.ServiceName</td>
-                                    <td>@(service.Category?.ServiceCategoryName ?? "-")</td>
+                                    <td>@(service.ServiceCategory?.ServiceCategoryName ?? "-")</td>
                                     <td>@service.StandardPrice.ToString("C", CultureInfo.InvariantCulture)</td>
                                     <td><span class="badge-@(service.Status == "Active" ? "active" : "inactive")">@service.Status</span></td>
                                     <td style="text-align:center;">
@@ -124,6 +130,7 @@
             </div>
         </div>
     }
+    </section>
 </div>
 
 @if (ShowModal)
@@ -142,11 +149,11 @@
 
                 <div class="form-group full-width">
                     <label class="form-label">Service Category *</label>
-                    <select class="form-select" @bind="CurrentService.ServiceCategoryID">
+                    <select class="form-select" @bind="CurrentService.ServiceCategoryId">
                         <option value="">Select Category</option>
                         @foreach (var category in ActiveCategories)
                         {
-                            <option value="@category.ServiceCategoryID">@category.ServiceCategoryName</option>
+                            <option value="@category.ServiceCategoryId">@category.ServiceCategoryName</option>
                         }
                     </select>
                 </div>
@@ -202,9 +209,9 @@
                             @foreach (var service in InactiveServices)
                             {
                                 <tr>
-                                    <td>@service.ServiceID</td>
+                                    <td>@service.ServiceId</td>
                                     <td style="font-weight:700;">@service.ServiceName</td>
-                                    <td>@(service.Category?.ServiceCategoryName ?? "-")</td>
+                                    <td>@(service.ServiceCategory?.ServiceCategoryName ?? "-")</td>
                                     <td>@service.StandardPrice.ToString("C", CultureInfo.InvariantCulture)</td>
                                     <td style="text-align:center;">
                                         <button class="btn-secondary" style="background:#10b981;" @onclick="() => RestoreService(service)"> Activate</button>
@@ -277,7 +284,7 @@
 
             // Load services with category information
             ServicesList = await DbContext.Services
-                .Include(s => s.Category)
+                .Include(s => s.ServiceCategory)
                 .OrderBy(s => s.ServiceName)
                 .ToListAsync();
 
@@ -319,8 +326,8 @@
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
                 query = query.Where(s => s.ServiceName.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                                         s.ServiceID.ToString().Contains(SearchText) ||
-                                         (s.Category != null && s.Category.ServiceCategoryName.Contains(SearchText, StringComparison.OrdinalIgnoreCase)));
+                                         s.ServiceId.ToString().Contains(SearchText) ||
+                                         (s.ServiceCategory != null && s.ServiceCategory.ServiceCategoryName.Contains(SearchText, StringComparison.OrdinalIgnoreCase)));
             }
 
             if (FilterStatus == "Active")
@@ -353,9 +360,9 @@
     {
         CurrentService = new HestiaLink.Models.Service
         {
-            ServiceID = service.ServiceID,
+            ServiceId = service.ServiceId,
             ServiceName = service.ServiceName,
-            ServiceCategoryID = service.ServiceCategoryID,
+            ServiceCategoryId = service.ServiceCategoryId,
             StandardPrice = service.StandardPrice,
             IsActive = service.IsActive,
             Status = service.Status,
@@ -376,7 +383,7 @@
                 return;
             }
 
-            if (CurrentService.ServiceCategoryID == 0)
+            if (CurrentService.ServiceCategoryId == 0)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Service Category is required");
                 return;
@@ -390,11 +397,11 @@
 
             if (IsEditMode)
             {
-                var existing = await DbContext.Services.FirstOrDefaultAsync(s => s.ServiceID == CurrentService.ServiceID);
+                var existing = await DbContext.Services.FirstOrDefaultAsync(s => s.ServiceId == CurrentService.ServiceId);
                 if (existing != null)
                 {
                     existing.ServiceName = CurrentService.ServiceName;
-                    existing.ServiceCategoryID = CurrentService.ServiceCategoryID;
+                    existing.ServiceCategoryId = CurrentService.ServiceCategoryId;
                     existing.StandardPrice = CurrentService.StandardPrice;
                     existing.IsActive = CurrentService.IsActive;
                     existing.Status = CurrentService.Status;
@@ -439,7 +446,7 @@
     {
         try
         {
-            var service = await DbContext.Services.FirstOrDefaultAsync(s => s.ServiceID == SetInactiveTarget.ServiceID);
+            var service = await DbContext.Services.FirstOrDefaultAsync(s => s.ServiceId == SetInactiveTarget.ServiceId);
             if (service != null)
             {
                 service.Status = "Inactive";
@@ -476,7 +483,7 @@
     {
         try
         {
-            var existing = await DbContext.Services.FirstOrDefaultAsync(s => s.ServiceID == service.ServiceID);
+            var existing = await DbContext.Services.FirstOrDefaultAsync(s => s.ServiceId == service.ServiceId);
             if (existing != null)
             {
                 existing.Status = "Active";
@@ -496,43 +503,68 @@
 }
 
 <style>
-    /* summary cards */
-    .summary-cards {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 20px;
-        margin: 18px 0;
+    /* Local style for stat cards to match inventory theme (StockManagement) */
+    .stat-card {
+        background-color: #e0f2f1; /* Light Teal Background */
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: auto;
+        min-height: 120px;
     }
 
-    .summary-card {
-        background: #ffffff;
-        padding: 18px 22px;
-        border-radius: 14px;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-        border-left: 6px solid #0f766e;
-    }
-
-    .summary-label {
-        font-size: 0.75rem;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: .5px;
+    .stat-title {
+        font-size: 0.8rem;
         font-weight: 700;
+        color: #004f59;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
-    .summary-value {
-        font-size: 1.6rem;
+    .stat-desc {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 4px;
+        font-weight: 500;
+    }
+
+    .stat-value {
+        font-size: 2.2rem;
         font-weight: 800;
-        margin-top: 6px;
-        color: #065f46;
+        color: #102f33;
+        align-self: flex-end;
     }
 
-    /* some small helpers to match your styles */
+    /* existing tool styles... */
+    .toolbar-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 14px;
+        font-size: 1.1rem;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+
     .toolbar-search input {
-        padding: 12px 14px;
+        padding: 12px 14px 12px 42px;
         border-radius: 10px;
         border: 1px solid #e6e6e6;
         width: 340px;
+        transition: all 0.2s;
+    }
+    
+    .toolbar-search input:focus {
+        border-color: #0d9488;
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+        outline: none;
     }
 
     .filter-select {

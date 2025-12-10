@@ -6,7 +6,7 @@ namespace HestiaLink.Models
     public class InventoryItem
     {
         [Key]
-        public int ItemID { get; set; }
+        public int ItemId { get; set; }
 
         [Required]
         [StringLength(50)]
@@ -40,5 +40,10 @@ namespace HestiaLink.Models
 
         [ForeignKey("SupplierID")]
         public virtual Supplier? Supplier { get; set; }
+        
+        // Navigation properties for relationships
+        public virtual ICollection<InventoryConsumption> InventoryConsumptions { get; set; } = new List<InventoryConsumption>();
+
+        public virtual ICollection<ServiceInventory> ServiceInventories { get; set; } = new List<ServiceInventory>();
     }
 }

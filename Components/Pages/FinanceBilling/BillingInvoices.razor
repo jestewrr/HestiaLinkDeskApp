@@ -1,5 +1,10 @@
 ﻿@page "/finance/billing-invoices"
 @layout MainLayout
+@using HestiaLink.Data
+@using HestiaLink.Models
+@using Microsoft.EntityFrameworkCore
+@inject HestiaLinkContext _context
+@inject NavigationManager NavigationManager
 
 <div class="page-wrapper">
     <header class="page-topbar">
@@ -13,27 +18,31 @@
             <div class="stat-card">
                 <div class="stat-title">Total Invoices</div>
                 <div class="stat-value">@Invoices.Count</div>
+                <div class="stat-desc">All generated bills</div>
             </div>
             <div class="stat-card">
                 <div class="stat-title">Total Revenue</div>
                 <div class="stat-value">₱@TotalRevenue.ToString("N2")</div>
+                <div class="stat-desc">Paid amount so far</div>
             </div>
             <div class="stat-card">
                 <div class="stat-title">VAT Collected</div>
                 <div class="stat-value">₱@TotalVAT.ToString("N2")</div>
+                <div class="stat-desc">12% Tax portion</div>
             </div>
             <div class="stat-card">
                 <div class="stat-title">Service Charge</div>
                 <div class="stat-value">₱@TotalServiceCharge.ToString("N2")</div>
+                <div class="stat-desc">10% Service fee</div>
             </div>
         </div>
 
         <!-- Toolbar -->
         <div class="user-toolbar">
             <div class="toolbar-left">
-                <div class="toolbar-search">
-                    <input type="text" placeholder="Search by guest or invoice ID..." @bind="SearchText" />
-                    <span class="search-icon">🔍</span>
+                <div class="toolbar-search" style="position: relative;">
+                    <input type="text" placeholder="Search by guest or invoice ID..." @bind="SearchText" style="padding-left: 40px; width: 100%;" />
+                    <span class="search-icon" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%);">🔍</span>
                 </div>
                 <select class="filter-select" @bind="StatusFilter">
                     <option value="">All Status</option>
@@ -71,7 +80,7 @@
                             <tr>
                                 <td style="font-weight: 700; color: var(--color-teal);">INV-@invoice.Id.ToString("D5")</td>
                                 <td>@invoice.GuestName</td>
-                                <td>Room @invoice.RoomNumber</td>
+                                <td>@invoice.RoomNumber</td>
                                 <td>@invoice.CheckInDate.ToString("MMM dd, yyyy")</td>
                                 <td>@invoice.CheckOutDate.ToString("MMM dd, yyyy")</td>
                                 <td>₱@invoice.Subtotal.ToString("N2")</td>
@@ -199,7 +208,7 @@
                     </div>
                     <div>
                         <div style="font-weight: 600; color: var(--color-dark-teal); margin-bottom: 4px;">Room Number:</div>
-                        <div style="font-weight: 700;">Room @SelectedInvoice.RoomNumber</div>
+                        <div style="font-weight: 700;">@SelectedInvoice.RoomNumber</div>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -251,6 +260,14 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+        height: auto; /* Fix for text overflow */
+        min-height: 120px; /* Optional: minimum height for consistency */
+    }
+    
+    .stat-desc {
+        font-size: 0.85rem;
+        color: var(--color-dark-teal);
+        opacity: 0.8;
     }
 
     .status-badge {
@@ -284,6 +301,23 @@
 </style>
 
 @code {
+    // UI Logic Model
+    public class Invoice
+    {
+        public int Id { get; set; }
+        public string GuestName { get; set; } = "";
+        public string RoomNumber { get; set; } = "";
+        public DateTime CheckInDate { get; set; }
+        public DateTime CheckOutDate { get; set; }
+        public decimal RoomRate { get; set; }
+        public decimal AdditionalCharges { get; set; }
+        public decimal Subtotal { get; set; }
+        public decimal VAT { get; set; }
+        public decimal ServiceCharge { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = "Pending";
+    }
+
     private List<Invoice> Invoices = new List<Invoice>();
     private Invoice NewInvoice = new Invoice();
     private Invoice? SelectedInvoice = null;
@@ -304,35 +338,40 @@
         .OrderByDescending(i => i.Id)
         .ToList();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Sample data
-        Invoices.Add(new Invoice 
-        { 
-            Id = 1, 
-            GuestName = "John Doe", 
-            RoomNumber = "101",
-            CheckInDate = DateTime.Now.AddDays(-3),
-            CheckOutDate = DateTime.Now,
-            Subtotal = 9000,
-            Status = "Paid"
-        });
-        Invoices.Add(new Invoice 
-        { 
-            Id = 2, 
-            GuestName = "Jane Smith", 
-            RoomNumber = "205",
-            CheckInDate = DateTime.Now.AddDays(-2),
-            CheckOutDate = DateTime.Now.AddDays(1),
-            Subtotal = 12000,
-            Status = "Pending"
-        });
+        await LoadInvoices();
+    }
 
-        foreach (var invoice in Invoices)
+    private async Task LoadInvoices()
+    {
+        try
         {
-            invoice.VAT = invoice.Subtotal * 0.12m;
-            invoice.ServiceCharge = invoice.Subtotal * 0.10m;
-            invoice.TotalAmount = invoice.Subtotal + invoice.VAT + invoice.ServiceCharge;
+            var bills = await _context.Bills
+                .Include(b => b.Reservation)
+                .ThenInclude(r => r.Guest)
+                .Include(b => b.Reservation)
+                .ThenInclude(r => r.ReservedRooms)
+                .ThenInclude(rr => rr.Room)
+                .ToListAsync();
+
+            Invoices = bills.Select(b => new Invoice
+            {
+                Id = b.BillId,
+                GuestName = b.Reservation?.Guest != null ? $"{b.Reservation.Guest.FirstName} {b.Reservation.Guest.LastName}" : "Unknown Guest",
+                RoomNumber = b.Reservation?.ReservedRooms.FirstOrDefault()?.Room?.RoomNumber ?? "N/A",
+                CheckInDate = b.Reservation?.CreatedDate ?? DateTime.MinValue,
+                CheckOutDate = (b.Reservation?.CreatedDate ?? DateTime.Now).AddDays(1),
+                Subtotal = b.SubtotalAmount ?? 0,
+                TotalAmount = b.GrandTotal ?? 0,
+                Status = b.BillStatus ?? "Pending",
+                VAT = (b.SubtotalAmount ?? 0) * 0.12m,
+                ServiceCharge = (b.SubtotalAmount ?? 0) * 0.10m
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading bills: {ex.Message}");
         }
     }
 
@@ -386,37 +425,74 @@
         return CalculateSubtotal() + CalculateVAT() + CalculateServiceCharge();
     }
 
-    private void SaveInvoice()
+    private async Task SaveInvoice()
     {
-        NewInvoice.Id = Invoices.Count + 1;
-        NewInvoice.Subtotal = CalculateSubtotal();
-        NewInvoice.VAT = CalculateVAT();
-        NewInvoice.ServiceCharge = CalculateServiceCharge();
-        NewInvoice.TotalAmount = CalculateTotal();
-        NewInvoice.Status = "Pending";
-        
-        Invoices.Add(NewInvoice);
-        CloseModals();
+        using var transaction = _context.Database.BeginTransaction();
+        try
+        {
+            // Parse Guest Name
+            var names = NewInvoice.GuestName.Split(" ");
+            var firstName = names.Length > 0 ? names[0] : "Guest";
+            var lastName = names.Length > 1 ? string.Join(" ", names.Skip(1)) : "";
+
+            var newGuest = new Guest
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                CreatedDate = NewInvoice.CheckInDate
+            };
+            _context.Guests.Add(newGuest);
+            await _context.SaveChangesAsync();
+
+            var newReservation = new Reservation
+            {
+                GuestId = newGuest.GuestId,
+                Status = "Confirmed",
+                PaymentStatus = "Pending",
+                TotalPayment = CalculateTotal(),
+                CreatedDate = NewInvoice.CheckInDate
+            };
+            _context.Reservations.Add(newReservation);
+            await _context.SaveChangesAsync();
+
+            if (!string.IsNullOrEmpty(NewInvoice.RoomNumber))
+            {
+                var room = await _context.Rooms.FirstOrDefaultAsync(r => r.RoomNumber == NewInvoice.RoomNumber);
+                if (room != null)
+                {
+                    _context.ReservedRooms.Add(new ReservedRoom
+                    {
+                        ReservationId = newReservation.ReservationId,
+                        RoomId = room.RoomId
+                    });
+                }
+            }
+
+            var newBill = new Bill
+            {
+                ReservationId = newReservation.ReservationId,
+                BillDate = DateTime.Now,
+                SubtotalAmount = CalculateSubtotal(),
+                GrandTotal = CalculateTotal(),
+                BillStatus = "Pending"
+            };
+            _context.Bills.Add(newBill);
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            await LoadInvoices();
+            CloseModals();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            Console.WriteLine($"Error saving invoice: {ex.Message}");
+        }
     }
 
     private void PrintInvoice(Invoice invoice)
     {
-        // Print logic here
-    }
-
-    public class Invoice
-    {
-        public int Id { get; set; }
-        public string GuestName { get; set; } = "";
-        public string RoomNumber { get; set; } = "";
-        public DateTime CheckInDate { get; set; }
-        public DateTime CheckOutDate { get; set; }
-        public decimal RoomRate { get; set; }
-        public decimal AdditionalCharges { get; set; }
-        public decimal Subtotal { get; set; }
-        public decimal VAT { get; set; }
-        public decimal ServiceCharge { get; set; }
-        public decimal TotalAmount { get; set; }
-        public string Status { get; set; } = "Pending";
+        // Print logic placeholder
     }
 }

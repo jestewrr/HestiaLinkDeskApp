@@ -1,31 +1,23 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Income
 {
-    public class Income
-    {
-        [Key]
-        public int IncomeID { get; set; }
+    public int IncomeId { get; set; }
 
-        public int PaymentID { get; set; }
+    public int? PaymentId { get; set; }
 
-        [DataType(DataType.Date)]
-        public DateTime IncomeDate { get; set; } = DateTime.Today;
+    public DateOnly? IncomeDate { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal Amount { get; set; }
+    public decimal? Amount { get; set; }
 
-        [StringLength(50)]
-        public string IncomeType { get; set; } = "Checkout";
+    public string? IncomeType { get; set; }
 
-        [StringLength(255)]
-        public string Description { get; set; } = "CheckInAndCheckout";
+    public string? Description { get; set; }
 
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime? CreatedDate { get; set; }
 
-        // Navigation property
-        [ForeignKey("PaymentID")]
-        public virtual Payment Payment { get; set; }
-    }
+    public virtual Payment? Payment { get; set; }
 }

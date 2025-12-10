@@ -20,21 +20,21 @@
         <nav class="sidebar-nav">
 
             <!-- ADMIN ONLY: Dashboard Overview -->
-            @if (UserSession.Role == "Administrator")
-            {
+            @* @if (UserSession.Role == "Administrator") *@
+            @* { *@
                 <button class="sidebar-nav-item @(GetActiveClass("/dashboard"))" @onclick='() => NavigateTo("/dashboard")'>
                     <span class="sidebar-nav-icon">🏠</span>
                     <span>Dashboard</span>
                 </button>
-            }
+            @* } *@
 
-            <!-- RESERVATION: Visible to Admin & Front Desk -->
-            @if (UserSession.Role == "Administrator" || UserSession.Role == "FrontDesk")
-            {
+            <!-- RESERVATION: Visible to All -->
+            @* @if (UserSession.Role == "Administrator" || UserSession.Role == "FrontDesk") *@
+            @* { *@
                 <div class="sidebar-section">
                     <button class="sidebar-section-header @(ExpandedSection == "reservations" ? "open" : "")" @onclick='() => ToggleSection("reservations")'>
                         <div class="sidebar-nav-label">
-                            <span class="sidebar-nav-icon">📅</span>
+                            <span class="sidebar-nav-icon">🛎️</span>
                             <span>Reservation &amp; Booking</span>
                         </div>
                         <span class="sidebar-section-chevron">@((ExpandedSection == "reservations") ? "▾" : "▸")</span>
@@ -44,11 +44,11 @@
                         <button class="sidebar-subnav-item @(GetActiveClass("/reservations/check-in-check-out"))" @onclick='() => NavigateTo("/reservations/check-in-check-out")'>Check In / Check Out</button>
                     </div>
                 </div>
-            }
+            @* } *@
 
-            <!-- HOUSEKEEPING: Visible to Admin & Front Desk -->
-            @if (UserSession.Role == "Administrator" || UserSession.Role == "FrontDesk")
-            {
+            <!-- HOUSEKEEPING: Visible to All -->
+            @* @if (UserSession.Role == "Administrator" || UserSession.Role == "FrontDesk") *@
+            @* { *@
                 <div class="sidebar-section">
                     <button class="sidebar-section-header @(ExpandedSection == "housekeeping" ? "open" : "")" @onclick='() => ToggleSection("housekeeping")'>
                         <div class="sidebar-nav-label">
@@ -62,11 +62,11 @@
                         <button class="sidebar-subnav-item @(GetActiveClass("/housekeeping/cleaning-schedule"))" @onclick='() => NavigateTo("/housekeeping/cleaning-schedule")'>Cleaning Schedule</button>
                     </div>
                 </div>
-            }
+            @* } *@
 
-            <!-- INVENTORY: Visible to Admin & Inventory -->
-            @if (UserSession.Role == "Administrator" || UserSession.Role == "Inventory")
-            {
+            <!-- INVENTORY: Visible to All -->
+            @* @if (UserSession.Role == "Administrator" || UserSession.Role == "Inventory") *@
+            @* { *@
                 <div class="sidebar-section">
                     <button class="sidebar-section-header @(ExpandedSection == "inventory" ? "open" : "")" @onclick='() => ToggleSection("inventory")'>
                         <div class="sidebar-nav-label">
@@ -87,11 +87,11 @@
                         <button class="sidebar-subnav-item @(GetActiveClass("/inventory/services"))" @onclick='() => NavigateTo("/inventory/services")'>Services</button>
                     </div>
                 </div>
-            }
+            @* } *@
 
-            <!-- FINANCE: Visible to Admin Only -->
-            @if (UserSession.Role == "Administrator")
-            {
+            <!-- FINANCE: Visible to All -->
+            @* @if (UserSession.Role == "Administrator") *@
+            @* { *@
                 <div class="sidebar-section">
                     <button class="sidebar-section-header @(ExpandedSection == "finance" ? "open" : "")" @onclick='() => ToggleSection("finance")'>
                         <div class="sidebar-nav-label">
@@ -108,11 +108,11 @@
                         <button class="sidebar-subnav-item @(GetActiveClass("/finance/payment-processing"))" @onclick='() => NavigateTo("/finance/payment-processing")'>Payment Processing</button>
                     </div>
                 </div>
-            }
+            @* } *@
 
-            <!-- HR & PAYROLL: Visible to Admin & HR -->
-            @if (UserSession.Role == "Administrator" || UserSession.Role == "HR")
-            {
+            <!-- HR & PAYROLL: Visible to All -->
+            @* @if (UserSession.Role == "Administrator" || UserSession.Role == "HR") *@
+            @* { *@
                 <div class="sidebar-section">
                     <button class="sidebar-section-header @(ExpandedSection == "hr" ? "open" : "")" @onclick='() => ToggleSection("hr")'>
                         <div class="sidebar-nav-label">
@@ -130,11 +130,11 @@
                         <button class="sidebar-subnav-item @(GetActiveClass("/hr/payroll-processing"))" @onclick='() => NavigateTo("/hr/payroll-processing")'>Payroll Processing</button>
                     </div>
                 </div>
-            }
+            @* } *@
 
-            <!-- SETTINGS: Visible to Admin Only -->
-            @if (UserSession.Role == "Administrator")
-            {
+            <!-- SETTINGS: Visible to All -->
+            @* @if (UserSession.Role == "Administrator") *@
+            @* { *@
                 <div class="sidebar-section">
                     <button class="sidebar-section-header @(ExpandedSection == "settings" ? "open" : "")" @onclick='() => ToggleSection("settings")'>
                         <div class="sidebar-nav-label">
@@ -148,7 +148,7 @@
                         <button class="sidebar-subnav-item @(GetActiveClass("/settings/room-management"))" @onclick='() => NavigateTo("/settings/room-management")'>Room Management</button>
                     </div>
                 </div>
-            }
+            @* } *@
         </nav>
 
         <button class="sidebar-logout" @onclick='HandleLogout'>Logout (@UserSession.Username)</button>

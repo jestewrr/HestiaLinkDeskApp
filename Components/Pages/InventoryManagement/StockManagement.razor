@@ -13,18 +13,22 @@
         <div class="stat-card">
             <div class="stat-title">Total Items</div>
             <div class="stat-value">@InventoryItems.Count</div>
+            <div class="stat-desc">Total inventory count</div>
         </div>
         <div class="stat-card">
             <div class="stat-title">Low Stock Alerts</div>
             <div class="stat-value" style="color: #b91c1c;">@InventoryItems.Count(i => i.Quantity < 20)</div>
+            <div class="stat-desc" style="color: #ef4444;">Items below threshold</div>
         </div>
         <div class="stat-card">
             <div class="stat-title">Categories</div>
             <div class="stat-value">@InventoryItems.Select(i => i.Category).Distinct().Count()</div>
+            <div class="stat-desc">Active item categories</div>
         </div>
         <div class="stat-card">
             <div class="stat-title">Total Value</div>
             <div class="stat-value">?@InventoryItems.Sum(i => i.Quantity * i.UnitPrice).ToString("N0")</div>
+            <div class="stat-desc">Total inventory worth</div>
         </div>
     </div>
 
@@ -163,15 +167,23 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        height: 100px;
+        height: auto;
+        min-height: 120px;
     }
 
     .stat-title {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
         font-weight: 700;
         color: #004f59;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+    }
+
+    .stat-desc {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 4px;
+        font-weight: 500;
     }
 
     .stat-value {

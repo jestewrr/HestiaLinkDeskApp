@@ -9,38 +9,45 @@
 @layout MainLayout
 
 <div class="page-wrapper">
-    <header class="page-topbar">
-        <h1>Purchase Orders</h1>
-        <span class="page-topbar-subtitle">Restocking & Logistics</span>
-    </header>
-
-    @* ===== SUMMARY CARDS ===== *@
-    @if (IsLoaded && !HasError)
-    {
-        <div class="summary-cards">
-            <div class="summary-card">
-                <div class="summary-label">TOTAL ORDERS</div>
-                <div class="summary-value">@Purchases.Count</div>
-            </div>
-
-            <div class="summary-card">
-                <div class="summary-label">PENDING</div>
-                <div class="summary-value" style="color: #f59e0b;">@Purchases.Count(p => p.PurchaseStatus == "PENDING")</div>
-            </div>
-
-            <div class="summary-card">
-                <div class="summary-label">RECEIVED</div>
-                <div class="summary-value" style="color: #10b981;">@Purchases.Count(p => p.PurchaseStatus == "RECEIVED")</div>
-            </div>
-
-            <div class="summary-card">
-                <div class="summary-label">TOTAL VALUE</div>
-                <div class="summary-value">₱@Purchases.Where(p => p.PurchaseStatus == "RECEIVED").Sum(p => p.TotalAmount ?? 0).ToString("N0")</div>
-            </div>
+    <div class="page-topbar">
+        <div>
+            <h1>Purchase Orders</h1>
+            <div class="page-topbar-subtitle">Restocking & Logistics</div>
         </div>
-    }
+        <div class="page-topbar-date">@DateTime.Now.ToString("MMMM dd, yyyy")</div>
+    </div>
 
-    <section class="page-content">
+    <div class="page-content">
+        @* ===== SUMMARY CARDS ===== *@
+        @if (IsLoaded && !HasError)
+        {
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <div class="summary-label">TOTAL ORDERS</div>
+                    <div class="summary-value">@Purchases.Count</div>
+                    <div class="summary-desc">Total POs created</div>
+                </div>
+
+                <div class="summary-card warning">
+                    <div class="summary-label">PENDING</div>
+                    <div class="summary-value" style="color:#d97706;">@Purchases.Count(p => p.PurchaseStatus == "PENDING")</div>
+                    <div class="summary-desc">Awaiting fulfillment</div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="summary-label">RECEIVED</div>
+                    <div class="summary-value" style="color:#0f766e;">@Purchases.Count(p => p.PurchaseStatus == "RECEIVED")</div>
+                    <div class="summary-desc">Completed orders</div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="summary-label">TOTAL VALUE</div>
+                    <div class="summary-value">₱@Purchases.Where(p => p.PurchaseStatus == "RECEIVED").Sum(p => p.TotalAmount ?? 0).ToString("N0")</div>
+                    <div class="summary-desc">Total spend realized</div>
+                </div>
+            </div>
+        }
+
         <div class="user-toolbar">
             <div class="toolbar-left">
                 <div class="toolbar-search">
@@ -56,7 +63,7 @@
             </div>
             <div>
                 <button class="btn-secondary" style="margin-right:10px;" @onclick="OpenLowStockModal">Low Stock Items (@LowStockCount)</button>
-                <button class="btn-create" @onclick="OpenCreateModal">+ New Purchase Order</button>
+                <button class="btn-create" @onclick="OpenCreateModal">New Purchase Order</button>
             </div>
         </div>
 
@@ -150,7 +157,7 @@
                 </div>
             </div>
         }
-    </section>
+    </div>
 </div>
 
 @* ===== CREATE/EDIT MODAL ===== *@
@@ -179,7 +186,7 @@
                         <option value="0">Select Item</option>
                         @foreach (var item in InventoryItems)
                         {
-                            <option value="@item.ItemID">@item.ItemCode - @item.ItemName</option>
+                            <option value="@item.ItemId">@item.ItemCode - @item.ItemName</option>
                         }
                     </select>
                 </div>
@@ -558,7 +565,7 @@
     private void OnItemSelected()
     {
         // Auto-populate supplier if item has one
-        var selectedItem = InventoryItems.FirstOrDefault(i => i.ItemID == CurrentPurchase.ItemID);
+        var selectedItem = InventoryItems.FirstOrDefault(i => i.ItemId == CurrentPurchase.ItemID);
         if (selectedItem?.SupplierID != null)
         {
             SelectedSupplierID = selectedItem.SupplierID.Value;
@@ -585,7 +592,7 @@
         {
             PurchaseNumber = newNumber,
             PurchaseStatus = "PENDING",
-            ItemID = item.ItemID,
+            ItemID = item.ItemId,
             Quantity = Math.Max(1, (item.ReorderPoint ?? 10) * 2 - (item.CurrentStock ?? 0)), // Order to double the reorder point
             UnitPrice = item.UnitCost
         };
@@ -710,36 +717,91 @@
     }
 }
 
+
+
 <style>
-    /* Summary Cards */
+    /* Summary Cards (Premium Design) */
     .summary-cards {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 20px;
-        margin: 18px 0;
+        gap: 24px;
+        margin-bottom: 32px;
     }
 
     .summary-card {
-        background: #ffffff;
-        padding: 18px 22px;
-        border-radius: 14px;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-        border-left: 6px solid #0f766e;
+        background: #e0f2f1; /* Light Cyan/Teal */
+        border-radius: 16px;
+        padding: 24px;
+        border: none;
+        box-shadow: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 160px;
+        position: relative;
+        transition: transform 0.2s;
     }
 
-    .summary-label {
-        font-size: 0.75rem;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: .5px;
-        font-weight: 700;
+    .summary-card:hover {
+        transform: translateY(-2px);
     }
 
-    .summary-value {
-        font-size: 1.6rem;
+    .summary-card .summary-label {
+        color: #0e7490; /* Cyan-700 */
+        font-size: 0.8rem;
         font-weight: 800;
-        margin-top: 6px;
-        color: #065f46;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    .summary-card .summary-value {
+        color: #0f172a; /* Slate-900 */
+        font-size: 3.5rem;
+        font-weight: 800;
+        line-height: 1;
+        text-align: right;
+        margin: 0;
+    }
+
+    .summary-card .summary-desc {
+        color: #64748b; /* Slate-500 */
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin-top: auto;
+    }
+
+    /* Danger/Alert Variant */
+    .summary-card.danger {
+        background: #fee2e2; /* Red-100 */
+    }
+
+    .summary-card.danger .summary-label {
+        color: #b91c1c; /* Red-700 */
+    }
+
+    .summary-card.danger .summary-value {
+        color: #b91c1c; /* Red-700 */
+    }
+
+    .summary-card.danger .summary-desc {
+        color: #ef4444; /* Red-500 */
+    }
+
+    /* Warning Variant */
+    .summary-card.warning {
+        background: #fef3c7; /* Amber-100 */
+    }
+
+    .summary-card.warning .summary-label {
+        color: #b45309; /* Amber-700 */
+    }
+    
+    .summary-card.warning .summary-value {
+        color: #b45309;
+    }
+
+    .summary-card.warning .summary-desc {
+        color: #d97706;
     }
 
     /* Toolbar */
@@ -867,9 +929,14 @@
 
     /* Action Buttons */
     .btn-icon-action {
-        background: #f1f5f9;
-        border: none;
-        padding: 8px;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #f0fdfa;
+        color: #0f766e;
+        border: 1px solid transparent;
         border-radius: 8px;
         cursor: pointer;
         transition: all 0.2s;
@@ -878,7 +945,8 @@
     .btn-icon-action svg {
         width: 18px;
         height: 18px;
-        fill: #64748b;
+        fill: #0f766e;
+        transition: fill 0.2s;
     }
 
     .btn-icon-action.receive:hover {

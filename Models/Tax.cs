@@ -1,24 +1,23 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
+using System.Collections.Generic;
 
-namespace HestiaLink.Models
+namespace HestiaLink.Models;
+
+public partial class Tax
 {
-    public class Tax
-    {
-        [Key]
-        public int TaxID { get; set; }
+    public int TaxId { get; set; }
 
-        [Required]
-        [StringLength(100)]
-        public string TaxName { get; set; } = string.Empty;
+    public string TaxName { get; set; } = null!;
 
-        [Column(TypeName = "decimal(5,2)")]
-        public decimal TaxPercentage { get; set; }
+    public int TaxPercentage { get; set; }
 
-        [StringLength(500)]
-        public string? TaxDescription { get; set; }
+    public string? TaxDescription { get; set; }
 
-        [StringLength(20)]
-        public string Status { get; set; } = "Active"; // Active, Archived
-    }
+    public string Status { get; set; } = null!;
+
+    public DateTime? CreatedAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public virtual ICollection<Payroll> Payrolls { get; set; } = new List<Payroll>();
 }
